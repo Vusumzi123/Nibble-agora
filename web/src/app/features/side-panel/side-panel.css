@@ -1,0 +1,160 @@
+/* Navigation panel. On desktop it is a persistent fixed sidebar; on phones
+   (< 60rem) it becomes a full-screen drawer, hidden until toggled open. */
+
+.side-panel {
+  position: fixed;
+  top: var(--seat-topbar);
+  left: 0;
+  bottom: 0;
+  z-index: 400;
+  width: var(--seat-sidebar);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-5);
+  padding: var(--ph-space-4);
+  background: var(--ph-surface);
+  border-right: 1px solid var(--ph-border);
+  overflow-y: auto;
+}
+
+@keyframes side-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.side-panel__head {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-3);
+  padding-bottom: var(--ph-space-3);
+  border-bottom: 1px solid var(--ph-border);
+}
+
+.side-panel__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-xl);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--ph-primary);
+}
+
+.side-panel__logo {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+}
+
+.side-panel__close {
+  min-height: 2rem;
+  padding: var(--ph-space-1) var(--ph-space-3);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  color: var(--ph-text);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.side-panel__close:hover {
+  border-color: var(--ph-primary);
+  color: var(--ph-primary);
+}
+
+.side-panel__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+}
+
+.side-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Panel items — the in-panel navigation controls (not buttons). */
+.panel-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  width: 100%;
+  padding: var(--ph-space-2) var(--ph-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--ph-radius-md);
+  background: transparent;
+  color: var(--ph-text);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--ph-transition-fast),
+    border-color var(--ph-transition-fast),
+    color var(--ph-transition-fast);
+}
+
+.panel-item:hover {
+  background: var(--ph-surface-raised);
+  color: var(--ph-primary);
+}
+
+.panel-item--active {
+  background: var(--ph-surface-raised);
+  border-color: var(--ph-border);
+  box-shadow: inset 2px 0 0 var(--ph-primary);
+  color: var(--ph-primary);
+  font-weight: 600;
+}
+
+.panel-item__badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 0 var(--ph-space-1);
+  border-radius: 999px;
+  background: var(--ph-danger);
+  color: var(--ph-bg);
+  font-size: var(--ph-text-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Phone: off-canvas full-screen drawer. */
+@media (max-width: 60rem) {
+  .side-panel {
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    padding: var(--ph-space-5);
+    background: var(--ph-bg);
+    border-right: none;
+    display: none;
+  }
+
+  .side-panel--open {
+    display: flex;
+    animation: side-panel-in var(--ph-transition-base);
+  }
+
+  .side-panel__head {
+    display: flex;
+  }
+}

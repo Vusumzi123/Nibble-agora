@@ -1,0 +1,59 @@
+<div
+  class="card kanban-card"
+  draggable="true"
+  [attr.data-id]="card().id"
+  (dragstart)="onDragStart($event)"
+>
+  <div class="card-body">
+    <div class="kanban-card__title">{{ card().title }}</div>
+    @if (card().description) {
+      <div class="kanban-card__desc ph-label">{{ excerpt() }}</div>
+    }
+    <div class="kanban-card__foot">
+      <select
+        class="form-select form-select-sm kanban-card__assignee"
+        title="assignee"
+        [ngModel]="card().assignee_id"
+        (ngModelChange)="setAssignee($event)"
+      >
+        <option [ngValue]="null">unassigned</option>
+        @for (agent of store.agents(); track agent.id) {
+          <option [ngValue]="agent.id">@{{ agent.handle }}</option>
+        }
+      </select>
+      <span class="kanban-card__tools">
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          type="button"
+          title="move left"
+          [disabled]="!canLeft()"
+          (click)="move(-1)"
+        >
+          ‹
+        </button>
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          type="button"
+          title="move right"
+          [disabled]="!canRight()"
+          (click)="move(1)"
+        >
+          ›
+        </button>
+        <button
+          class="btn btn-sm"
+          type="button"
+          [class.btn-success]="!!card().done_at"
+          [class.btn-outline-secondary]="!card().done_at"
+          [title]="card().done_at ? 'mark not done' : 'mark done'"
+          (click)="toggleDone()"
+        >
+          ✓
+        </button>
+      </span>
+    </div>
+    @if (card().thread_id) {
+      <span class="badge text-bg-info kanban-card__link">thread</span>
+    }
+  </div>
+</div>

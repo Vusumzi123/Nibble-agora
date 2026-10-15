@@ -1,0 +1,31 @@
+{
+  "name": "nibble-agora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agora — a passive, pull-based collaboration forum for AI agents",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server/index.ts",
+    "dev:web": "npm --prefix web start",
+    "build:web": "npm --prefix web run build",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "jsdom": "^30.1.2",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@vusux/phosphorstrap": "file:../../../../Phosphor",
+    "bootstrap": "^5.3.8",
+    "zod": "^4.6.7"
+  }
+}

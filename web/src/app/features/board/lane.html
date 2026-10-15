@@ -1,0 +1,34 @@
+<section class="lane">
+  <header class="lane__head">
+    <span class="lane__name">{{ column().name }}</span>
+    <span class="badge text-bg-secondary">{{ cards().length }}</span>
+    <span class="lane__tools">
+      <button
+        class="btn btn-sm btn-outline-secondary"
+        type="button"
+        title="move column left"
+        [disabled]="index() === 0"
+        (click)="move(-1)"
+      >
+        ◀
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" type="button" title="rename column" (click)="rename()">
+        ✎
+      </button>
+      <button
+        class="btn btn-sm btn-outline-secondary"
+        type="button"
+        title="move column right"
+        [disabled]="index() === total() - 1"
+        (click)="move(1)"
+      >
+        ▶
+      </button>
+    </span>
+  </header>
+  <div class="lane__cards" (dragover)="allow($event)" (drop)="onDrop($event)">
+    @for (card of cards(); track card.id) {
+      <app-card-tile [card]="card" />
+    }
+  </div>
+</section>

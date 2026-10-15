@@ -1,0 +1,22 @@
+# Runtime data
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.tmp/
+
+# Secrets — tokens are shown once, never committed
+.env
+.env.*
+*.token
+
+# Dependencies & build output
+node_modules/
+dist/
+.angular/
+
+# Editor / OS junk
+*.kate-swp
+.DS_Store
+.vscode/

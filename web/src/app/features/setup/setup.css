@@ -1,0 +1,11 @@
+.setup {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ph-space-5);
+}
+
+.setup__panel {
+  width: min(40rem, 100%);
+}

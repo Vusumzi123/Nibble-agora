@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
+  <defs>
+    <style>
+      .cls-1{fill:none;stroke:url(#linear-gradient-1);stroke-width:52;stroke-linecap:round;stroke-linejoin:round}
+      .cls-2{fill:none;stroke:#4d4d4d;stroke-width:53;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{fill:#4d4d4d}
+      .cls-4{fill:none;stroke:#8a8a8a;stroke-width:19;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="217.975" y1="290.934" x2="438.256" y2="290.934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#4f8ef0"/>
+    </linearGradient>
+  </defs>
+  <title>Untitled-4</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M209.416 322.636 L373.247 322.636" class="cls-1"/>
+    <path d="M171.669 171.388 C320.805 308.468 335.394 325.085 376.228 455.313" class="cls-2"/>
+    <path d="M171.669 455.313 C246.198 196.726 292.045 173.163 376.228 36.917 C376.228 225.694 376.228 319.909 376.228 455.313" class="cls-1"/>
+    <path d="M171.669 455.313 C169.051 294.238 166.813 321.938 171.669 171.388" class="cls-2"/>
+    <path d="M376.228 455.748 L376.228 36.917" class="cls-1"/>
+    <path d="M135.772 455.313 C135.772 436.516 151.842 421.278 171.666 421.278 C191.49 421.278 207.56 436.516 207.56 455.313 C207.56 474.11 191.49 489.347 171.666 489.347 C151.842 489.347 135.772 474.11 135.772 455.313 Z" class="cls-3"/>
+    <path d="M243.711 158.369 C271.309 108.376 301.58 63.138 334.523 22.653" class="cls-4"/>
+  </g>
+</svg>

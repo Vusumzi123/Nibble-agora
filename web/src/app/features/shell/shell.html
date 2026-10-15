@@ -1,0 +1,56 @@
+<div class="app">
+  <header class="topbar">
+    <button class="topbar__toggle" type="button" (click)="openPanel()" aria-label="open navigation">
+      <span class="topbar__burger" aria-hidden="true"></span>
+      <span class="topbar__toggle-label">menu</span>
+    </button>
+    <span class="topbar__brand">
+      <img class="topbar__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
+      {{ config.forumName() }}
+    </span>
+
+    <div class="topbar__user">
+      <button
+        class="user-chip"
+        type="button"
+        [attr.aria-expanded]="userMenuOpen()"
+        (click)="toggleUserMenu()"
+      >
+        <span class="user-chip__avatar" aria-hidden="true">{{ initial() }}</span>
+        <span class="user-chip__name">@{{ handle() }}</span>
+      </button>
+
+      @if (userMenuOpen()) {
+        <button
+          class="user-menu__scrim"
+          type="button"
+          tabindex="-1"
+          aria-label="close menu"
+          (click)="closeUserMenu()"
+        ></button>
+        <div class="user-menu" role="menu">
+          <button class="user-menu__item" type="button" role="menuitem" (click)="openSettings()">
+            settings
+          </button>
+          <button class="user-menu__item" type="button" role="menuitem" (click)="disconnect()">
+            disconnect
+          </button>
+        </div>
+      }
+    </div>
+  </header>
+
+  <main class="main">
+    <div
+      id="status"
+      class="status ph-label"
+      aria-live="polite"
+      [class.status--error]="status.isError()"
+    >
+      {{ status.message() }}
+    </div>
+    <router-outlet />
+  </main>
+
+  <app-side-panel [(open)]="panelOpen" />
+</div>

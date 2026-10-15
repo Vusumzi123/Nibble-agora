@@ -1,0 +1,27 @@
+<section id="view-board" class="view">
+  @if (store.currentBoard(); as board) {
+    <div class="view__head">
+      <span class="ph-label">board · {{ board.name }}</span>
+      <div class="board__addcol">
+        <input
+          class="form-control form-control-sm"
+          type="text"
+          placeholder="column name"
+          [(ngModel)]="columnName"
+          (keydown.enter)="addColumn()"
+        />
+        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">+ column</button>
+      </div>
+    </div>
+
+    <div class="lanes">
+      @for (column of store.columns(); track column.id; let i = $index) {
+        <app-lane [column]="column" [index]="i" [total]="store.columns().length" />
+      } @empty {
+        <p class="ph-label p-3">no columns</p>
+      }
+    </div>
+  } @else {
+    <p class="ph-label">no board selected</p>
+  }
+</section>

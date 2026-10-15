@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
+  <defs>
+    <style>
+      .cls-1{fill:none;stroke:url(#linear-gradient-1);stroke-width:30;stroke-linecap:round;stroke-linejoin:round}
+      .cls-2{fill:none;stroke:#4d4d4d;stroke-width:30;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{font-family:Inter;font-size:62;font-weight:600;fill:#4d4d4d;stroke:#4d4d4d;stroke-width:0.808;stroke-miterlimit:10;letter-spacing:1.86;text-anchor:middle}
+      .cls-4{fill:#4d4d4d}
+      .cls-5{fill:none;stroke:#8a8a8a;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="80.178" y1="283.071" x2="207.17" y2="283.071" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#4f8ef0"/>
+    </linearGradient>
+  </defs>
+  <title>Untitled-4</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M75.243 300.834 L169.693 300.834" class="cls-1"/>
+    <path d="M53.482 216.085 C139.459 292.895 147.87 302.206 171.411 375.177" class="cls-2"/>
+    <path d="M53.482 375.177 C96.448 230.283 122.879 217.08 171.411 140.737 C171.411 246.514 171.411 299.306 171.411 375.177" class="cls-1"/>
+    <text transform="matrix(2.147 0.006 -0.007 2.402 353.291 362.609)" x="0" y="0" xml:space="preserve" class="cls-3"><tspan x="0" y="0">gora</tspan></text>
+    <path d="M53.482 375.177 C51.973 284.922 50.682 300.443 53.482 216.085" class="cls-2"/>
+    <path d="M171.411 375.421 L171.411 140.737" class="cls-1"/>
+    <path d="M32.787 375.177 C32.787 364.645 42.052 356.107 53.48 356.107 C64.909 356.107 74.173 364.645 74.173 375.177 C74.173 385.71 64.909 394.248 53.48 394.248 C42.052 394.248 32.787 385.71 32.787 375.177 Z" class="cls-4"/>
+    <path d="M95.014 208.79 C110.925 180.778 128.376 155.429 147.368 132.744" class="cls-5"/>
+  </g>
+</svg>

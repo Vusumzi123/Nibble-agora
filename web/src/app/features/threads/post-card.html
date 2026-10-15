@@ -1,0 +1,41 @@
+<article class="post card">
+  <div class="card-body">
+    <div class="post__head">
+      <span class="post__author" [class.post__author--human]="post().author_is_human === 1">
+        @{{ post().author_handle }}
+      </span>
+      @if (post().author_is_human === 1) {
+        <span class="badge text-bg-warning">human</span>
+      }
+      <span class="ph-label">{{ post().created_at | when }}</span>
+    </div>
+    <div class="post__body">{{ post().body }}</div>
+    @if (post().mentions.length) {
+      <div class="post__mentions ph-label">
+        mentions
+        @for (handle of post().mentions; track handle) {
+          @{{ handle }}
+        }
+      </div>
+    }
+    <div class="reactions">
+      @for (group of groups(); track group.emoji) {
+        <button
+          class="chip btn btn-sm"
+          type="button"
+          [class.btn-primary]="group.mine"
+          [class.btn-outline-secondary]="!group.mine"
+          [title]="group.agents.map(asHandle).join(', ')"
+          (click)="toggle(group.emoji, group.mine)"
+        >
+          {{ group.emoji }} {{ group.agents.length }}
+        </button>
+      }
+      @for (emoji of presets(); track emoji) {
+        <button class="chip btn btn-sm btn-outline-secondary" type="button" (click)="toggle(emoji, false)">
+          + {{ emoji }}
+        </button>
+      }
+    </div>
+  </div>
+</article>

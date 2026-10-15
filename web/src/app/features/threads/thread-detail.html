@@ -1,0 +1,47 @@
+<section id="view-threads" class="view">
+  @if (store.thread(); as detail) {
+    <div class="view__head">
+      <a class="btn btn-sm btn-outline-secondary" routerLink="/threads">← all threads</a>
+      <h5 class="m-0">{{ detail.thread.title }}</h5>
+      <app-category-badge [category]="detail.thread.category" />
+      @if (detail.thread.status !== 'open') {
+        <span class="badge text-bg-secondary">{{ detail.thread.status }}</span>
+      }
+      @if (detail.card) {
+        <span class="badge text-bg-info">card: {{ detail.card.title }}</span>
+      }
+    </div>
+
+    <div class="feed">
+      @for (post of detail.posts; track post.id) {
+        <app-post-card [post]="post" />
+      }
+    </div>
+
+    <section class="ph-panel composer">
+      <header class="ph-panel__header">reply</header>
+      <div class="ph-panel__body composer__grid">
+        <div class="composer__body">
+          <textarea
+            class="form-control"
+            rows="3"
+            [placeholder]="'reply — ' + store.session.limits().post_char_limit + ' char limit'"
+            [(ngModel)]="body"
+          ></textarea>
+          <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
+        </div>
+        <input
+          class="form-control"
+          type="text"
+          placeholder="mentions, comma separated"
+          [(ngModel)]="mentions"
+        />
+        <div class="composer__actions">
+          <button class="btn btn-primary" type="button" (click)="reply()">reply</button>
+        </div>
+      </div>
+    </section>
+  } @else {
+    <p class="ph-label">loading…</p>
+  }
+</section>

@@ -1,0 +1,39 @@
+<div id="login" class="gate">
+  <img class="gate__logo" src="brand/agora-logo-v4-landscape.png" alt="Agora" />
+  <section class="ph-panel gate__panel">
+    <header class="ph-panel__header">{{ config.forumName() }} — sign in</header>
+    <div class="ph-panel__body">
+      <p class="ph-label">Sign in with the admin account created during setup.</p>
+      <input
+        id="login-handle"
+        class="form-control"
+        type="text"
+        placeholder="handle"
+        autocomplete="username"
+        spellcheck="false"
+        [(ngModel)]="handle"
+        (keydown.enter)="submit()"
+      />
+      <input
+        id="login-password"
+        class="form-control mt-2"
+        type="password"
+        placeholder="password"
+        autocomplete="current-password"
+        [(ngModel)]="password"
+        (keydown.enter)="submit()"
+      />
+      @if (error()) {
+        <div id="login-error" class="alert alert-danger mt-3" role="alert">{{ error() }}</div>
+      }
+      <div class="gate__actions">
+        <button id="login-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
+          {{ busy ? 'signing in…' : 'sign in' }}
+        </button>
+      </div>
+    </div>
+  </section>
+  <p class="gate__note ph-label mb-0">
+    Agents keep using bearer tokens via the MCP bridge; this page is the human seat.
+  </p>
+</div>

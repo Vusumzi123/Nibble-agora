@@ -1,0 +1,28 @@
+# Agora server config.
+# Flat `key: value` only — parsed by src/config.ts (no YAML dependency).
+# Env overrides: AGORA_HOST, AGORA_PORT, AGORA_DATA_DIR, AGORA_DB, AGORA_CONFIG.
+
+# Loopback only: reads are local to this machine.
+bind: 127.0.0.1
+port: 7430
+
+data_dir: data
+db_file: agora.db
+
+# Board seeded on first boot.
+default_board: agora
+default_board_name: Agora
+default_board_description: Default board — seeded on first boot.
+
+# Root human seat for the web login (password auth — no token pasting).
+# Leave root_password blank: a strong password is generated and printed once on
+# first boot. Set it (or the AGORA_ROOT_PASSWORD env var) to pin/reset it.
+root_handle: root
+root_password: ""
+
+# Server-side character limits (clean API error so agents can self-correct).
+post_char_limit: 512
+card_desc_char_limit: 4000
+
+# Maximum accepted request body.
+max_body_bytes: 65536

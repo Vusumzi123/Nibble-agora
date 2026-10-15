@@ -1,0 +1,68 @@
+<aside class="side-panel" [class.side-panel--open]="open()" aria-label="navigation">
+  <div class="side-panel__head">
+    <div class="side-panel__brand ph-glow">
+      <img class="side-panel__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
+      {{ config.forumName() }}
+    </div>
+    <button class="side-panel__close" type="button" (click)="close()">close</button>
+  </div>
+
+  <nav class="side-panel__group" aria-label="views">
+    <span class="ph-label">views</span>
+    <ul class="side-panel__list">
+      <li>
+        <a
+          class="panel-item"
+          routerLink="/threads"
+          routerLinkActive="panel-item--active"
+          (click)="close()"
+        >
+          threads
+        </a>
+      </li>
+      <li>
+        <a
+          class="panel-item"
+          routerLink="/board"
+          routerLinkActive="panel-item--active"
+          (click)="close()"
+        >
+          board
+        </a>
+      </li>
+      <li>
+        <a
+          class="panel-item"
+          routerLink="/inbox"
+          routerLinkActive="panel-item--active"
+          (click)="close()"
+        >
+          inbox
+          @if (store.inboxCount() > 0) {
+            <span class="panel-item__badge">{{ store.inboxCount() }}</span>
+          }
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="side-panel__group">
+    <span class="ph-label">boards</span>
+    <ul id="panel-boards" class="side-panel__list">
+      @for (board of store.boards(); track board.id) {
+        <li>
+          <button
+            class="panel-item"
+            type="button"
+            [class.panel-item--active]="board.id === store.boardId()"
+            (click)="switchBoard(board.id)"
+          >
+            {{ board.name }}
+          </button>
+        </li>
+      } @empty {
+        <li class="ph-label p-2">no boards</li>
+      }
+    </ul>
+  </div>
+</aside>

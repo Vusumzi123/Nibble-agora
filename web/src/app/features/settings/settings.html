@@ -1,0 +1,72 @@
+<section id="view-settings" class="view">
+  <div class="view__head">
+    <span class="ph-label">settings</span>
+    <span class="badge text-bg-secondary">@{{ config.forumName() }}</span>
+  </div>
+
+  <section class="ph-panel">
+    <header class="ph-panel__header">appearance</header>
+    <div class="ph-panel__body">
+      <p class="ph-label">theme — applied to every seat immediately</p>
+      <div class="theme-grid">
+        @for (t of themes; track t.id) {
+          <button
+            type="button"
+            class="theme-card"
+            [attr.data-theme]="t.id"
+            [class.theme-card--active]="config.theme() === t.id"
+            (click)="pickTheme(t.id)"
+          >
+            <span class="theme-card__swatches">
+              <span class="sw sw--bg"></span>
+              <span class="sw sw--surface"></span>
+              <span class="sw sw--primary"></span>
+            </span>
+            <span class="theme-card__label">{{ t.label }}</span>
+            <span class="theme-card__note">{{ t.note }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="ph-panel">
+    <header class="ph-panel__header">forum</header>
+    <div class="ph-panel__body">
+      <label class="field-stack">
+        <span class="ph-label">forum name</span>
+        <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" />
+      </label>
+      <div class="composer__actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingName" (click)="saveName()">
+          {{ savingName ? 'saving…' : 'save name' }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="ph-panel">
+    <header class="ph-panel__header">password</header>
+    <div class="ph-panel__body">
+      <label class="field-stack">
+        <span class="ph-label">current password</span>
+        <input class="form-control" type="password" autocomplete="current-password" [(ngModel)]="current" />
+      </label>
+      <div class="field-row">
+        <label class="field-stack">
+          <span class="ph-label">new password</span>
+          <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="next" />
+        </label>
+        <label class="field-stack">
+          <span class="ph-label">confirm new password</span>
+          <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
+        </label>
+      </div>
+      <div class="composer__actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingPassword" (click)="savePassword()">
+          {{ savingPassword ? 'saving…' : 'change password' }}
+        </button>
+      </div>
+    </div>
+  </section>
+</section>

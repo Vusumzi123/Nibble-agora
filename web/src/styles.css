@@ -1,0 +1,666 @@
+/* Agora seat — global chrome. All design decisions come from the Phosphorstrap
+   token layer (bundled via angular.json: Bootstrap → @vusux/phosphorstrap);
+   this file only arranges the seat around those tokens. */
+
+:root {
+  --seat-topbar: 3.25rem;
+  --seat-sidebar: 16rem;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ph-bg);
+  color: var(--ph-text);
+  font-family: var(--ph-font-mono);
+}
+
+/* Density — Phosphorstrap's control scale is generous; at seat size the
+   buttons, inputs, panels and tabs read chunky. Trim them to a quieter,
+   denser rhythm (these are app-level tweaks, not theme overrides). */
+.btn {
+  min-height: 2rem;
+  padding: var(--ph-space-1) var(--ph-space-3);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.btn-sm {
+  min-height: 1.6rem;
+  padding: 2px var(--ph-space-2);
+}
+
+.form-control,
+.form-select {
+  min-height: 2rem;
+  padding: var(--ph-space-1) var(--ph-space-2);
+}
+
+.form-control-sm,
+.form-select-sm {
+  min-height: 1.6rem;
+  padding: 2px var(--ph-space-2);
+}
+
+.ph-panel__body {
+  padding: var(--ph-space-4);
+}
+
+.ph-panel__header {
+  padding: var(--ph-space-2) var(--ph-space-3);
+  letter-spacing: 0.06em;
+}
+
+.nav-link {
+  min-height: auto;
+  padding: var(--ph-space-2) var(--ph-space-3);
+}
+
+.gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: var(--ph-space-4);
+}
+
+.gate__panel {
+  width: min(32rem, 100%);
+}
+
+.gate__logo {
+  display: block;
+  width: min(14rem, 70%);
+  margin: 0 auto;
+}
+
+.gate__note {
+  width: min(32rem, 100%);
+  text-align: center;
+  margin: 0 auto;
+}
+
+.gate__actions {
+  display: flex;
+  gap: var(--ph-space-2);
+  align-items: center;
+  margin-top: var(--ph-space-3);
+  flex-wrap: wrap;
+}
+
+.gate__handle {
+  max-width: 10rem;
+}
+
+.gate__or {
+  padding: 0 var(--ph-space-1);
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* Top nav bar — fixed, carries the drawer toggle and the account menu. */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  height: var(--seat-topbar);
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-3);
+  padding: 0 var(--ph-space-4);
+  background: var(--ph-surface);
+  border-bottom: 1px solid var(--ph-border);
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-lg);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--ph-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.topbar__toggle {
+  display: none;
+  align-items: center;
+  gap: var(--ph-space-2);
+  min-height: 2rem;
+  padding: var(--ph-space-1) var(--ph-space-2);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  color: var(--ph-text);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.topbar__toggle:hover {
+  border-color: var(--ph-primary);
+  color: var(--ph-primary);
+}
+
+.topbar__burger {
+  position: relative;
+  width: 1rem;
+  height: 2px;
+  background: currentColor;
+}
+
+.topbar__burger::before,
+.topbar__burger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 1rem;
+  height: 2px;
+  background: currentColor;
+}
+
+.topbar__burger::before {
+  top: -5px;
+}
+
+.topbar__burger::after {
+  top: 5px;
+}
+
+.topbar__user {
+  position: relative;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  min-height: 2rem;
+  padding: var(--ph-space-1) var(--ph-space-2);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  color: var(--ph-text);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  cursor: pointer;
+}
+
+.user-chip:hover {
+  border-color: var(--ph-primary);
+  color: var(--ph-primary);
+}
+
+.user-chip__avatar {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--ph-primary);
+  color: var(--ph-bg);
+  font-size: var(--ph-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.user-menu__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + var(--ph-space-1));
+  right: 0;
+  z-index: 500;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--ph-space-1);
+  background: var(--ph-surface-raised);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  box-shadow: var(--ph-shadow-3);
+}
+
+.user-menu__item {
+  width: 100%;
+  padding: var(--ph-space-2) var(--ph-space-3);
+  border: 0;
+  border-radius: var(--ph-radius-sm);
+  background: transparent;
+  color: var(--ph-text);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-menu__item:hover {
+  background: var(--ph-surface);
+  color: var(--ph-primary);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  margin-left: var(--seat-sidebar);
+  padding: var(--seat-topbar) var(--ph-space-5) var(--ph-space-4);
+  overflow: hidden;
+}
+
+.status {
+  min-height: calc(var(--ph-text-xs) + var(--ph-space-3));
+  padding: var(--ph-space-2) 0;
+}
+
+.status--error {
+  color: var(--ph-danger);
+}
+
+.view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-5);
+  overflow-y: auto;
+}
+
+.view__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  flex-wrap: wrap;
+}
+
+.chips {
+  display: flex;
+  gap: var(--ph-space-2);
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding-left: var(--ph-space-3);
+  padding-right: var(--ph-space-3);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-3);
+}
+
+.list__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ph-space-3);
+  text-align: left;
+  text-decoration: none;
+  background: var(--ph-surface);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  padding: var(--ph-space-2) var(--ph-space-3);
+  color: var(--ph-text);
+  font: inherit;
+  transition: background var(--ph-transition-fast);
+}
+
+.list__row:hover {
+  background: var(--ph-surface-raised);
+}
+
+.list__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.list__meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+
+.composer__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-3);
+}
+
+.composer__body {
+  display: flex;
+  gap: var(--ph-space-2);
+  align-items: flex-end;
+}
+
+.composer__body textarea {
+  flex: 1;
+}
+
+.composer__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.counter {
+  min-width: 5rem;
+  text-align: right;
+}
+
+.counter--over {
+  color: var(--ph-danger);
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-4);
+}
+
+.post__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  margin-bottom: var(--ph-space-2);
+}
+
+.post__author {
+  color: var(--ph-primary);
+}
+
+.post__author--human {
+  font-weight: 600;
+}
+
+.post__body {
+  white-space: pre-wrap;
+  font-family: var(--ph-font-sans);
+  line-height: var(--ph-leading-relaxed);
+  margin-bottom: var(--ph-space-2);
+}
+
+.post__mentions {
+  margin-bottom: var(--ph-space-2);
+}
+
+.reactions {
+  display: flex;
+  gap: var(--ph-space-2);
+  flex-wrap: wrap;
+}
+
+.lanes {
+  display: flex;
+  gap: var(--ph-space-4);
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: var(--ph-space-2);
+}
+
+.lane {
+  flex: 0 0 17rem;
+  background: var(--ph-surface);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.lane__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  padding: var(--ph-space-3);
+  border-bottom: 1px solid var(--ph-border);
+  background: var(--ph-gradient-header);
+  border-radius: var(--ph-radius-lg) var(--ph-radius-lg) 0 0;
+}
+
+.lane__name {
+  flex: 1;
+  text-transform: uppercase;
+  font-size: var(--ph-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.lane__tools {
+  display: flex;
+  gap: var(--ph-space-1);
+}
+
+.lane__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-3);
+  padding: var(--ph-space-3);
+  min-height: 10rem;
+}
+
+.kanban-card {
+  cursor: grab;
+}
+
+.kanban-card__title {
+  font-size: var(--ph-text-sm);
+  font-weight: 600;
+}
+
+.kanban-card__desc {
+  margin-top: var(--ph-space-1);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.kanban-card__foot {
+  display: flex;
+  gap: var(--ph-space-2);
+  align-items: center;
+  margin-top: var(--ph-space-2);
+}
+
+.kanban-card__assignee {
+  flex: 1;
+  min-width: 0;
+}
+
+.kanban-card__tools {
+  display: flex;
+  gap: var(--ph-space-1);
+}
+
+.kanban-card__link {
+  margin-top: var(--ph-space-2);
+}
+
+.board__addcol {
+  display: flex;
+  gap: var(--ph-space-2);
+  margin-left: auto;
+}
+
+.board__addcol .form-control {
+  max-width: 12rem;
+}
+
+.inbox__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ph-space-5);
+  align-items: start;
+}
+
+/* Shared form + theme-picker primitives (setup wizard, settings page). */
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-1);
+  margin-top: var(--ph-space-3);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ph-space-3);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ph-space-3);
+  margin-top: var(--ph-space-2);
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+  padding: var(--ph-space-3);
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  color: var(--ph-text);
+  font: inherit;
+  transition:
+    border-color var(--ph-transition-fast),
+    box-shadow var(--ph-transition-fast),
+    transform var(--ph-transition-fast);
+}
+
+.theme-card:hover {
+  border-color: var(--ph-primary);
+  transform: translateY(-1px);
+}
+
+.theme-card--active {
+  border-color: var(--ph-primary);
+  box-shadow: 0 0 0 2px var(--ph-primary);
+}
+
+.theme-card__swatches {
+  display: flex;
+  gap: var(--ph-space-1);
+}
+
+.sw {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--ph-radius-sm);
+  border: 1px solid var(--ph-border);
+}
+
+.sw--bg {
+  background: var(--ph-bg);
+}
+
+.sw--surface {
+  background: var(--ph-surface);
+}
+
+.sw--primary {
+  background: var(--ph-primary);
+}
+
+.theme-card__label {
+  font-weight: 600;
+}
+
+.theme-card__note {
+  font-size: var(--ph-text-xs);
+  color: var(--ph-text-muted);
+  line-height: var(--ph-leading-tight);
+}
+
+@media (max-width: 60rem) {
+  .topbar__toggle {
+    display: inline-flex;
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  .inbox__cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --seat-topbar: 3rem;
+  }
+
+  .topbar {
+    padding: 0 var(--ph-space-3);
+    gap: var(--ph-space-2);
+  }
+
+  .topbar__toggle {
+    padding: var(--ph-space-1);
+  }
+
+  .topbar__toggle-label {
+    display: none;
+  }
+
+  .user-chip__name {
+    display: none;
+  }
+
+  .main {
+    padding: var(--seat-topbar) var(--ph-space-3) var(--ph-space-3);
+  }
+
+  .field-row,
+  .theme-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .board__addcol {
+    margin-left: 0;
+  }
+
+  .board__addcol .form-control {
+    max-width: none;
+  }
+}

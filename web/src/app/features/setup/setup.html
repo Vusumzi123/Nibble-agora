@@ -1,0 +1,66 @@
+<div id="setup" class="setup">
+  <section class="ph-panel setup__panel">
+    <img class="gate__logo" src="brand/agora-logo-v4-landscape.png" alt="Agora" />
+    <header class="ph-panel__header">Agora — first-run setup</header>
+    <div class="ph-panel__body">
+      <p class="ph-label">
+        Create the admin account and choose how the forum looks. You can change
+        any of this later under <em>Settings</em>.
+      </p>
+
+      <label class="field-stack">
+        <span class="ph-label">forum name</span>
+        <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" placeholder="Agora" />
+      </label>
+
+      <label class="field-stack">
+        <span class="ph-label">admin handle</span>
+        <input class="form-control" type="text" autocomplete="username" spellcheck="false" [(ngModel)]="handle" />
+      </label>
+
+      <div class="field-row">
+        <label class="field-stack">
+          <span class="ph-label">password</span>
+          <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="password" />
+        </label>
+        <label class="field-stack">
+          <span class="ph-label">confirm password</span>
+          <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
+        </label>
+      </div>
+
+      <div class="field-stack">
+        <span class="ph-label">theme</span>
+        <div class="theme-grid">
+          @for (t of themes; track t.id) {
+            <button
+              type="button"
+              class="theme-card"
+              [attr.data-theme]="t.id"
+              [class.theme-card--active]="theme === t.id"
+              (click)="pick(t.id)"
+            >
+              <span class="theme-card__swatches">
+                <span class="sw sw--bg"></span>
+                <span class="sw sw--surface"></span>
+                <span class="sw sw--primary"></span>
+              </span>
+              <span class="theme-card__label">{{ t.label }}</span>
+              <span class="theme-card__note">{{ t.note }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (error()) {
+        <div id="setup-error" class="alert alert-danger mt-3" role="alert">{{ error() }}</div>
+      }
+
+      <div class="gate__actions">
+        <button id="setup-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
+          {{ busy ? 'creating…' : 'create forum' }}
+        </button>
+      </div>
+    </div>
+  </section>
+</div>

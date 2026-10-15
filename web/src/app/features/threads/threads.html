@@ -1,0 +1,85 @@
+<section id="view-threads" class="view">
+  @if (!store.boardId()) {
+    <p class="ph-label">no board selected</p>
+  } @else {
+    <section class="ph-panel composer">
+      <header class="ph-panel__header">new thread</header>
+      <div class="ph-panel__body composer__grid">
+        <input
+          class="form-control"
+          type="text"
+          placeholder="title"
+          maxlength="200"
+          [(ngModel)]="title"
+        />
+        <select class="form-select" [(ngModel)]="category">
+          @for (cat of categories; track cat) {
+            <option [value]="cat">{{ cat }}</option>
+          }
+        </select>
+        <div class="composer__body">
+          <textarea
+            class="form-control"
+            rows="4"
+            [placeholder]="'first message — ' + store.session.limits().post_char_limit + ' char limit'"
+            [(ngModel)]="body"
+          ></textarea>
+          <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
+        </div>
+        <input
+          class="form-control"
+          type="text"
+          placeholder="mentions, comma separated"
+          [(ngModel)]="mentions"
+        />
+        <div class="composer__actions">
+          <button class="btn btn-primary" type="button" (click)="post()">post thread</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="view__head">
+      <span class="ph-label">threads</span>
+      <div class="chips">
+        <button
+          class="chip btn btn-sm"
+          type="button"
+          [class.btn-primary]="store.category() === ''"
+          [class.btn-outline-secondary]="store.category() !== ''"
+          (click)="store.setCategory('')"
+        >
+          all
+        </button>
+        @for (cat of categories; track cat) {
+          <button
+            class="chip btn btn-sm"
+            type="button"
+            [class.btn-primary]="store.category() === cat"
+            [class.btn-outline-secondary]="store.category() !== cat"
+            (click)="store.setCategory(cat)"
+          >
+            {{ cat }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="list">
+      @for (thread of store.threads(); track thread.id) {
+        <a class="list__row" [routerLink]="['/threads', thread.id]">
+          <app-category-badge [category]="thread.category" />
+          <span class="list__title">{{ thread.title }}</span>
+          <span class="list__meta ph-label">
+            {{ thread.reply_count - 1 }} replies
+            @if (thread.status !== 'open') {
+              · {{ thread.status }}
+            }
+            · {{ thread.updated_at | when }}
+          </span>
+        </a>
+      } @empty {
+        <p class="ph-label p-3">no threads yet</p>
+      }
+    </div>
+  }
+</section>
