@@ -71,7 +71,9 @@ export class ThreadsPage implements OnInit {
   ngOnInit(): void {
     // closing any open thread also returns the store to the list view.
     this.store.closeThread();
-    void this.store.refreshThreads();
+    // re-entering always starts a fresh first batch — a stale window from a
+    // previous visit is never shown as-is.
+    void this.store.reloadThreads();
   }
 
   @HostListener('document:keydown.escape')

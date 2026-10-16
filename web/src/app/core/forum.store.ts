@@ -16,7 +16,7 @@ import type {
 import { SessionService } from './session.service';
 import { StatusService } from './status.service';
 
-export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox';
+export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox' | 'settings';
 export type ThreadSort = 'updated' | 'created' | 'votes' | 'views';
 
 const POLL_MS = 3000;
@@ -45,6 +45,8 @@ export class ForumStore {
   readonly hasMoreThreads = computed(() => this.threads().length < this.threadTotal());
   /** True while a batch is in flight (incl. the minimum visible beat). */
   readonly loadingMore = signal(false);
+  /** True only while the list re-enters (a fresh first batch, not a poll). */
+  readonly threadsReloading = signal(false);
   readonly thread = signal<ThreadDetail | null>(null);
   readonly cards = signal<Card[]>([]);
   readonly inbox = signal<Inbox | null>(null);
@@ -75,11 +77,14 @@ export class ForumStore {
   private busy = false;
   private lastSig = '';
   private timer: ReturnType<typeof setInterval> | null = null;
+  private forumsLoad: Promise<void> | null = null;
 
   // ---- lifecycle -----------------------------------------------------------
 
   startPolling(): void {
     this.stopPolling();
+    // one cycle now, so a reload never waits out the first interval.
+    void this.tick();
     this.timer = setInterval(() => void this.tick(), POLL_MS);
   }
 
@@ -107,6 +112,15 @@ export class ForumStore {
   // ---- reads ---------------------------------------------------------------
 
   async refreshForums(): Promise<void> {
+    // Join an in-flight load instead of stacking a second one: boot fires the
+    // first poll while the entered page is already asking for its own data.
+    this.forumsLoad ??= this.fetchForums().finally(() => {
+      this.forumsLoad = null;
+    });
+    return this.forumsLoad;
+  }
+
+  private async fetchForums(): Promise<void> {
     const forums = await this.api.listForums();
     this.forums.set(forums);
     if (this.forumId() === null || !forums.some((f) => f.id === this.forumId())) {
@@ -118,7 +132,18 @@ export class ForumStore {
     }
   }
 
+  /** Forum-scoped reads learn the active forum themselves; boot or the poll
+      usually has it already, so the hot path is a plain null check. */
+  private async ensureForum(): Promise<void> {
+    try {
+      await this.refreshForums();
+    } catch {
+      /* forums stay unloaded — the scoped read falls back to empty/unscoped */
+    }
+  }
+
   async refreshBoards(): Promise<void> {
+    if (this.forumId() === null) await this.ensureForum();
     const boards = await this.api.listBoards(this.forumId() ?? undefined);
     this.boards.set(boards);
     if (!this.currentBoard()) {
@@ -131,10 +156,12 @@ export class ForumStore {
   }
 
   async refreshProjects(): Promise<void> {
+    if (this.forumId() === null) await this.ensureForum();
     this.projects.set(await this.api.listProjects(this.forumId() ?? undefined));
   }
 
   async refreshOverview(): Promise<void> {
+    if (this.forumId() === null) await this.ensureForum();
     const forum = this.forumId();
     this.overview.set(forum === null ? null : await this.api.forumOverview(forum));
   }
@@ -153,9 +180,23 @@ export class ForumStore {
   }
 
   async refreshThreads(): Promise<void> {
+    if (this.forumId() === null) await this.ensureForum();
     const { threads, total } = await this.fetchThreadsWindow();
     this.threads.set(threads);
     this.threadTotal.set(total);
+  }
+
+  /** Entering the list: first batch only, fetched now — never a stale window. */
+  async reloadThreads(): Promise<void> {
+    this.resetPaging();
+    this.threadsReloading.set(true);
+    try {
+      await this.refreshThreads();
+    } catch (err) {
+      this.fail(err);
+    } finally {
+      this.threadsReloading.set(false);
+    }
   }
 
   /** Pull one more batch of threads; no-op while exhausted or already loading. */
@@ -191,6 +232,8 @@ export class ForumStore {
   }
 
   async refreshCards(): Promise<void> {
+    // legacy `/board` has no id in the URL — learn the picked board first.
+    if (this.boardId() === null) await this.refreshBoards().catch(() => {});
     const board = this.boardId();
     this.cards.set(board === null ? [] : await this.api.listCards(board));
   }
@@ -215,32 +258,36 @@ export class ForumStore {
     this.thread.set(await this.api.getThread(id));
   }
 
+  /** One refresh cycle: forums always (the panel + every scoped read needs
+      them), then only what the active view renders — in parallel, not as a
+      serial chain that makes each module wait for the previous one. */
   async refreshAll(): Promise<void> {
     await this.refreshForums();
-    await this.refreshBoards();
-    await this.refreshProjects();
-    await this.refreshAgents();
+    const jobs: Promise<void>[] = [this.refreshInbox()];
     switch (this.view()) {
       case 'threads':
-        if (this.openThreadId !== null) await this.loadThread(this.openThreadId);
+        if (this.openThreadId !== null) jobs.push(this.loadThread(this.openThreadId));
         // a held batch owns the list window until it commits; polling must not
         // reveal it early (threadLimit is already bumped during the hold).
-        else if (!this.loadingMore()) await this.refreshThreads();
+        else if (!this.loadingMore()) jobs.push(this.refreshThreads());
         break;
       case 'board':
-        await this.refreshCards();
+        // the card list hangs off the picked board — boards must land first.
+        await this.refreshBoards();
+        jobs.push(this.refreshCards(), this.refreshAgents());
         break;
       case 'boards':
-        // the project list is covered by refreshProjects above.
+        jobs.push(this.refreshBoards(), this.refreshProjects());
         break;
       case 'forum':
-        await this.refreshOverview();
+        jobs.push(this.refreshBoards(), this.refreshProjects(), this.refreshOverview());
         break;
       case 'inbox':
-        await this.refreshInbox();
+      case 'settings':
+        // only the forums + the inbox badge render from here.
         break;
     }
-    if (this.view() !== 'inbox') await this.refreshInbox();
+    await Promise.all(jobs);
   }
 
   // ---- navigation ----------------------------------------------------------

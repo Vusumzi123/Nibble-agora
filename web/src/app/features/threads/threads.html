@@ -38,6 +38,13 @@
       </div>
     </div>
 
+    @if (store.threadsReloading()) {
+      <div class="text-center p-3">
+        <span class="threads__dots" role="status" aria-label="loading threads">
+          <i></i><i></i><i></i>
+        </span>
+      </div>
+    }
     <div class="list list--flush">
       @for (thread of store.threads(); track thread.id) {
         <a class="list__row list__row--card" [routerLink]="['/threads', thread.id]">

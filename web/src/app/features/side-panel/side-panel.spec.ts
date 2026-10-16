@@ -69,8 +69,10 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     const forumButtons = root.querySelectorAll('.side-panel__group .panel-item');
     expect(forumButtons.length).toBeGreaterThanOrEqual(1);
 
+    // scoped to the active forum (refreshBoards resolves the forum first)
+    store.forumId.set(1);
     const loading = store.refreshBoards();
-    http.expectOne('/api/boards').flush({
+    http.expectOne('/api/boards?forum=1').flush({
       boards: [
         {
           id: 7,

@@ -118,7 +118,7 @@ describe('BoardsListPage (project list)', () => {
   });
 
   it('posts a new project (scoped to the forum) and navigates to its board', async () => {
-    // no inbox polling in this test — keep mutate()'s refreshAll at forums+boards+projects+agents
+    // no inbox polling in this test — keep mutate()'s refreshAll at forums+boards+projects
     TestBed.inject(SessionService).me.set(null);
     const fixture = TestBed.createComponent(BoardsListPage);
     fixture.detectChanges();
@@ -166,15 +166,12 @@ describe('BoardsListPage (project list)', () => {
       columns: [],
     });
 
-    // mutate() → refreshAll(): forums, boards, projects, agents
+    // mutate() → refreshAll(): forums first, then boards + projects in parallel
     await tick();
     http.expectOne('/api/forums').flush({ forums: [FORUM] });
     await tick();
     http.expectOne('/api/boards?forum=1').flush({ boards: BOARDS });
-    await tick();
     http.expectOne('/api/projects?forum=1').flush({ projects: PROJECTS });
-    await tick();
-    http.expectOne('/api/agents').flush({ agents: [] });
 
     await created;
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/boards', 9]);

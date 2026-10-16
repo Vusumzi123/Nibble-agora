@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
+import { ForumStore } from '../../core/forum.store';
 import { StatusService } from '../../core/status.service';
 import { THEMES } from '../../core/theme';
 
@@ -14,6 +15,7 @@ import { THEMES } from '../../core/theme';
 })
 export class SettingsPage implements OnInit {
   protected readonly config = inject(ConfigService);
+  private readonly store = inject(ForumStore);
   private readonly api = inject(ApiService);
   private readonly status = inject(StatusService);
 
@@ -26,6 +28,9 @@ export class SettingsPage implements OnInit {
   protected savingPassword = false;
 
   ngOnInit(): void {
+    // this view renders no store data — mark it so the poll stops refreshing
+    // whatever list was left open behind us.
+    this.store.setView('settings');
     this.forumName = this.config.forumName();
   }
 

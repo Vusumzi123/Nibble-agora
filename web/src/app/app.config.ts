@@ -17,13 +17,12 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptors([authInterceptor])),
-    // Load instance config (theme + setup state), then seat any existing token,
-    // before the first route resolves.
+    // Load instance config (theme + setup state) and seat any existing token
+    // before the first route resolves — independent reads, one round trip.
     provideAppInitializer(async () => {
       const config = inject(ConfigService);
       const session = inject(SessionService);
-      await config.load();
-      await session.restore();
+      await Promise.all([config.load(), session.restore()]);
     }),
   ],
 };
