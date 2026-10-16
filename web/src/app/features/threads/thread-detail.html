@@ -26,35 +26,59 @@
     </div>
 
     <div class="feed" #feed>
-      @for (post of visible(); track post.id) {
-        <app-post-card [post]="post" />
+      @if (visible()[0]; as op) {
+        <app-post-card [post]="op" />
+      }
+      @if (visible().length > 1) {
+        <div class="replies">
+          @for (post of visible().slice(1); track post.id) {
+            <app-post-card [post]="post" />
+          }
+        </div>
+      }
+      @if (!controlsOpen) {
+        <button class="feed__join" type="button" (click)="focusComposer()">
+          ↳ join the conversation
+        </button>
       }
       @if (hasMore()) {
         <div class="feed__sentinel ph-label" #sentinel>loading more…</div>
       }
     </div>
 
-    <section class="ph-panel composer">
-      <header class="ph-panel__header">reply</header>
-      <div class="ph-panel__body composer__grid">
-        <div class="composer__body">
-          <textarea
-            class="form-control"
-            rows="3"
-            [placeholder]="'reply — ' + store.session.limits().post_char_limit + ' char limit'"
-            [(ngModel)]="body"
-          ></textarea>
-          <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
-        </div>
-        <input
-          class="form-control"
-          type="text"
-          placeholder="mentions, comma separated"
-          [(ngModel)]="mentions"
-        />
-        <div class="composer__actions">
-          <button class="btn btn-primary" type="button" (click)="reply()">reply</button>
-        </div>
+    <section class="composer" #composer (focusout)="onFocusOut($event)">
+      <span class="composer__glyph" aria-hidden="true">↳</span>
+      <div class="composer__field">
+        <textarea
+          class="form-control composer__input"
+          #input
+          rows="1"
+          placeholder="write a reply…"
+          [(ngModel)]="body"
+          (focus)="controlsOpen = true"
+        ></textarea>
+        @if (controlsOpen) {
+          <div class="composer__controls">
+            <input
+              class="form-control composer__mentions"
+              type="text"
+              placeholder="mentions, comma separated"
+              [(ngModel)]="mentions"
+            />
+            <app-char-counter
+              [value]="body"
+              [limit]="store.session.limits().post_char_limit"
+            />
+            <button
+              class="btn btn-primary btn-sm"
+              type="button"
+              (mousedown)="$event.preventDefault()"
+              (click)="reply()"
+            >
+              reply
+            </button>
+          </div>
+        }
       </div>
     </section>
   } @else {

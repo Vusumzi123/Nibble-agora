@@ -25,6 +25,8 @@ export class ThreadDetailPage {
 
   protected body = '';
   protected mentions = '';
+  /** The reply box wears its controls only while the composer has focus. */
+  protected controlsOpen = false;
 
   /** How many posts of the loaded thread are rendered; the rest stream in on scroll. */
   private readonly visiblePosts = signal(BATCH);
@@ -37,6 +39,8 @@ export class ThreadDetailPage {
 
   private readonly feedEl = viewChild<ElementRef<HTMLElement>>('feed');
   private readonly sentinelEl = viewChild<ElementRef<HTMLElement>>('sentinel');
+  private readonly composerEl = viewChild<ElementRef<HTMLElement>>('composer');
+  private readonly inputEl = viewChild<ElementRef<HTMLTextAreaElement>>('input');
 
   constructor() {
     effect(() => {
@@ -69,6 +73,23 @@ export class ThreadDetailPage {
     const detail = this.store.thread();
     if (!detail) return;
     void this.store.voteThread(detail.thread.id, detail.voted);
+  }
+
+  /** Collapse the controls when focus leaves the composer — but never while a
+      draft is in flight (some browsers report no relatedTarget on the way to
+      the mentions field or the reply button, and the controls must not
+      unmount mid-click). */
+  protected onFocusOut(event: FocusEvent): void {
+    const next = event.relatedTarget as Node | null;
+    if (next && this.composerEl()?.nativeElement.contains(next)) return;
+    if (this.body.trim() || this.mentions.trim()) return;
+    this.controlsOpen = false;
+  }
+
+  /** The bridge prompt's job: open the controls and put the caret in the box. */
+  protected focusComposer(): void {
+    this.controlsOpen = true;
+    this.inputEl()?.nativeElement.focus();
   }
 
   protected async reply(): Promise<void> {

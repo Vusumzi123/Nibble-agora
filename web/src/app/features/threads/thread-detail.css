@@ -1,3 +1,8 @@
+:host {
+  --threads-col: 44rem;
+  --detail-gutter: var(--ph-space-5);
+}
+
 .thread-detail__stats {
   margin-left: auto;
 }
@@ -5,6 +10,23 @@
 /* Detail view pins head + composer; only the post feed scrolls. */
 .view--detail {
   overflow: hidden;
+  /* The scroller is .feed, not .view — the view drops its inherited gutter so
+     the feed runs edge-to-edge and its scrollbar hugs the screen, the same
+     flush convention as the threads list. */
+  padding-inline: 0;
+}
+
+/* The reading column — head and composer sit exactly on the list column of
+   the threads page (44rem, gutter outside the box, auto margins centering).
+   min() keeps the gutter at narrow widths. */
+.view--detail > .view__head,
+.view--detail > .composer {
+  width: min(100% - 2 * var(--detail-gutter), var(--threads-col));
+  margin-inline: auto;
+}
+
+.view--detail > .view__head {
+  margin-top: var(--ph-space-3);
 }
 
 .view--detail .feed {
@@ -12,14 +34,150 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: var(--ph-space-1);
+  /* Reserve the scrollbar on both edges so the post column stays centered on
+     the same axis as the head and composer above it. */
+  scrollbar-gutter: stable both-edges;
 }
 
+/* Posts, replies and the sentinel ride the same centered column. flex: none
+   is load-bearing: .replies and .card both carry overflow:hidden, which
+   zeroes a flex item's automatic minimum size — without it the reply stack
+   shrinks into the feed instead of overflowing it and the scrollbar never
+   appears. */
+.view--detail .feed > * {
+  flex: none;
+  width: min(100% - 2 * var(--detail-gutter), var(--threads-col));
+  margin-inline: auto;
+}
+
+/* The reply box — a docked bar on the surface layer. Transparent it sat on
+   --ph-bg and read as a page divider; promoted to --ph-surface (the same
+   layer as the cards) with a border, radius and upward shadow it reads as an
+   input the user is invited to land in. */
 .view--detail .composer {
   flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ph-space-3);
+  margin-bottom: var(--ph-space-3);
+  padding: var(--ph-space-3);
+  background: var(--ph-surface);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-lg);
+  box-shadow: var(--ph-shadow-2);
+  transition: background var(--ph-transition-fast);
+}
+
+/* Idle invitation — tint before the click, light up once inside. */
+.view--detail .composer:hover {
+  background: var(--ph-surface-raised);
+}
+
+.view--detail .composer:focus-within {
+  border-color: var(--ph-primary);
+  box-shadow: var(--ph-shadow-2),
+    0 0 0 3px color-mix(in srgb, var(--ph-primary) 22%, transparent);
+}
+
+.composer__glyph {
+  color: var(--ph-text-muted);
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-sm);
+  line-height: 1; /* sits on the textarea's first line */
+  padding-top: 0.45rem;
+}
+
+.composer__field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+}
+
+/* The bar frames the field — no underline, no background of its own. */
+.composer__input {
+  min-height: 2.5rem;
+  max-height: 40vh;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  resize: none;
+  /* grows with the draft (Chrome; elsewhere it stays one row) */
+  field-sizing: content;
+}
+
+.composer__input:focus {
+  box-shadow: none;
+}
+
+.composer__input::placeholder {
+  color: var(--ph-text-muted);
+  opacity: 1;
+}
+
+.composer__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+}
+
+.composer__mentions {
+  flex: 1;
+  max-width: 18rem;
+}
+
+.composer__controls .btn {
+  margin-left: auto;
+}
+
+/* Replies — one flush list under the thread card: the same convention as
+   .list--flush on the threads page, shared frame, hairline dividers, no
+   gutters between rows. The rows themselves go flat via :host-context in
+   post-card.css. */
+.replies {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface);
+}
+
+.replies > app-post-card + app-post-card {
+  border-top: 1px solid var(--ph-border);
 }
 
 .feed__sentinel {
   padding: var(--ph-space-3);
   text-align: center;
+}
+
+/* The bridge — last row of the conversation, leads the eye down to the
+   reply bar. */
+.feed__join {
+  display: block;
+  width: 100%;
+  padding: var(--ph-space-3);
+  border: 1px dashed var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: transparent;
+  color: var(--ph-text-muted);
+  font-family: inherit;
+  font-size: var(--ph-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--ph-transition-fast), border-color var(--ph-transition-fast);
+}
+
+.feed__join:hover {
+  color: var(--ph-primary);
+  border-color: var(--ph-primary);
+}
+
+@media (max-width: 40rem) {
+  :host {
+    --detail-gutter: var(--ph-space-3);
+  }
 }

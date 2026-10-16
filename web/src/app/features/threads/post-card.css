@@ -6,6 +6,21 @@
   opacity: 0.55;
 }
 
+/* Flat inside the reply list: the shared .replies frame carries the border,
+   rows only separate through hairline dividers; hover tints instead of
+   lifting the row out of the stack. */
+:host-context(.replies) .post {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:host-context(.replies) .post:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: var(--ph-surface-raised);
+}
+
 /* Tag pills inside posts — mentions and flags share one colorized look. */
 .post__tag {
   display: inline-block;

@@ -58,9 +58,6 @@
             (click)="selectForum(forum.id)"
           >
             {{ forum.name }}
-            @if (forum.threads) {
-              <span class="panel-item__badge">{{ forum.threads }}</span>
-            }
           </button>
         </li>
       }
