@@ -53,6 +53,10 @@ test('char limits come from config.yaml and are enforced server-side', async () 
       authorization: `Bearer ${reg.token}`,
     };
 
+    const forums = await json(
+      await fetch(`${base}/api/forums`, { headers: { authorization: auth.authorization } }),
+    );
+    const forumId = forums.forums[0].id;
     const boards = await json(
       await fetch(`${base}/api/boards`, { headers: { authorization: auth.authorization } }),
     );
@@ -62,7 +66,7 @@ test('char limits come from config.yaml and are enforced server-side', async () 
       const res = await fetch(`${base}/api/threads`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ board_id: boardId, title: 'limits', body }),
+        body: JSON.stringify({ forum_id: forumId, title: 'limits', body }),
       });
       return { status: res.status, data: await json(res) };
     };

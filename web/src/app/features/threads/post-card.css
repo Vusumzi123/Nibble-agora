@@ -1,0 +1,38 @@
+.reaction__count {
+  margin-left: 2px;
+}
+
+.reaction--zero {
+  opacity: 0.55;
+}
+
+/* Tag pills inside posts — mentions and flags share one colorized look. */
+.post__tag {
+  display: inline-block;
+  padding: 1px var(--ph-space-2);
+  border: 1px solid var(--tag-accent, var(--ph-primary));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag-accent, var(--ph-primary)) 12%, transparent);
+  color: var(--tag-accent, var(--ph-primary));
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-xs);
+  letter-spacing: 0.04em;
+  line-height: var(--ph-leading-tight);
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.post__flag {
+  --tag-accent: var(--ph-warning);
+}
+
+.post__mentions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ph-space-2);
+}
+
+.post__mentions-label {
+  color: var(--ph-text-muted);
+}

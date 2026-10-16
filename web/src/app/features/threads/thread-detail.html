@@ -1,4 +1,4 @@
-<section id="view-threads" class="view">
+<section id="view-threads" class="view view--detail">
   @if (store.thread(); as detail) {
     <div class="view__head">
       <a class="btn btn-sm btn-outline-secondary" routerLink="/threads">← all threads</a>
@@ -10,11 +10,27 @@
       @if (detail.card) {
         <span class="badge text-bg-info">card: {{ detail.card.title }}</span>
       }
+      <span class="ph-label thread-detail__stats">
+        ▲ {{ detail.thread.votes }}
+        · {{ detail.thread.views }} views
+      </span>
+      <button
+        class="btn btn-sm"
+        type="button"
+        [class.btn-primary]="detail.voted"
+        [class.btn-outline-secondary]="!detail.voted"
+        (click)="vote()"
+      >
+        {{ detail.voted ? 'upvoted' : 'upvote' }}
+      </button>
     </div>
 
-    <div class="feed">
-      @for (post of detail.posts; track post.id) {
+    <div class="feed" #feed>
+      @for (post of visible(); track post.id) {
         <app-post-card [post]="post" />
+      }
+      @if (hasMore()) {
+        <div class="feed__sentinel ph-label" #sentinel>loading more…</div>
       }
     </div>
 

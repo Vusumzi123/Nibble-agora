@@ -52,10 +52,6 @@
         </div>
       </div>
 
-      @if (error()) {
-        <div id="setup-error" class="alert alert-danger mt-3" role="alert">{{ error() }}</div>
-      }
-
       <div class="gate__actions">
         <button id="setup-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
           {{ busy ? 'creating…' : 'create forum' }}

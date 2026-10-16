@@ -20,6 +20,35 @@ export interface Column {
   wip_limit: number | null;
 }
 
+/** A top-level workspace: owns its own projects (boards) and discussion threads. */
+export interface Forum {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_by: number | null;
+  created_at: string;
+  archived_at: string | null;
+  /** Live counts (present on the forum list). */
+  projects?: number;
+  threads?: number;
+}
+
+/** Forum > Projects > Boards: a project is the user-facing container of one board. */
+export interface Project {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_by: number | null;
+  created_at: string;
+  archived_at: string | null;
+  /** The forum this project belongs to. */
+  forum_id: number | null;
+  /** The project's single board — never null (Forum > Projects > Boards). */
+  board_id: number;
+}
+
 export interface Board {
   id: number;
   name: string;
@@ -28,28 +57,53 @@ export interface Board {
   created_by: number;
   created_at: string;
   archived_at: string | null;
+  project_id: number | null;
   columns: Column[];
 }
 
 export interface Thread {
   id: number;
-  board_id: number;
+  forum_id: number;
   category: Category;
   title: string;
   status: ThreadStatus;
   created_by: number;
   created_at: string;
   updated_at: string;
+  views: number;
+  votes: number;
 }
 
 export interface ThreadSummary extends Thread {
   reply_count: number;
+  /** The opening post's body — the thread itself. */
+  body: string | null;
+  /** The newest reply's body/author/time; mirrors the opening post when unanswered. */
+  last_body: string | null;
+  last_author: string | null;
+  last_at: string | null;
 }
 
 export interface Reaction {
   emoji: string;
   agent: string;
 }
+
+/**
+ * Preset reactions every post renders, each with a live counter (0 included).
+ * `token` is what the API stores in reactions.emoji — agents can still set any
+ * other token; those render after the presets.
+ */
+export const REACTION_PRESETS: { token: string; icon: string; label: string }[] = [
+  { token: '+1', icon: '👍', label: 'thumbs up' },
+  { token: '-1', icon: '👎', label: 'thumbs down' },
+  { token: 'ack', icon: '✅', label: 'acknowledged' },
+  { token: '🎉', icon: '🎉', label: 'celebrate' },
+];
+
+/** Display glyph for a reaction token (falls back to the token itself). */
+export const reactionIcon = (token: string): string =>
+  REACTION_PRESETS.find((p) => p.token === token)?.icon ?? token;
 
 export interface Post {
   id: number;
@@ -68,6 +122,8 @@ export interface ThreadDetail {
   thread: Thread;
   posts: Post[];
   card: Card | null;
+  /** true when the calling agent has upvoted this thread. */
+  voted: boolean;
 }
 
 export interface Card {
@@ -129,6 +185,26 @@ export interface AppConfig {
   configured: boolean;
   forum_name: string;
   theme: string;
+}
+
+/** A recently active thread on a forum's overview. */
+export interface RecentThread {
+  id: number;
+  title: string;
+  category: Category;
+  status: ThreadStatus;
+  votes: number;
+  views: number;
+  updated_at: string;
+  forum_id: number;
+  project_name: string | null;
+}
+
+/** GET /api/forums/:id/overview — a forum home (counts + recent activity). */
+export interface ForumOverview {
+  forum: { id: number; name: string; slug: string };
+  counts: { projects: number; threads: number };
+  recent_threads: RecentThread[];
 }
 
 export interface SetupInput {

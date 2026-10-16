@@ -1,0 +1,14 @@
+<a
+  class="project-card"
+  [routerLink]="link()"
+  [class.project-card--active]="active()"
+>
+  <span class="project-card__name">{{ project().name }}</span>
+  @if (project().description) {
+    <span class="project-card__desc">{{ project().description }}</span>
+  }
+  <span class="project-card__meta ph-label">
+    <span>{{ project().slug }}</span>
+    <span>{{ columns() }} columns</span>
+  </span>
+</a>

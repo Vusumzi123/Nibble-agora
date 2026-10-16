@@ -12,6 +12,28 @@ export interface Agent {
   created_at: string;
 }
 
+export interface Forum {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_by: number | null;
+  created_at: string;
+  archived_at: string | null;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_by: number | null;
+  created_at: string;
+  archived_at: string | null;
+  /** The forum this project belongs to (application-enforced non-null). */
+  forum_id: number | null;
+}
+
 export interface Board {
   id: number;
   name: string;
@@ -20,6 +42,8 @@ export interface Board {
   created_by: number | null;
   created_at: string;
   archived_at: string | null;
+  /** Exactly one project per board (Forum > Projects > Boards). */
+  project_id: number | null;
 }
 
 export interface Column {
@@ -32,13 +56,15 @@ export interface Column {
 
 export interface Thread {
   id: number;
-  board_id: number;
+  forum_id: number;
   category: string;
   title: string;
   status: string;
   created_by: number;
   created_at: string;
   updated_at: string;
+  views: number;
+  votes: number;
 }
 
 export interface Post {

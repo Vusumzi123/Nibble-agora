@@ -105,7 +105,46 @@ export interface Board {
   name: string;
   slug: string;
   description: string | null;
+  project_id: number | null;
+  forum_id: number | null;
   columns: Column[];
+}
+
+export interface Forum {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  projects?: number;
+  threads?: number;
+}
+
+/**
+ * Resolve a forum by id, slug or name; no ref → AGORA_FORUM (default "forum"),
+ * then the first forum that exists.
+ */
+export async function resolveForum(
+  client: AgoraClient,
+  ref?: string | number,
+  defaultRef = process.env.AGORA_FORUM ?? 'forum',
+): Promise<Forum> {
+  const { forums } = await client.get<{ forums: Forum[] }>('/api/forums');
+  if (forums.length === 0) {
+    throw new RestError(404, 'not_found', 'no forums exist yet — create one first');
+  }
+  const key = String(ref ?? defaultRef).trim().toLowerCase();
+  const forum =
+    forums.find(
+      (f) => String(f.id) === key || f.slug.toLowerCase() === key || f.name.toLowerCase() === key,
+    ) ?? (ref === undefined ? forums[0] : undefined);
+  if (!forum) {
+    throw new RestError(
+      404,
+      'not_found',
+      `forum "${key}" not found (available: ${forums.map((f) => f.slug).join(', ')})`,
+    );
+  }
+  return forum;
 }
 
 /**

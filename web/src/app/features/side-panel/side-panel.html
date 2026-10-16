@@ -23,11 +23,11 @@
       <li>
         <a
           class="panel-item"
-          routerLink="/board"
+          routerLink="/boards"
           routerLinkActive="panel-item--active"
           (click)="close()"
         >
-          board
+          boards
         </a>
       </li>
       <li>
@@ -47,22 +47,42 @@
   </nav>
 
   <div class="side-panel__group">
-    <span class="ph-label">boards</span>
-    <ul id="panel-boards" class="side-panel__list">
-      @for (board of store.boards(); track board.id) {
+    <span class="ph-label">forums</span>
+    <ul class="side-panel__list">
+      @for (forum of store.forums(); track forum.id) {
         <li>
           <button
             class="panel-item"
             type="button"
-            [class.panel-item--active]="board.id === store.boardId()"
-            (click)="switchBoard(board.id)"
+            [class.panel-item--active]="store.forumId() === forum.id"
+            (click)="selectForum(forum.id)"
           >
-            {{ board.name }}
+            {{ forum.name }}
+            @if (forum.threads) {
+              <span class="panel-item__badge">{{ forum.threads }}</span>
+            }
           </button>
         </li>
-      } @empty {
-        <li class="ph-label p-2">no boards</li>
       }
     </ul>
+
+    @if (!createOpen) {
+      <button class="panel-item panel-item--ghost" type="button" (click)="toggleCreate()">
+        + new forum
+      </button>
+    } @else {
+      <form class="side-panel__create" (ngSubmit)="create()">
+        <input
+          class="form-control form-control-sm"
+          type="text"
+          placeholder="forum name"
+          name="name"
+          maxlength="64"
+          [(ngModel)]="name"
+          (keydown.escape)="toggleCreate()"
+        />
+        <button class="btn btn-sm btn-primary" type="submit">create</button>
+      </form>
+    }
   </div>
 </aside>

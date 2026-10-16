@@ -1,13 +1,31 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { ApiError, ApiService } from './api.service';
-import type { Board, Card, ThreadDetail, ThreadSummary, Inbox, Agent, Column } from './models';
+import type {
+  Agent,
+  Board,
+  Card,
+  Column,
+  Forum,
+  ForumOverview,
+  Inbox,
+  Project,
+  ThreadDetail,
+  ThreadSummary,
+} from './models';
 import { SessionService } from './session.service';
 import { StatusService } from './status.service';
 
-export type View = 'threads' | 'board' | 'inbox';
+export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox';
+export type ThreadSort = 'updated' | 'created' | 'votes' | 'views';
 
 const POLL_MS = 3000;
+
+/** Threads fetched per batch; the list grows by one batch per sentinel hit. */
+export const THREAD_PAGE_SIZE = 20;
+
+/** Minimum time a batch's loading state stays visible, so the dots read as motion. */
+const MIN_LOADING_MS = 1000;
 
 @Injectable({ providedIn: 'root' })
 export class ForumStore {
@@ -15,21 +33,38 @@ export class ForumStore {
   readonly session = inject(SessionService);
   private readonly status = inject(StatusService);
 
+  readonly forums = signal<Forum[]>([]);
   readonly boards = signal<Board[]>([]);
+  readonly projects = signal<Project[]>([]);
+  readonly overview = signal<ForumOverview | null>(null);
   readonly agents = signal<Agent[]>([]);
   readonly threads = signal<ThreadSummary[]>([]);
+  /** How many threads the list is allowed to hold — grows as the sentinel fires. */
+  readonly threadLimit = signal<number>(THREAD_PAGE_SIZE);
+  readonly threadTotal = signal<number>(0);
+  readonly hasMoreThreads = computed(() => this.threads().length < this.threadTotal());
+  /** True while a batch is in flight (incl. the minimum visible beat). */
+  readonly loadingMore = signal(false);
   readonly thread = signal<ThreadDetail | null>(null);
   readonly cards = signal<Card[]>([]);
   readonly inbox = signal<Inbox | null>(null);
-  readonly category = signal<string>('');
+  /** Empty = all categories; multiple selections narrow the list (OR). */
+  readonly categories = signal<string[]>([]);
+  readonly sort = signal<ThreadSort>('updated');
+  readonly forumId = signal<number | null>(null);
   readonly boardId = signal<number | null>(null);
   readonly view = signal<View>('threads');
 
+  readonly currentForum = computed<Forum | null>(
+    () => this.forums().find((f) => f.id === this.forumId()) ?? null,
+  );
   readonly currentBoard = computed<Board | null>(
     () => this.boards().find((b) => b.id === this.boardId()) ?? null,
   );
   readonly columns = computed<Column[]>(() =>
-    (this.currentBoard()?.columns ?? []).slice().sort((a, b) => a.position - b.position || a.id - b.id),
+    (this.currentBoard()?.columns ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position || a.id - b.id),
   );
   readonly inboxCount = computed(() => {
     const inbox = this.inbox();
@@ -71,8 +106,20 @@ export class ForumStore {
 
   // ---- reads ---------------------------------------------------------------
 
+  async refreshForums(): Promise<void> {
+    const forums = await this.api.listForums();
+    this.forums.set(forums);
+    if (this.forumId() === null || !forums.some((f) => f.id === this.forumId())) {
+      // restore the last forum this seat used, else fall back to the first.
+      const remembered = this.session.forumId();
+      const pick = forums.find((f) => f.id === remembered)?.id ?? forums[0]?.id ?? null;
+      this.forumId.set(pick);
+      if (pick !== null) this.session.rememberForum(pick);
+    }
+  }
+
   async refreshBoards(): Promise<void> {
-    const boards = await this.api.listBoards();
+    const boards = await this.api.listBoards(this.forumId() ?? undefined);
     this.boards.set(boards);
     if (!this.currentBoard()) {
       // restore the last board this seat used, else fall back to the first.
@@ -83,17 +130,64 @@ export class ForumStore {
     }
   }
 
+  async refreshProjects(): Promise<void> {
+    this.projects.set(await this.api.listProjects(this.forumId() ?? undefined));
+  }
+
+  async refreshOverview(): Promise<void> {
+    const forum = this.forumId();
+    this.overview.set(forum === null ? null : await this.api.forumOverview(forum));
+  }
+
   async refreshAgents(): Promise<void> {
     this.agents.set(await this.api.listAgents());
   }
 
+  private async fetchThreadsWindow(): Promise<{ threads: ThreadSummary[]; total: number }> {
+    const forum = this.forumId();
+    if (forum === null) return { threads: [], total: 0 };
+    return this.api.listThreads(forum, this.categories(), this.sort(), {
+      limit: this.threadLimit(),
+      offset: 0,
+    });
+  }
+
   async refreshThreads(): Promise<void> {
-    const board = this.boardId();
-    if (board === null) {
-      this.threads.set([]);
-      return;
+    const { threads, total } = await this.fetchThreadsWindow();
+    this.threads.set(threads);
+    this.threadTotal.set(total);
+  }
+
+  /** Pull one more batch of threads; no-op while exhausted or already loading. */
+  async loadMoreThreads(): Promise<void> {
+    if (!this.hasMoreThreads() || this.loadingMore()) return;
+    this.loadingMore.set(true);
+    const started = Date.now();
+    const before = this.threadLimit();
+    this.threadLimit.set(before + THREAD_PAGE_SIZE);
+    const sig = this.listSig();
+    try {
+      const page = await this.fetchThreadsWindow();
+      // hold the batch back until the beat is up: committing early would grow
+      // the list above the sentinel and push the dots off-screen instantly.
+      const left = MIN_LOADING_MS - (Date.now() - started);
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      // drop it if the board/filter/sort changed while we were fetching.
+      if (this.listSig() === sig) {
+        this.threads.set(page.threads);
+        this.threadTotal.set(page.total);
+      }
+    } catch (err) {
+      if (this.threadLimit() === before + THREAD_PAGE_SIZE) this.threadLimit.set(before);
+      this.fail(err);
+    } finally {
+      this.loadingMore.set(false);
     }
-    this.threads.set(await this.api.listThreads(board, this.category() || undefined));
+  }
+
+  /** Identity of the current thread-list query — a change mid-flight voids a batch. */
+  private listSig(): string {
+    return JSON.stringify([this.forumId(), this.categories(), this.sort(), this.threadLimit()]);
   }
 
   async refreshCards(): Promise<void> {
@@ -108,20 +202,39 @@ export class ForumStore {
   }
 
   async loadThread(id: number): Promise<void> {
+    const firstOpen = this.openThreadId !== id;
     this.openThreadId = id;
+    if (firstOpen) {
+      // count the view once per open — polling must not inflate it.
+      try {
+        await this.api.viewThread(id);
+      } catch {
+        /* view counting is best-effort; the thread still loads */
+      }
+    }
     this.thread.set(await this.api.getThread(id));
   }
 
   async refreshAll(): Promise<void> {
+    await this.refreshForums();
     await this.refreshBoards();
+    await this.refreshProjects();
     await this.refreshAgents();
     switch (this.view()) {
       case 'threads':
         if (this.openThreadId !== null) await this.loadThread(this.openThreadId);
-        else await this.refreshThreads();
+        // a held batch owns the list window until it commits; polling must not
+        // reveal it early (threadLimit is already bumped during the hold).
+        else if (!this.loadingMore()) await this.refreshThreads();
         break;
       case 'board':
         await this.refreshCards();
+        break;
+      case 'boards':
+        // the project list is covered by refreshProjects above.
+        break;
+      case 'forum':
+        await this.refreshOverview();
         break;
       case 'inbox':
         await this.refreshInbox();
@@ -147,26 +260,79 @@ export class ForumStore {
     this.thread.set(null);
   }
 
+  /** A new board/filter/sort starts over at the first batch. */
+  private resetPaging(): void {
+    this.threadLimit.set(THREAD_PAGE_SIZE);
+  }
+
   async switchBoard(id: number): Promise<void> {
     this.clearThread();
+    this.resetPaging();
     this.boardId.set(id);
     this.session.rememberBoard(id);
     await this.mutate(async () => undefined);
   }
 
-  async setCategory(category: string): Promise<void> {
-    this.category.set(category);
+  /** Select a forum: its boards, projects and threads all reload. */
+  async switchForum(id: number): Promise<void> {
+    if (id === this.forumId()) return;
+    this.clearThread();
+    this.resetPaging();
+    this.forumId.set(id);
+    this.session.rememberForum(id);
+    // the previous board belongs to another forum; let refreshBoards re-pick one.
+    this.boardId.set(null);
+    await this.mutate(async () => undefined);
+  }
+
+  async setCategories(categories: string[]): Promise<void> {
+    this.resetPaging();
+    this.categories.set(categories);
+    await this.mutate(() => this.refreshThreads());
+  }
+
+  /** Click a tag: add it to (or drop it from) the active filter set. */
+  async toggleCategory(category: string): Promise<void> {
+    const active = this.categories();
+    await this.setCategories(
+      active.includes(category) ? active.filter((c) => c !== category) : [...active, category],
+    );
+  }
+
+  async setSort(sort: ThreadSort): Promise<void> {
+    this.resetPaging();
+    this.sort.set(sort);
     await this.mutate(() => this.refreshThreads());
   }
 
   // ---- mutations -----------------------------------------------------------
 
-  async postThread(input: { title: string; category: string; body: string; mentions: string[] }): Promise<boolean> {
-    const board = this.boardId();
-    if (board === null) return false;
+  async postThread(input: {
+    title: string;
+    category: string;
+    body: string;
+    mentions: string[];
+  }): Promise<boolean> {
+    const forum = this.forumId();
+    if (forum === null) return false;
     return this.mutate(async () => {
-      await this.api.createThread({ board_id: board, ...input });
+      await this.api.createThread({ forum_id: forum, ...input });
       this.status.flash('thread posted');
+    });
+  }
+
+  async voteThread(threadId: number, remove: boolean): Promise<boolean> {
+    return this.mutate(async () => {
+      const res = await this.api.voteThread(threadId, remove ? 'remove' : 'up');
+      const detail = this.thread();
+      if (detail && detail.thread.id === threadId) {
+        this.thread.set({
+          ...detail,
+          voted: res.voted,
+          thread: { ...detail.thread, votes: res.votes },
+        });
+      }
+      this.status.flash(remove ? 'vote removed' : 'thread upvoted');
     });
   }
 
@@ -185,6 +351,36 @@ export class ForumStore {
         if (!(err instanceof ApiError) || (err.status !== 409 && err.status !== 404)) throw err;
       }
     });
+  }
+
+  /** Create a project; the server also creates its single board + columns. */
+  async createProject(
+    name: string,
+    description: string | null,
+  ): Promise<{ project: Project; board: Board } | null> {
+    const forum = this.forumId();
+    if (forum === null) return null;
+    let created: { project: Project; board: Board } | null = null;
+    const ok = await this.mutate(async () => {
+      created = await this.api.createProject({
+        name,
+        description: description || null,
+        forum_id: forum,
+      });
+      this.status.flash(`project "${name}" created`);
+    });
+    return ok ? created : null;
+  }
+
+  /** Create a forum (top-level workspace); selects it once created. */
+  async createForum(name: string, description: string | null): Promise<Forum | null> {
+    let forum: Forum | null = null;
+    const ok = await this.mutate(async () => {
+      forum = await this.api.createForum({ name, description: description || null });
+      this.status.flash(`forum "${name}" created`);
+    });
+    if (ok && forum) await this.switchForum((forum as Forum).id);
+    return ok ? forum : null;
   }
 
   async addColumn(name: string): Promise<boolean> {
@@ -277,14 +473,19 @@ export class ForumStore {
 
   private signature(): string {
     return JSON.stringify([
+      this.forums(),
       this.boards(),
+      this.projects(),
+      this.overview(),
       this.agents(),
       this.threads(),
       this.thread(),
       this.cards(),
       this.inbox(),
       this.view(),
-      this.category(),
+      this.categories(),
+      this.sort(),
+      this.forumId(),
       this.boardId(),
     ]);
   }

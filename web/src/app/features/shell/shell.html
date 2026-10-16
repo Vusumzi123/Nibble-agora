@@ -41,14 +41,6 @@
   </header>
 
   <main class="main">
-    <div
-      id="status"
-      class="status ph-label"
-      aria-live="polite"
-      [class.status--error]="status.isError()"
-    >
-      {{ status.message() }}
-    </div>
     <router-outlet />
   </main>
 

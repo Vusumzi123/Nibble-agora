@@ -1,0 +1,18 @@
+.forum__counts {
+  margin-left: auto;
+  display: flex;
+  gap: var(--ph-space-4);
+}
+
+.forum__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-3);
+}
+
+.forum__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--ph-space-3);
+  align-content: start;
+}

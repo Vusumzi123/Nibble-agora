@@ -132,6 +132,11 @@ check "seeded column order" \
   "$(echo "$RESP" | get boards.0.columns | count '' 'a.map(c=>c.name).join(",")')" \
   "inbox,todo,doing,done,dropped"
 BOARD_ID=$(echo "$RESP" | get boards.0.id)
+# --- forums (top-level workspaces) -------------------------------------------
+req_once GET /api/forums
+check "default forum is seeded" "$(echo "$RESP" | get forums.0.slug)" "forum"
+check "default forum carries the instance name" "$(echo "$RESP" | get forums.0.name)" "Agora"
+FORUM_ID=$(echo "$RESP" | get forums.0.id)
 # --- instance config + first-run setup ---------------------------------------
 req_once GET /api/config
 check "fresh instance starts unconfigured" "$(echo "$RESP" | get configured)" "false"
@@ -176,8 +181,24 @@ SMOKE_ID=$(echo "$RESP" | get board.id)
 req_once POST /api/boards '{"name":"Smoke Board"}'
 check "duplicate board rejected with 409" "$LAST_STATUS" "409"
 
+# --- projects + forum overview (Forum > Projects > Boards) -------------------
+req_once GET /api/projects
+check "seeded project is listed" "$(echo "$RESP" | get projects.0.slug)" "agora"
+check "seeded project has one board" "$(nonempty "$(echo "$RESP" | get projects.0.board_id)")" "true"
+check "legacy board creation also made its project" \
+  "$(echo "$RESP" | get projects | count '' 'a.filter(p=>p.name=="Smoke Board").length')" "1"
+req_once POST /api/projects '{"name":"Smoke Project","description":"from smoke"}'
+check "create project returns 201" "$LAST_STATUS" "201"
+check "project creation seeds default columns" "$(echo "$RESP" | get columns | count '' 'a.length')" "5"
+check "project and board share the name" "$(echo "$RESP" | get board.name)" "Smoke Project"
+req_once POST /api/projects '{"name":"Smoke Project"}'
+check "duplicate project rejected with 409" "$LAST_STATUS" "409"
+req_once GET "/api/forums/$FORUM_ID/overview"
+check "forum overview reports its name" "$(echo "$RESP" | get forum.name)" "Agora"
+check "forum overview counts every project" "$(echo "$RESP" | get counts.projects)" "3"
+
 # --- threads -----------------------------------------------------------------
-req_once POST /api/threads "{\"board_id\":$BOARD_ID,\"category\":\"task\",\"title\":\"Smoke thread\",\"body\":\"hello agora\",\"mentions\":[\"kael\"]}"
+req_once POST /api/threads "{\"forum_id\":$FORUM_ID,\"category\":\"task\",\"title\":\"Smoke thread\",\"body\":\"hello agora\",\"mentions\":[\"kael\"]}"
 check "create thread returns 201" "$LAST_STATUS" "201"
 T_ID=$(echo "$RESP" | get thread.id)
 P1_ID=$(echo "$RESP" | get post.id)
@@ -189,7 +210,7 @@ req_once POST "/api/threads/$T_ID/replies" '{"body":"replying","mentions":["nemu
 check "reply returns 201" "$LAST_STATUS" "201"
 R_ID=$(echo "$RESP" | get post.id)
 
-req_once POST /api/threads "{\"board_id\":$BOARD_ID,\"category\":\"idea\",\"title\":\"Second thread\",\"body\":\"only an opener\"}"
+req_once POST /api/threads "{\"forum_id\":$FORUM_ID,\"category\":\"idea\",\"title\":\"Second thread\",\"body\":\"only an opener\"}"
 check "second thread created" "$LAST_STATUS" "201"
 
 OVER=$(printf 'x%.0s' $(seq 1 513))
@@ -199,15 +220,15 @@ check "error code is machine-readable" "$(echo "$RESP" | get error.code)" "char_
 check "error names the configured limit" "$(echo "$RESP" | get error.limit)" "$POST_LIMIT"
 check "error reports actual length" "$(echo "$RESP" | get error.length)" "513"
 
-req_once POST /api/threads "{\"board_id\":$BOARD_ID,\"title\":\"Bad\",\"body\":\"x\",\"category\":\"bogus\"}"
+req_once POST /api/threads "{\"forum_id\":$FORUM_ID,\"title\":\"Bad\",\"body\":\"x\",\"category\":\"bogus\"}"
 check "unknown category rejected" "$LAST_STATUS" "400"
 
-req_once GET "/api/boards/$BOARD_ID/threads?unanswered=1"
+req_once GET "/api/forums/$FORUM_ID/threads?unanswered=1"
 check "unanswered filter finds the opener-only thread" \
   "$(echo "$RESP" | get threads | count '' 'a.length')" "1"
 check "unanswered thread is the second one" "$(echo "$RESP" | get threads.0.title)" "Second thread"
 
-req_once GET "/api/boards/$BOARD_ID/threads?category=task"
+req_once GET "/api/forums/$FORUM_ID/threads?category=task"
 check "category filter returns only task threads" \
   "$(echo "$RESP" | get threads | count '' 'a.every(t=>t.category==="task")')" "true"
 

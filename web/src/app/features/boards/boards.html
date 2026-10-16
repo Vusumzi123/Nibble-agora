@@ -1,0 +1,47 @@
+<section id="view-boards" class="view">
+  <div class="view__head">
+    <span class="ph-label">boards · projects</span>
+    @if (!createOpen) {
+      <button class="btn btn-sm btn-primary boards__new" type="button" (click)="openCreate()">
+        + project
+      </button>
+    }
+  </div>
+
+  @if (createOpen) {
+    <form class="boards__create" (ngSubmit)="create()">
+      <input
+        class="form-control"
+        type="text"
+        placeholder="project name"
+        name="name"
+        maxlength="64"
+        [(ngModel)]="name"
+        (keydown.escape)="closeCreate()"
+      />
+      <input
+        class="form-control"
+        type="text"
+        placeholder="description (optional)"
+        name="description"
+        [(ngModel)]="description"
+        (keydown.escape)="closeCreate()"
+      />
+      <button class="btn btn-primary" type="submit">create</button>
+      <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">cancel</button>
+    </form>
+  }
+
+  <div class="boards__grid">
+    @for (project of projects; track project.id) {
+      <app-project-card
+        [project]="project"
+        [link]="['/boards', project.board_id]"
+        [active]="project.board_id === store.boardId()"
+        [columns]="boardOf(project)?.columns.length ?? 0"
+      />
+    } @empty {
+      <p class="ph-label p-3">no projects yet</p>
+    }
+  </div>
+</section>

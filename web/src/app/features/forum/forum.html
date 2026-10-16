@@ -1,0 +1,41 @@
+<section id="view-forum" class="view">
+  <div class="view__head">
+    <span class="ph-label">forum · {{ store.overview()?.forum.name ?? config.forumName() }}</span>
+    <span class="forum__counts ph-label">
+      <span>{{ counts().projects }} projects</span>
+      <span>{{ counts().threads }} threads</span>
+    </span>
+  </div>
+
+  <div class="forum__section">
+    <span class="ph-label">projects</span>
+    <div class="forum__grid">
+      @for (project of projects(); track project.id) {
+        <app-project-card
+          [project]="project"
+          [link]="['/boards', project.board_id]"
+          [active]="project.board_id === store.boardId()"
+          [columns]="boardOf(project)?.columns.length ?? 0"
+        />
+      } @empty {
+        <p class="ph-label p-3">no projects yet</p>
+      }
+    </div>
+  </div>
+
+  <div class="forum__section">
+    <span class="ph-label">recent activity</span>
+    <div class="list">
+      @for (thread of recent(); track thread.id) {
+        <a class="list__row" [routerLink]="['/threads', thread.id]">
+          <span class="chip">{{ thread.category }}</span>
+          <span class="list__title">{{ thread.title }}</span>
+          <span class="list__meta ph-label">{{ thread.project_name }}</span>
+          <span class="ph-label">{{ thread.updated_at | when }}</span>
+        </a>
+      } @empty {
+        <p class="ph-label p-3">no threads yet</p>
+      }
+    </div>
+  </div>
+</section>

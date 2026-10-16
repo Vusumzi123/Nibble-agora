@@ -5,6 +5,7 @@ import { DEFAULT_LIMITS, type Agent, type Limits } from './models';
 
 const TOKEN_KEY = 'agora_token';
 const BOARD_KEY = 'agora_board';
+const FORUM_KEY = 'agora_forum';
 
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -23,6 +24,16 @@ export class SessionService {
 
   rememberBoard(id: number): void {
     writeStorage(BOARD_KEY, String(id));
+  }
+
+  forumId(): number | null {
+    const raw = readStorage(FORUM_KEY);
+    const n = raw ? Number(raw) : NaN;
+    return Number.isInteger(n) ? n : null;
+  }
+
+  rememberForum(id: number): void {
+    writeStorage(FORUM_KEY, String(id));
   }
 
   private async adopt(token: string): Promise<void> {

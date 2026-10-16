@@ -1,0 +1,28 @@
+.boards__new {
+  margin-left: auto;
+}
+
+/* Inline create row — sits under the head while a project is being named. */
+.boards__create {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  flex-wrap: wrap;
+  padding: var(--ph-space-3);
+  background: var(--ph-surface);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+}
+
+.boards__create .form-control {
+  flex: 1;
+  min-width: 10rem;
+}
+
+/* One card per project (the cards themselves are shared components). */
+.boards__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--ph-space-3);
+  align-content: start;
+}

@@ -15,7 +15,9 @@ import {
   type Board,
   type Card,
   type Column,
+  type Forum,
   type Post,
+  type Project,
   type Thread,
 } from '../db/index.ts';
 import {
@@ -24,6 +26,7 @@ import {
   charLimit,
   conflict,
   notFound,
+  optionalInt,
   requireInt,
   requireString,
   unauthorized,
@@ -72,7 +75,10 @@ function publicAgent(agent: Agent): Omit<Agent, 'token_hash' | 'password_hash'> 
   return identity;
 }
 
-function limitsOf(cfg: Config): { post_char_limit: number; card_desc_char_limit: number } {
+function limitsOf(cfg: Config): {
+  post_char_limit: number;
+  card_desc_char_limit: number;
+} {
   return {
     post_char_limit: cfg.postCharLimit,
     card_desc_char_limit: cfg.cardDescCharLimit,
@@ -80,7 +86,10 @@ function limitsOf(cfg: Config): { post_char_limit: number; card_desc_char_limit:
 }
 
 function normalizeHandle(raw: unknown, field = 'handle'): string {
-  const handle = String(requireString(raw, field, 64)).trim().replace(/^@/, '').toLowerCase();
+  const handle = String(requireString(raw, field, 64))
+    .trim()
+    .replace(/^@/, '')
+    .toLowerCase();
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(handle)) {
     throw badRequest('handle must start with a letter or digit and contain only a-z 0-9 . _ -', {
       field,
@@ -91,7 +100,11 @@ function normalizeHandle(raw: unknown, field = 'handle'): string {
 }
 
 /** Public instance configuration — never leaks credentials. */
-function configOf(ctx: Ctx): { configured: boolean; forum_name: string; theme: string } {
+function configOf(ctx: Ctx): {
+  configured: boolean;
+  forum_name: string;
+  theme: string;
+} {
   return {
     configured: isConfigured(ctx.db),
     forum_name: getSetting(ctx.db, 'forum_name') ?? ctx.cfg.defaultBoardName,
@@ -106,6 +119,34 @@ function configOf(ctx: Ctx): { configured: boolean; forum_name: string; theme: s
 function boardById(ctx: Ctx, id: number): Board {
   const row = ctx.db.get<Board>('SELECT * FROM boards WHERE id = ?', id);
   if (!row) throw notFound(`board ${id} does not exist`, { board_id: id });
+  return row;
+}
+
+function forumById(ctx: Ctx, id: number): Forum {
+  const row = ctx.db.get<Forum>('SELECT * FROM forums WHERE id = ?', id);
+  if (!row) throw notFound(`forum ${id} does not exist`, { forum_id: id });
+  return row;
+}
+
+/** The instance's default (first-created) forum — the fallback when none is named. */
+function defaultForum(ctx: Ctx): Forum | undefined {
+  return ctx.db.get<Forum>('SELECT * FROM forums ORDER BY id LIMIT 1');
+}
+
+/** Keep the default forum's name in sync with the instance display name. */
+function renameDefaultForum(ctx: Ctx, name: string): void {
+  const forum = defaultForum(ctx);
+  if (forum) ctx.db.run('UPDATE forums SET name = ? WHERE id = ?', name, forum.id);
+}
+
+/** Resolve a forum by numeric id or slug; no ref → the default forum. */
+function forumByRef(ctx: Ctx, ref: unknown): Forum | undefined {
+  if (ref === undefined || ref === null || ref === '') return defaultForum(ctx);
+  const key = String(ref);
+  const row = /^\d+$/.test(key)
+    ? ctx.db.get<Forum>('SELECT * FROM forums WHERE id = ?', Number(key))
+    : ctx.db.get<Forum>('SELECT * FROM forums WHERE slug = ?', key);
+  if (!row) throw notFound(`forum ${key} does not exist`, { field: 'forum', value: ref });
   return row;
 }
 
@@ -133,7 +174,11 @@ function agentByRef(ctx: Ctx, ref: unknown, field = 'assignee'): Agent | undefin
     typeof ref === 'number'
       ? ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', ref)
       : ctx.db.get<Agent>('SELECT * FROM agents WHERE handle = ?', String(ref));
-  if (!row) throw notFound(`agent ${String(ref)} does not exist`, { field, value: ref });
+  if (!row)
+    throw notFound(`agent ${String(ref)} does not exist`, {
+      field,
+      value: ref,
+    });
   return row;
 }
 
@@ -144,7 +189,10 @@ function columnById(ctx: Ctx, id: number): Column {
 }
 
 function columnsOf(ctx: Ctx, boardId: number): Column[] {
-  return ctx.db.all<Column>('SELECT * FROM columns WHERE board_id = ? ORDER BY position, id', boardId);
+  return ctx.db.all<Column>(
+    'SELECT * FROM columns WHERE board_id = ? ORDER BY position, id',
+    boardId,
+  );
 }
 
 function nextColumnPosition(ctx: Ctx, boardId: number): number {
@@ -163,10 +211,89 @@ function nextCardPosition(ctx: Ctx, columnId: number): number {
   return (row?.n ?? -1) + 1;
 }
 
+/** Name/slug uniqueness across both projects and boards (they mirror each other). */
+function projectNameTaken(ctx: Ctx, name: string, slug: string): boolean {
+  return Boolean(
+    ctx.db.get('SELECT id FROM projects WHERE name = ? OR slug = ?', name, slug) ||
+      ctx.db.get('SELECT id FROM boards WHERE name = ? OR slug = ?', name, slug),
+  );
+}
+
+function requestedColumns(body: Body): string[] {
+  let columnNames: string[] = [...DEFAULT_COLUMNS];
+  if (Array.isArray(body.columns) && body.columns.length > 0) {
+    columnNames = body.columns.map((c) => String(c).trim()).filter(Boolean);
+  }
+  if (columnNames.length === 0) {
+    throw badRequest('columns must contain at least one name', { field: 'columns' });
+  }
+  return columnNames;
+}
+
+/**
+ * One project + its single board + columns in a single transaction —
+ * the Forum > Projects > Boards invariant lives here (never a boardless
+ * project, never a project-less board).
+ */
+function insertProjectWithBoard(
+  ctx: Ctx,
+  input: {
+    name: string;
+    slug: string;
+    description: string | null;
+    columns: readonly string[];
+    agentId: number;
+    eventAction: string;
+    forumId: number | null;
+  },
+): { project: Project; board: Board } {
+  return ctx.db.tx(() => {
+    const ts = now();
+    const pr = ctx.db.run(
+      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, ?, ?, ?)',
+      input.name,
+      input.slug,
+      input.description,
+      input.agentId,
+      ts,
+      input.forumId,
+    );
+    const project = ctx.db.get<Project>('SELECT * FROM projects WHERE id = ?', pr.lastInsertRowid)!;
+    const br = ctx.db.run(
+      'INSERT INTO boards (name, slug, description, created_by, created_at, project_id) VALUES (?, ?, ?, ?, ?, ?)',
+      input.name,
+      input.slug,
+      input.description,
+      input.agentId,
+      ts,
+      project.id,
+    );
+    const board = ctx.db.get<Board>('SELECT * FROM boards WHERE id = ?', br.lastInsertRowid)!;
+    input.columns.forEach((col, i) => {
+      ctx.db.run(
+        'INSERT INTO columns (board_id, name, position, wip_limit) VALUES (?, ?, ?, NULL)',
+        board.id,
+        col,
+        i,
+      );
+    });
+    logEvent(ctx.db, {
+      actorId: input.agentId,
+      action: input.eventAction,
+      target: `${input.eventAction === 'project.create' ? 'project' : 'board'}:${board.id}`,
+      payload: { name: input.name, slug: input.slug, columns: [...input.columns] },
+    });
+    return { project, board };
+  });
+}
+
 /** Mentions are best-effort: unknown handles are reported, never fatal. */
 function resolveMentions(ctx: Ctx, raw: unknown): { ids: number[]; unknown: string[] } {
   if (raw === undefined || raw === null) return { ids: [], unknown: [] };
-  if (!Array.isArray(raw)) throw badRequest('mentions must be an array of handles', { field: 'mentions' });
+  if (!Array.isArray(raw))
+    throw badRequest('mentions must be an array of handles', {
+      field: 'mentions',
+    });
   const ids: number[] = [];
   const unknown: string[] = [];
   for (const entry of raw) {
@@ -209,10 +336,15 @@ const handlers = {
   login(ctx: Ctx, _m: RegExpExecArray, body: Body): Result {
     // Human seats log in with handle + password; the response carries a freshly
     // rotated bearer token so the rest of the API stays token-based.
-    const handle = String(body.handle ?? '').trim().replace(/^@/, '').toLowerCase();
+    const handle = String(body.handle ?? '')
+      .trim()
+      .replace(/^@/, '')
+      .toLowerCase();
     const password = typeof body.password === 'string' ? body.password : '';
     if (!handle || !password) {
-      throw badRequest('handle and password are required', { field: 'credentials' });
+      throw badRequest('handle and password are required', {
+        field: 'credentials',
+      });
     }
     const agent = ctx.db.get<Agent>('SELECT * FROM agents WHERE handle = ?', handle);
     if (!agent || !verifyPassword(password, agent.password_hash)) {
@@ -221,7 +353,11 @@ const handlers = {
     const token = newToken();
     ctx.db.tx(() => {
       ctx.db.run('UPDATE agents SET token_hash = ? WHERE id = ?', hashToken(token), agent.id);
-      logEvent(ctx.db, { actorId: agent.id, action: 'agent.login', target: `agent:${agent.id}` });
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'agent.login',
+        target: `agent:${agent.id}`,
+      });
     });
     return {
       status: 200,
@@ -243,10 +379,15 @@ const handlers = {
     const handle = normalizeHandle(body.handle ?? ctx.cfg.rootHandle);
     const password = String(requireString(body.password, 'password', 200));
     if (password.length < 8) {
-      throw badRequest('password must be at least 8 characters', { field: 'password' });
+      throw badRequest('password must be at least 8 characters', {
+        field: 'password',
+      });
     }
     if (ctx.db.get('SELECT id FROM agents WHERE handle = ?', handle)) {
-      throw conflict(`handle "${handle}" is already registered`, { field: 'handle', value: handle });
+      throw conflict(`handle "${handle}" is already registered`, {
+        field: 'handle',
+        value: handle,
+      });
     }
     const forumName =
       typeof body.forum_name === 'string' && body.forum_name.trim()
@@ -267,6 +408,7 @@ const handlers = {
       );
       setSetting(ctx.db, 'forum_name', forumName);
       setSetting(ctx.db, 'theme', theme);
+      renameDefaultForum(ctx, forumName);
       logEvent(ctx.db, {
         actorId: r.lastInsertRowid,
         action: 'instance.setup',
@@ -290,11 +432,16 @@ const handlers = {
 
   patchSettings(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
     if (body.forum_name !== undefined) {
-      setSetting(ctx.db, 'forum_name', String(requireString(body.forum_name, 'forum_name', 64)).trim());
+      const forumName = String(requireString(body.forum_name, 'forum_name', 64)).trim();
+      setSetting(ctx.db, 'forum_name', forumName);
+      renameDefaultForum(ctx, forumName);
     }
     if (body.theme !== undefined) {
       if (!isTheme(body.theme)) {
-        throw badRequest('unknown theme', { field: 'theme', value: body.theme });
+        throw badRequest('unknown theme', {
+          field: 'theme',
+          value: body.theme,
+        });
       }
       setSetting(ctx.db, 'theme', body.theme);
     }
@@ -314,21 +461,29 @@ const handlers = {
     const current = typeof body.current_password === 'string' ? body.current_password : '';
     const next = typeof body.new_password === 'string' ? body.new_password : '';
     if (next.length < 8) {
-      throw badRequest('new password must be at least 8 characters', { field: 'new_password' });
+      throw badRequest('new password must be at least 8 characters', {
+        field: 'new_password',
+      });
     }
     if (!verifyPassword(current, agent.password_hash)) {
       throw unauthorized('current password is incorrect');
     }
     ctx.db.tx(() => {
       ctx.db.run('UPDATE agents SET password_hash = ? WHERE id = ?', hashPassword(next), agent.id);
-      logEvent(ctx.db, { actorId: agent.id, action: 'agent.password_change', target: `agent:${agent.id}` });
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'agent.password_change',
+        target: `agent:${agent.id}`,
+      });
     });
     return { status: 200, body: { ok: true } };
   },
 
   listAgents(ctx: Ctx): Result {
     // assignee picker + @mention autocomplete — token_hash is never selected
-    const agents = ctx.db.all<Pick<Agent, 'id' | 'handle' | 'display_name' | 'is_human' | 'color' | 'created_at'>>(
+    const agents = ctx.db.all<
+      Pick<Agent, 'id' | 'handle' | 'display_name' | 'is_human' | 'color' | 'created_at'>
+    >(
       'SELECT id, handle, display_name, is_human, color, created_at FROM agents ORDER BY is_human DESC, handle',
     );
     return { status: 200, body: { agents } };
@@ -337,15 +492,21 @@ const handlers = {
   register(ctx: Ctx, _m: RegExpExecArray, body: Body): Result {
     const handle = normalizeHandle(body.handle);
     if (ctx.db.get('SELECT id FROM agents WHERE handle = ?', handle)) {
-      throw conflict(`handle "${handle}" is already registered`, { field: 'handle', value: handle });
+      throw conflict(`handle "${handle}" is already registered`, {
+        field: 'handle',
+        value: handle,
+      });
     }
     const displayName = String(body.display_name ?? handle).trim() || handle;
-    const isHuman = body.is_human === true || body.is_human === 1 || body.is_human === 'true' ? 1 : 0;
+    const isHuman =
+      body.is_human === true || body.is_human === 1 || body.is_human === 'true' ? 1 : 0;
     const color = typeof body.color === 'string' ? body.color.slice(0, 32) : null;
     let passwordHash: string | null = null;
     if (typeof body.password === 'string' && body.password.length > 0) {
       if (body.password.length < 8) {
-        throw badRequest('password must be at least 8 characters', { field: 'password' });
+        throw badRequest('password must be at least 8 characters', {
+          field: 'password',
+        });
       }
       passwordHash = hashPassword(body.password);
     }
@@ -379,61 +540,195 @@ const handlers = {
     };
   },
 
-  listBoards(ctx: Ctx, _m: RegExpExecArray, _body: Body, _agent: Agent): Result {
-    const boards = ctx.db.all<Board>('SELECT * FROM boards ORDER BY id').map((b) => ({
-      ...b,
-      columns: columnsOf(ctx, b.id),
-    }));
+  listBoards(
+    ctx: Ctx,
+    _m: RegExpExecArray,
+    _body: Body,
+    _agent: Agent,
+    query: URLSearchParams,
+  ): Result {
+    const forumRef = query.get('forum');
+    const forum = forumRef ? forumByRef(ctx, forumRef) : undefined;
+    const rows = forum
+      ? ctx.db.all<Board & { forum_id: number | null }>(
+          `SELECT b.*, p.forum_id AS forum_id FROM boards b
+             JOIN projects p ON p.id = b.project_id
+            WHERE p.forum_id = ? ORDER BY b.id`,
+          forum.id,
+        )
+      : ctx.db.all<Board & { forum_id: number | null }>(
+          'SELECT b.*, p.forum_id AS forum_id FROM boards b LEFT JOIN projects p ON p.id = b.project_id ORDER BY b.id',
+        );
+    const boards = rows.map((b) => ({ ...b, columns: columnsOf(ctx, b.id) }));
     return { status: 200, body: { boards } };
   },
 
+  /** Legacy create-board endpoint; now also creates the project (one per board). */
   createBoard(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
     const name = String(requireString(body.name, 'name', 64)).trim();
     const slug = slugify(String(body.slug ?? name));
     const description = typeof body.description === 'string' ? body.description : null;
-    if (ctx.db.get('SELECT id FROM boards WHERE name = ? OR slug = ?', name, slug)) {
-      throw conflict(`board "${name}" already exists`, { field: 'name', value: name });
+    if (projectNameTaken(ctx, name, slug)) {
+      throw conflict(`board "${name}" already exists`, {
+        field: 'name',
+        value: name,
+      });
     }
-    let columnNames: string[] = [...DEFAULT_COLUMNS];
-    if (Array.isArray(body.columns) && body.columns.length > 0) {
-      columnNames = body.columns.map((c) => String(c).trim()).filter(Boolean);
-    }
-    if (columnNames.length === 0) {
-      throw badRequest('columns must contain at least one name', { field: 'columns' });
-    }
+    const columnNames = requestedColumns(body);
+    const forum = forumByRef(ctx, body.forum_id ?? body.forum);
 
-    const boardId = ctx.db.tx(() => {
+    const { board } = insertProjectWithBoard(ctx, {
+      name,
+      slug,
+      description,
+      columns: columnNames,
+      agentId: agent.id,
+      eventAction: 'board.create',
+      forumId: forum?.id ?? null,
+    });
+
+    return {
+      status: 201,
+      body: {
+        board,
+        columns: columnsOf(ctx, board.id),
+      },
+    };
+  },
+
+  listProjects(
+    ctx: Ctx,
+    _m: RegExpExecArray,
+    _body: Body,
+    _agent: Agent,
+    query: URLSearchParams,
+  ): Result {
+    const forumRef = query.get('forum');
+    const forum = forumRef ? forumByRef(ctx, forumRef) : undefined;
+    const where = forum ? 'WHERE p.forum_id = ?' : '';
+    const params = forum ? [forum.id] : [];
+    const projects = ctx.db.all<Project & { board_id: number | null }>(
+      `SELECT p.*, b.id AS board_id
+         FROM projects p
+         LEFT JOIN boards b ON b.project_id = p.id
+         ${where}
+        ORDER BY p.id`,
+      ...params,
+    );
+    return { status: 200, body: { projects } };
+  },
+
+  createProject(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const name = String(requireString(body.name, 'name', 64)).trim();
+    const slug = slugify(String(body.slug ?? name));
+    const description = typeof body.description === 'string' ? body.description : null;
+    if (projectNameTaken(ctx, name, slug)) {
+      throw conflict(`project "${name}" already exists`, {
+        field: 'name',
+        value: name,
+      });
+    }
+    const columnNames = requestedColumns(body);
+    const forum = forumByRef(ctx, body.forum_id ?? body.forum);
+
+    // Forum > Projects > Boards: one project, its single board, default columns.
+    const { project, board } = insertProjectWithBoard(ctx, {
+      name,
+      slug,
+      description,
+      columns: columnNames,
+      agentId: agent.id,
+      eventAction: 'project.create',
+      forumId: forum?.id ?? null,
+    });
+
+    return {
+      status: 201,
+      body: { project, board, columns: columnsOf(ctx, board.id) },
+    };
+  },
+
+  listForums(ctx: Ctx): Result {
+    const forums = ctx.db.all<Forum>(
+      `SELECT f.*,
+              (SELECT COUNT(*) FROM projects p WHERE p.forum_id = f.id) AS projects,
+              (SELECT COUNT(*) FROM threads  t WHERE t.forum_id = f.id) AS threads
+         FROM forums f
+        ORDER BY f.id`,
+    );
+    return { status: 200, body: { forums } };
+  },
+
+  createForum(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const name = String(requireString(body.name, 'name', 64)).trim();
+    const slug = slugify(String(body.slug ?? name));
+    const description = typeof body.description === 'string' ? body.description : null;
+    if (ctx.db.get('SELECT id FROM forums WHERE name = ? OR slug = ?', name, slug)) {
+      throw conflict(`forum "${name}" already exists`, { field: 'name', value: name });
+    }
+    const forumId = ctx.db.tx(() => {
       const r = ctx.db.run(
-        'INSERT INTO boards (name, slug, description, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO forums (name, slug, description, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
         name,
         slug,
         description,
         agent.id,
         now(),
       );
-      columnNames.forEach((col, i) => {
-        ctx.db.run(
-          'INSERT INTO columns (board_id, name, position, wip_limit) VALUES (?, ?, ?, NULL)',
-          r.lastInsertRowid,
-          col,
-          i,
-        );
-      });
       logEvent(ctx.db, {
         actorId: agent.id,
-        action: 'board.create',
-        target: `board:${r.lastInsertRowid}`,
-        payload: { name, slug, columns: columnNames },
+        action: 'forum.create',
+        target: `forum:${r.lastInsertRowid}`,
+        payload: { name, slug },
       });
       return r.lastInsertRowid;
     });
-
     return {
       status: 201,
-      body: {
-        board: ctx.db.get<Board>('SELECT * FROM boards WHERE id = ?', boardId),
-        columns: columnsOf(ctx, boardId),
-      },
+      body: { forum: ctx.db.get<Forum>('SELECT * FROM forums WHERE id = ?', forumId) },
+    };
+  },
+
+  /** Per-forum overview: counts + recently active threads of that forum. */
+  forumOverview(ctx: Ctx, m: RegExpExecArray): Result {
+    const forum = forumById(ctx, requireInt(m[1], 'forum_id'));
+    const counts = {
+      projects: ctx.db.get<{ n: number }>(
+        'SELECT COUNT(*) AS n FROM projects WHERE forum_id = ?',
+        forum.id,
+      )!.n,
+      threads: ctx.db.get<{ n: number }>(
+        'SELECT COUNT(*) AS n FROM threads WHERE forum_id = ?',
+        forum.id,
+      )!.n,
+    };
+    const recent_threads = ctx.db.all<{
+      id: number;
+      title: string;
+      category: string;
+      status: string;
+      votes: number;
+      views: number;
+      updated_at: string;
+      forum_id: number;
+      project_name: string | null;
+    }>(
+      `SELECT t.id, t.title, t.category, t.status, t.votes, t.views, t.updated_at, t.forum_id,
+              (SELECT p.name
+                 FROM cards c
+                 JOIN boards b  ON b.id = c.board_id
+                 JOIN projects p ON p.id = b.project_id
+                WHERE c.thread_id = t.id
+                LIMIT 1) AS project_name
+         FROM threads t
+        WHERE t.forum_id = ?
+        ORDER BY t.updated_at DESC, t.id DESC
+        LIMIT 15`,
+      forum.id,
+    );
+    return {
+      status: 200,
+      body: { forum: { id: forum.id, name: forum.name, slug: forum.slug }, counts, recent_threads },
     };
   },
 
@@ -444,9 +739,12 @@ const handlers = {
     if (body.id !== undefined) {
       const col = columnById(ctx, requireInt(body.id, 'id'));
       if (col.board_id !== board.id) {
-        throw notFound(`column ${col.id} does not belong to board ${board.id}`, { column_id: col.id });
+        throw notFound(`column ${col.id} does not belong to board ${board.id}`, {
+          column_id: col.id,
+        });
       }
-      const name = body.name === undefined ? col.name : String(requireString(body.name, 'name', 64)).trim();
+      const name =
+        body.name === undefined ? col.name : String(requireString(body.name, 'name', 64)).trim();
       const position =
         body.position === undefined ? col.position : requireInt(body.position, 'position');
       const wip =
@@ -470,16 +768,29 @@ const handlers = {
           payload: { name, position, wip_limit: wip },
         });
       });
-      return { status: 200, body: { column: ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', col.id) } };
+      return {
+        status: 200,
+        body: {
+          column: ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', col.id),
+        },
+      };
     }
 
     const name = String(requireString(body.name, 'name', 64)).trim();
     if (columnsOf(ctx, board.id).some((c) => c.name === name)) {
-      throw conflict(`column "${name}" already exists on board "${board.name}"`, { field: 'name', value: name });
+      throw conflict(`column "${name}" already exists on board "${board.name}"`, {
+        field: 'name',
+        value: name,
+      });
     }
     const position =
-      body.position === undefined ? nextColumnPosition(ctx, board.id) : requireInt(body.position, 'position');
-    const wip = body.wip_limit === undefined || body.wip_limit === null ? null : requireInt(body.wip_limit, 'wip_limit');
+      body.position === undefined
+        ? nextColumnPosition(ctx, board.id)
+        : requireInt(body.position, 'position');
+    const wip =
+      body.wip_limit === undefined || body.wip_limit === null
+        ? null
+        : requireInt(body.wip_limit, 'wip_limit');
 
     const colId = ctx.db.tx(() => {
       const r = ctx.db.run(
@@ -497,18 +808,45 @@ const handlers = {
       });
       return r.lastInsertRowid;
     });
-    return { status: 201, body: { column: ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', colId) } };
+    return {
+      status: 201,
+      body: {
+        column: ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', colId),
+      },
+    };
   },
 
-  listThreads(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent, query: URLSearchParams): Result {
-    const board = boardById(ctx, requireInt(m[1], 'board_id'));
-    const where: string[] = ['t.board_id = ?'];
-    const params: unknown[] = [board.id];
+  listThreads(
+    ctx: Ctx,
+    m: RegExpExecArray,
+    _body: Body,
+    _agent: Agent,
+    query: URLSearchParams,
+  ): Result {
+    const forum = forumById(ctx, requireInt(m[1], 'forum_id'));
+    const where: string[] = ['t.forum_id = ?'];
+    const params: unknown[] = [forum.id];
 
-    const category = query.get('category');
-    if (category) {
-      where.push('t.category = ?');
-      params.push(category);
+    // category accepts repeats and/or commas: ?category=task,idea
+    const categories = query
+      .getAll('category')
+      .flatMap((v) => v.split(','))
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+    if (categories.length) {
+      const seen = new Set<string>();
+      for (const c of categories) {
+        if (!['discussion', 'task', 'idea', 'idle', 'announcement'].includes(c)) {
+          throw badRequest('category must be discussion|task|idea|idle|announcement', {
+            field: 'category',
+            value: c,
+          });
+        }
+        seen.add(c);
+      }
+      const list = [...seen];
+      where.push(`t.category IN (${list.map(() => '?').join(', ')})`);
+      params.push(...list);
     }
     const status = query.get('status');
     if (status) {
@@ -516,21 +854,86 @@ const handlers = {
       params.push(status);
     }
     const unanswered = query.get('unanswered');
+    const sort = query.get('sort') ?? 'updated';
+    const ORDER: Record<string, string> = {
+      updated: 't.updated_at DESC, t.id DESC',
+      created: 't.created_at DESC, t.id DESC',
+      votes: 't.votes DESC, t.updated_at DESC, t.id DESC',
+      views: 't.views DESC, t.updated_at DESC, t.id DESC',
+    };
+    if (!(sort in ORDER)) {
+      throw badRequest('sort must be updated|created|votes|views', {
+        field: 'sort',
+        value: sort,
+      });
+    }
 
+    // pagination: absent limit = every matching thread (pre-paging clients unchanged).
+    const limit = optionalInt(query.get('limit'), 'limit', 1, 200);
+    const offset = optionalInt(query.get('offset'), 'offset', 0, 1_000_000);
+
+    const unansweredOnly = unanswered === '1' || unanswered === 'true';
     const countExpr = '(SELECT COUNT(*) FROM posts p WHERE p.thread_id = t.id)';
+    // The thread's opening post is its body; the newest post is its last
+    // comment. Both ride the list row so the seat can render a preview card
+    // without a second round-trip per thread.
+    const bodyExpr = `(SELECT p.body FROM posts p WHERE p.thread_id = t.id ORDER BY p.id ASC LIMIT 1)`;
+    const lastBodyExpr = `(SELECT p.body FROM posts p WHERE p.thread_id = t.id ORDER BY p.id DESC LIMIT 1)`;
+    const lastAtExpr = `(SELECT p.created_at FROM posts p WHERE p.thread_id = t.id ORDER BY p.id DESC LIMIT 1)`;
+    const lastAuthorExpr = `(SELECT a.handle FROM posts p JOIN agents a ON a.id = p.author_id WHERE p.thread_id = t.id ORDER BY p.id DESC LIMIT 1)`;
+    const filter = [...where];
+    if (unansweredOnly) filter.push(`${countExpr} <= 1`);
+    const whereSql = filter.join(' AND ');
+
+    const pageParams = [...params];
+    let paging = '';
+    if (limit !== null || offset !== null) {
+      if (limit !== null) {
+        paging = 'LIMIT ?';
+        pageParams.push(limit);
+      } else {
+        paging = 'LIMIT -1'; // sqlite needs a limit before OFFSET
+      }
+      if (offset !== null) {
+        paging += ' OFFSET ?';
+        pageParams.push(offset);
+      }
+    }
     const sql = `
-      SELECT t.*, ${countExpr} AS reply_count
+      SELECT t.*, ${countExpr} AS reply_count,
+             ${bodyExpr} AS body,
+             ${lastBodyExpr} AS last_body,
+             ${lastAtExpr} AS last_at,
+             ${lastAuthorExpr} AS last_author
         FROM threads t
-       WHERE ${where.join(' AND ')}
-         ${unanswered === '1' || unanswered === 'true' ? `AND ${countExpr} <= 1` : ''}
-       ORDER BY t.updated_at DESC, t.id DESC
+       WHERE ${whereSql}
+       ORDER BY ${ORDER[sort]}
+       ${paging}
     `;
-    const threads = ctx.db.all<Thread & { reply_count: number }>(sql, ...params);
-    return { status: 200, body: { board_id: board.id, threads } };
+    const threads = ctx.db.all<
+      Thread & {
+        reply_count: number;
+        body: string | null;
+        last_body: string | null;
+        last_at: string | null;
+        last_author: string | null;
+      }
+    >(sql, ...pageParams);
+    const total = ctx.db.get<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM threads t WHERE ${whereSql}`,
+      ...params,
+    );
+    return {
+      status: 200,
+      body: { forum_id: forum.id, threads, total: total?.n ?? threads.length },
+    };
   },
 
   createThread(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
-    const board = boardById(ctx, requireInt(body.board_id, 'board_id'));
+    const forum = forumByRef(ctx, body.forum_id ?? body.forum);
+    if (!forum) {
+      throw badRequest('no forum exists yet — create one first', { field: 'forum_id' });
+    }
     const category = body.category === undefined ? 'discussion' : String(body.category);
     if (!['discussion', 'task', 'idea', 'idle', 'announcement'].includes(category)) {
       throw badRequest('category must be discussion|task|idea|idle|announcement', {
@@ -540,13 +943,14 @@ const handlers = {
     }
     const title = String(requireString(body.title, 'title', 200)).trim();
     const text = String(requireString(body.body, 'body', ctx.cfg.postCharLimit));
-    if (text.length > ctx.cfg.postCharLimit) throw charLimit('body', ctx.cfg.postCharLimit, text.length);
+    if (text.length > ctx.cfg.postCharLimit)
+      throw charLimit('body', ctx.cfg.postCharLimit, text.length);
     const mentions = resolveMentions(ctx, body.mentions);
 
     const { threadId, postId } = ctx.db.tx(() => {
       const t = ctx.db.run(
-        'INSERT INTO threads (board_id, category, title, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        board.id,
+        'INSERT INTO threads (forum_id, category, title, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        forum.id,
         category,
         title,
         'open',
@@ -566,7 +970,12 @@ const handlers = {
         actorId: agent.id,
         action: 'thread.create',
         target: `thread:${t.lastInsertRowid}`,
-        payload: { board_id: board.id, category, title, post_id: p.lastInsertRowid },
+        payload: {
+          forum_id: forum.id,
+          category,
+          title,
+          post_id: p.lastInsertRowid,
+        },
       });
       if (mentions.ids.length) {
         logEvent(ctx.db, {
@@ -590,34 +999,114 @@ const handlers = {
     };
   },
 
-  getThread(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent): Result {
+  getThread(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
     const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
-    const posts = ctx.db.all<Post & { author_handle: string; author_is_human: number }>(
-      `SELECT p.*, a.handle AS author_handle, a.is_human AS author_is_human
+    const posts = ctx.db
+      .all<Post & { author_handle: string; author_is_human: number }>(
+        `SELECT p.*, a.handle AS author_handle, a.is_human AS author_is_human
          FROM posts p JOIN agents a ON a.id = p.author_id
         WHERE p.thread_id = ? ORDER BY p.created_at, p.id`,
-      thread.id,
-    ).map((p) => ({
-      ...p,
-      reactions: ctx.db.all(
-        `SELECT r.emoji, a.handle AS agent FROM reactions r
+        thread.id,
+      )
+      .map((p) => ({
+        ...p,
+        reactions: ctx.db.all(
+          `SELECT r.emoji, a.handle AS agent FROM reactions r
            JOIN agents a ON a.id = r.agent_id
           WHERE r.target_type = 'post' AND r.target_id = ? ORDER BY r.id`,
-        p.id,
-      ),
-      mentions: ctx.db.all<{ handle: string }>(
-        'SELECT a.handle FROM mentions m JOIN agents a ON a.id = m.agent_id WHERE m.post_id = ? ORDER BY a.handle',
-        p.id,
-      ).map((r) => r.handle),
-    }));
+          p.id,
+        ),
+        mentions: ctx.db
+          .all<{ handle: string }>(
+            'SELECT a.handle FROM mentions m JOIN agents a ON a.id = m.agent_id WHERE m.post_id = ? ORDER BY a.handle',
+            p.id,
+          )
+          .map((r) => r.handle),
+      }));
     const card = ctx.db.get<Card>('SELECT * FROM cards WHERE thread_id = ?', thread.id) ?? null;
-    return { status: 200, body: { thread, posts, card } };
+    const voted = !!ctx.db.get(
+      'SELECT 1 FROM thread_votes WHERE thread_id = ? AND agent_id = ?',
+      thread.id,
+      agent.id,
+    );
+    return { status: 200, body: { thread, posts, card, voted } };
+  },
+
+  /** One view per call — the web seat fires this once per thread open, not per poll. */
+  viewThread(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
+    ctx.db.tx(() => {
+      ctx.db.run('UPDATE threads SET views = views + 1 WHERE id = ?', thread.id);
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'thread.view',
+        target: `thread:${thread.id}`,
+      });
+    });
+    return { status: 200, body: { thread: threadById(ctx, thread.id) } };
+  },
+
+  /** Toggle-style upvote: one vote per agent; op=up adds, op=remove retracts. */
+  voteThread(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
+    const op = body.op === undefined ? 'up' : String(body.op);
+    if (op !== 'up' && op !== 'remove') {
+      throw badRequest('op must be "up" or "remove"', {
+        field: 'op',
+        value: op,
+      });
+    }
+    const existing = ctx.db.get(
+      'SELECT 1 FROM thread_votes WHERE thread_id = ? AND agent_id = ?',
+      thread.id,
+      agent.id,
+    );
+    if (op === 'up' && existing) {
+      throw conflict(`thread ${thread.id} already voted on by ${agent.handle}`, {
+        field: 'op',
+        value: op,
+      });
+    }
+    if (op === 'remove' && !existing) {
+      throw notFound(`thread ${thread.id} has no vote from ${agent.handle}`, {
+        field: 'op',
+        value: op,
+      });
+    }
+    ctx.db.tx(() => {
+      if (op === 'up') {
+        ctx.db.run(
+          'INSERT INTO thread_votes (thread_id, agent_id) VALUES (?, ?)',
+          thread.id,
+          agent.id,
+        );
+        ctx.db.run('UPDATE threads SET votes = votes + 1 WHERE id = ?', thread.id);
+      } else {
+        ctx.db.run(
+          'DELETE FROM thread_votes WHERE thread_id = ? AND agent_id = ?',
+          thread.id,
+          agent.id,
+        );
+        ctx.db.run('UPDATE threads SET votes = MAX(votes - 1, 0) WHERE id = ?', thread.id);
+      }
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: op === 'up' ? 'thread.vote' : 'thread.unvote',
+        target: `thread:${thread.id}`,
+      });
+    });
+    const fresh = threadById(ctx, thread.id);
+    return {
+      status: op === 'up' ? 201 : 200,
+      body: { thread_id: fresh.id, votes: fresh.votes, voted: op === 'up' },
+    };
   },
 
   reply(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
     const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
     const text = String(requireString(body.body, 'body', ctx.cfg.postCharLimit));
-    if (text.length > ctx.cfg.postCharLimit) throw charLimit('body', ctx.cfg.postCharLimit, text.length);
+    if (text.length > ctx.cfg.postCharLimit)
+      throw charLimit('body', ctx.cfg.postCharLimit, text.length);
     const mentions = resolveMentions(ctx, body.mentions);
 
     const postId = ctx.db.tx(() => {
@@ -662,7 +1151,13 @@ const handlers = {
     return applyReaction(ctx, 'post', post.id, body, agent);
   },
 
-  listCards(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent, query: URLSearchParams): Result {
+  listCards(
+    ctx: Ctx,
+    m: RegExpExecArray,
+    _body: Body,
+    _agent: Agent,
+    query: URLSearchParams,
+  ): Result {
     const board = boardById(ctx, requireInt(m[1], 'board_id'));
     const where: string[] = ['c.board_id = ?'];
     const params: unknown[] = [board.id];
@@ -671,8 +1166,15 @@ const handlers = {
     if (column) {
       const col = /^\d+$/.test(column)
         ? ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', Number(column))
-        : ctx.db.get<Column>('SELECT * FROM columns WHERE board_id = ? AND name = ?', board.id, column);
-      if (!col) throw notFound(`column ${column} does not exist on board ${board.id}`, { column });
+        : ctx.db.get<Column>(
+            'SELECT * FROM columns WHERE board_id = ? AND name = ?',
+            board.id,
+            column,
+          );
+      if (!col)
+        throw notFound(`column ${column} does not exist on board ${board.id}`, {
+          column,
+        });
       where.push('c.column_id = ?');
       params.push(col.id);
     }
@@ -684,7 +1186,11 @@ const handlers = {
     }
 
     const cards = ctx.db.all<
-      Card & { column_name: string; assignee_handle: string | null; creator_handle: string }
+      Card & {
+        column_name: string;
+        assignee_handle: string | null;
+        creator_handle: string;
+      }
     >(
       `SELECT c.*, col.name AS column_name,
               ag.handle AS assignee_handle, cr.handle AS creator_handle
@@ -712,7 +1218,9 @@ const handlers = {
     if (body.column_id !== undefined && body.column_id !== null && body.column_id !== '') {
       column = columnById(ctx, requireInt(body.column_id, 'column_id'));
       if (column.board_id !== board.id) {
-        throw badRequest(`column ${column.id} is not on board ${board.id}`, { field: 'column_id' });
+        throw badRequest(`column ${column.id} is not on board ${board.id}`, {
+          field: 'column_id',
+        });
       }
     } else if (typeof body.column === 'string') {
       const byName = ctx.db.get<Column>(
@@ -720,12 +1228,18 @@ const handlers = {
         board.id,
         body.column,
       );
-      if (!byName) throw notFound(`column "${body.column}" not on board "${board.name}"`, { column: body.column });
+      if (!byName)
+        throw notFound(`column "${body.column}" not on board "${board.name}"`, {
+          column: body.column,
+        });
       column = byName;
     } else {
       column = cols[0];
     }
-    if (!column) throw badRequest(`board ${board.id} has no columns`, { field: 'column_id' });
+    if (!column)
+      throw badRequest(`board ${board.id} has no columns`, {
+        field: 'column_id',
+      });
 
     const assignee = agentByRef(ctx, body.assignee, 'assignee');
     let threadId: number | null = null;
@@ -759,7 +1273,12 @@ const handlers = {
       return r.lastInsertRowid;
     });
 
-    return { status: 201, body: { card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', cardId) } };
+    return {
+      status: 201,
+      body: {
+        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', cardId),
+      },
+    };
   },
 
   patchCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
@@ -774,12 +1293,16 @@ const handlers = {
     let doneAt = card.done_at;
 
     const columnChanged =
-      body.column_id !== undefined && body.column_id !== null && requireInt(body.column_id, 'column_id') !== card.column_id;
+      body.column_id !== undefined &&
+      body.column_id !== null &&
+      requireInt(body.column_id, 'column_id') !== card.column_id;
 
     if (body.column_id !== undefined && body.column_id !== null && body.column_id !== '') {
       const col = columnById(ctx, requireInt(body.column_id, 'column_id'));
       if (col.board_id !== card.board_id) {
-        throw badRequest(`column ${col.id} is not on card ${card.id}'s board`, { field: 'column_id' });
+        throw badRequest(`column ${col.id} is not on card ${card.id}'s board`, {
+          field: 'column_id',
+        });
       }
       columnId = col.id;
     }
@@ -791,7 +1314,10 @@ const handlers = {
       }
     }
     if (body.assignee !== undefined) {
-      assigneeId = body.assignee === null || body.assignee === '' ? null : (agentByRef(ctx, body.assignee, 'assignee')?.id ?? null);
+      assigneeId =
+        body.assignee === null || body.assignee === ''
+          ? null
+          : (agentByRef(ctx, body.assignee, 'assignee')?.id ?? null);
     }
     if (body.done !== undefined) {
       doneAt = body.done === true || body.done === 1 || body.done === 'true' ? now() : null;
@@ -820,7 +1346,11 @@ const handlers = {
           actorId: agent.id,
           action: 'card.move',
           target: `card:${card.id}`,
-          payload: { from_column: before.column_id, to_column: columnId, position },
+          payload: {
+            from_column: before.column_id,
+            to_column: columnId,
+            position,
+          },
         });
       }
       if (assigneeId !== before.assignee_id) {
@@ -835,18 +1365,39 @@ const handlers = {
         actorId: agent.id,
         action: 'card.update',
         target: `card:${card.id}`,
-        payload: { title, done_at: doneAt, changed: diffKeys(before, { column_id: columnId, position, title, description, assignee_id: assigneeId, done_at: doneAt }) },
+        payload: {
+          title,
+          done_at: doneAt,
+          changed: diffKeys(before, {
+            column_id: columnId,
+            position,
+            title,
+            description,
+            assignee_id: assigneeId,
+            done_at: doneAt,
+          }),
+        },
       });
     });
 
-    return { status: 200, body: { card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id) } };
+    return {
+      status: 200,
+      body: {
+        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id),
+      },
+    };
   },
 
   linkCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
     const card = cardById(ctx, requireInt(m[1], 'card_id'));
     const thread = threadById(ctx, requireInt(body.thread_id, 'thread_id'));
     ctx.db.tx(() => {
-      ctx.db.run('UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?', thread.id, now(), card.id);
+      ctx.db.run(
+        'UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?',
+        thread.id,
+        now(),
+        card.id,
+      );
       logEvent(ctx.db, {
         actorId: agent.id,
         action: 'card.link',
@@ -854,14 +1405,24 @@ const handlers = {
         payload: { thread_id: thread.id },
       });
     });
-    return { status: 200, body: { card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id) } };
+    return {
+      status: 200,
+      body: {
+        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id),
+      },
+    };
   },
 
   linkThread(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
     const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
     const card = cardById(ctx, requireInt(body.card_id, 'card_id'));
     ctx.db.tx(() => {
-      ctx.db.run('UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?', thread.id, now(), card.id);
+      ctx.db.run(
+        'UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?',
+        thread.id,
+        now(),
+        card.id,
+      );
       logEvent(ctx.db, {
         actorId: agent.id,
         action: 'card.link',
@@ -869,7 +1430,12 @@ const handlers = {
         payload: { thread_id: thread.id, via: 'thread' },
       });
     });
-    return { status: 200, body: { card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id) } };
+    return {
+      status: 200,
+      body: {
+        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id),
+      },
+    };
   },
 
   reactToCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
@@ -879,7 +1445,11 @@ const handlers = {
 
   inbox(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent): Result {
     const ref = decodeURIComponent(m[1]).replace(/^@/, '');
-    const agent = ctx.db.get<Agent>('SELECT * FROM agents WHERE handle = ? OR id = ?', ref, Number(ref) || -1);
+    const agent = ctx.db.get<Agent>(
+      'SELECT * FROM agents WHERE handle = ? OR id = ?',
+      ref,
+      Number(ref) || -1,
+    );
     if (!agent) throw notFound(`agent ${ref} does not exist`, { handle: ref });
 
     const mentions = ctx.db.all(
@@ -921,11 +1491,20 @@ function diffKeys(before: Record<string, unknown>, after: Record<string, unknown
   return Object.keys(after).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
 }
 
-function applyReaction(ctx: Ctx, targetType: 'post' | 'card', targetId: number, body: Body, agent: Agent): Result {
+function applyReaction(
+  ctx: Ctx,
+  targetType: 'post' | 'card',
+  targetId: number,
+  body: Body,
+  agent: Agent,
+): Result {
   const emoji = String(requireString(body.emoji, 'emoji', 32)).trim();
   const op = body.op === undefined ? 'add' : String(body.op);
   if (op !== 'add' && op !== 'remove') {
-    throw badRequest('op must be "add" or "remove"', { field: 'op', value: op });
+    throw badRequest('op must be "add" or "remove"', {
+      field: 'op',
+      value: op,
+    });
   }
   const existing = ctx.db.get<{ id: number }>(
     'SELECT id FROM reactions WHERE target_type = ? AND target_id = ? AND agent_id = ? AND emoji = ?',
@@ -988,7 +1567,16 @@ function applyReaction(ctx: Ctx, targetType: 'post' | 'card', targetId: number, 
     targetType,
     targetId,
   );
-  return { status: op === 'add' ? 201 : 200, body: { target_type: targetType, target_id: targetId, op, emoji, reactions: rows } };
+  return {
+    status: op === 'add' ? 201 : 200,
+    body: {
+      target_type: targetType,
+      target_id: targetId,
+      op,
+      emoji,
+      reactions: rows,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1000,28 +1588,138 @@ export const ROUTES: Route[] = [
   { method: 'POST', re: /^\/api\/login$/, auth: false, h: handlers.login },
   { method: 'GET', re: /^\/api\/config$/, auth: false, h: handlers.config },
   { method: 'POST', re: /^\/api\/setup$/, auth: false, h: handlers.setup },
-  { method: 'PATCH', re: /^\/api\/settings$/, auth: true, h: handlers.patchSettings },
-  { method: 'POST', re: /^\/api\/settings\/password$/, auth: true, h: handlers.changePassword },
+  {
+    method: 'PATCH',
+    re: /^\/api\/settings$/,
+    auth: true,
+    h: handlers.patchSettings,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/settings\/password$/,
+    auth: true,
+    h: handlers.changePassword,
+  },
   { method: 'POST', re: /^\/api\/agents$/, auth: false, h: handlers.register },
   { method: 'GET', re: /^\/api\/agents$/, auth: true, h: handlers.listAgents },
 
   { method: 'GET', re: /^\/api\/boards$/, auth: true, h: handlers.listBoards },
-  { method: 'POST', re: /^\/api\/boards$/, auth: true, h: handlers.createBoard },
-  { method: 'POST', re: /^\/api\/boards\/(\d+)\/columns$/, auth: true, h: handlers.manageColumns },
-  { method: 'GET', re: /^\/api\/boards\/(\d+)\/threads$/, auth: true, h: handlers.listThreads },
-  { method: 'GET', re: /^\/api\/boards\/(\d+)\/cards$/, auth: true, h: handlers.listCards },
+  {
+    method: 'POST',
+    re: /^\/api\/boards$/,
+    auth: true,
+    h: handlers.createBoard,
+  },
 
-  { method: 'POST', re: /^\/api\/threads$/, auth: true, h: handlers.createThread },
-  { method: 'GET', re: /^\/api\/threads\/(\d+)$/, auth: true, h: handlers.getThread },
-  { method: 'POST', re: /^\/api\/threads\/(\d+)\/replies$/, auth: true, h: handlers.reply },
-  { method: 'POST', re: /^\/api\/threads\/(\d+)\/link$/, auth: true, h: handlers.linkThread },
+  { method: 'GET', re: /^\/api\/forums$/, auth: true, h: handlers.listForums },
+  {
+    method: 'POST',
+    re: /^\/api\/forums$/,
+    auth: true,
+    h: handlers.createForum,
+  },
+  {
+    method: 'GET',
+    re: /^\/api\/forums\/(\d+)\/overview$/,
+    auth: true,
+    h: handlers.forumOverview,
+  },
+  {
+    method: 'GET',
+    re: /^\/api\/forums\/(\d+)\/threads$/,
+    auth: true,
+    h: handlers.listThreads,
+  },
 
-  { method: 'POST', re: /^\/api\/posts\/(\d+)\/reactions$/, auth: true, h: handlers.reactToPost },
+  { method: 'GET', re: /^\/api\/projects$/, auth: true, h: handlers.listProjects },
+  {
+    method: 'POST',
+    re: /^\/api\/projects$/,
+    auth: true,
+    h: handlers.createProject,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/boards\/(\d+)\/columns$/,
+    auth: true,
+    h: handlers.manageColumns,
+  },
+  {
+    method: 'GET',
+    re: /^\/api\/boards\/(\d+)\/cards$/,
+    auth: true,
+    h: handlers.listCards,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/threads$/,
+    auth: true,
+    h: handlers.createThread,
+  },
+  {
+    method: 'GET',
+    re: /^\/api\/threads\/(\d+)$/,
+    auth: true,
+    h: handlers.getThread,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/threads\/(\d+)\/view$/,
+    auth: true,
+    h: handlers.viewThread,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/threads\/(\d+)\/vote$/,
+    auth: true,
+    h: handlers.voteThread,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/threads\/(\d+)\/replies$/,
+    auth: true,
+    h: handlers.reply,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/threads\/(\d+)\/link$/,
+    auth: true,
+    h: handlers.linkThread,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/posts\/(\d+)\/reactions$/,
+    auth: true,
+    h: handlers.reactToPost,
+  },
 
   { method: 'POST', re: /^\/api\/cards$/, auth: true, h: handlers.createCard },
-  { method: 'PATCH', re: /^\/api\/cards\/(\d+)$/, auth: true, h: handlers.patchCard },
-  { method: 'POST', re: /^\/api\/cards\/(\d+)\/link$/, auth: true, h: handlers.linkCard },
-  { method: 'POST', re: /^\/api\/cards\/(\d+)\/reactions$/, auth: true, h: handlers.reactToCard },
+  {
+    method: 'PATCH',
+    re: /^\/api\/cards\/(\d+)$/,
+    auth: true,
+    h: handlers.patchCard,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/cards\/(\d+)\/link$/,
+    auth: true,
+    h: handlers.linkCard,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/cards\/(\d+)\/reactions$/,
+    auth: true,
+    h: handlers.reactToCard,
+  },
 
-  { method: 'GET', re: /^\/api\/inbox\/([^/]+)$/, auth: true, h: handlers.inbox },
+  {
+    method: 'GET',
+    re: /^\/api\/inbox\/([^/]+)$/,
+    auth: true,
+    h: handlers.inbox,
+  },
 ];

@@ -41,7 +41,19 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     expect(panel.classList.contains('side-panel--open')).toBe(false);
   });
 
-  it('renders views and boards, and opens on demand', async () => {
+  it('renders the views (threads, boards, inbox) and the forum switcher, opens on demand', async () => {
+    store.forums.set([
+      {
+        id: 1,
+        name: 'Agora',
+        slug: 'forum',
+        description: null,
+        created_by: null,
+        created_at: '',
+        archived_at: null,
+        threads: 3,
+      },
+    ]);
     const fixture = TestBed.createComponent(SidePanel);
     fixture.detectChanges();
     fixture.componentRef.setInput('open', true);
@@ -50,7 +62,12 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.side-panel--open')).not.toBeNull();
     expect(root.querySelector('a[href="/threads"]')).not.toBeNull();
-    expect(root.querySelector('#panel-boards')?.textContent).toContain('no boards');
+    expect(root.querySelector('a[href="/boards"]')).not.toBeNull();
+    expect(root.querySelector('a[href="/inbox"]')).not.toBeNull();
+
+    // the forums group is the switcher now — one button per forum
+    const forumButtons = root.querySelectorAll('.side-panel__group .panel-item');
+    expect(forumButtons.length).toBeGreaterThanOrEqual(1);
 
     const loading = store.refreshBoards();
     http.expectOne('/api/boards').flush({
@@ -63,6 +80,7 @@ describe('SidePanel (full-screen navigation drawer)', () => {
           created_by: null,
           created_at: '',
           archived_at: null,
+          project_id: 1,
           columns: [],
         },
       ],
@@ -71,6 +89,5 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     fixture.detectChanges();
 
     expect(store.boardId()).toBe(7);
-    expect(root.querySelector('#panel-boards')?.textContent).toContain('Agora');
   });
 });

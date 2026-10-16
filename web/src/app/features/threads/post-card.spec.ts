@@ -42,25 +42,31 @@ describe('PostCard', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('groups existing reactions and marks the caller’s own reaction', () => {
+  it('always shows every preset with a counter and marks the caller’s own reaction', () => {
     const el = render();
     const chips = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')];
-    const plusOne = chips.find((c) => c.textContent?.trim() === '+1 2');
-    expect(plusOne).toBeTruthy();
+    expect(chips.length).toBeGreaterThanOrEqual(4);
+    const plusOne = chips.find((c) => c.textContent?.includes('👍'));
+    expect(plusOne?.textContent).toContain('2');
     expect(plusOne?.classList.contains('btn-primary')).toBe(true);
+    const thumbsDown = chips.find((c) => c.textContent?.includes('👎'));
+    expect(thumbsDown?.textContent).toContain('0');
+    expect(thumbsDown?.classList.contains('reaction--zero')).toBe(true);
   });
 
-  it('offers the presets that are not already present', () => {
+  it('adds a preset reaction the caller has not used yet', () => {
     const el = render();
-    const labels = [...el.querySelectorAll('.reactions .chip')].map((c) => c.textContent?.trim());
-    expect(labels).toContain('+ ack');
-    expect(labels).not.toContain('+ +1');
+    const thumbsDown = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find((c) =>
+      c.textContent?.includes('👎'),
+    );
+    thumbsDown?.click();
+    expect(toggleReaction).toHaveBeenCalledWith(7, '-1', false);
   });
 
   it('removes the caller’s reaction when an owned chip is clicked', () => {
     const el = render();
-    const plusOne = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find(
-      (c) => c.textContent?.trim() === '+1 2',
+    const plusOne = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find((c) =>
+      c.textContent?.includes('👍'),
     );
     plusOne?.click();
     expect(toggleReaction).toHaveBeenCalledWith(7, '+1', true);

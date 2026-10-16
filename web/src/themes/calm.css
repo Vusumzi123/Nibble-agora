@@ -10,8 +10,8 @@
   --ph-bg-rgb: 244, 246, 253;
   --ph-surface: #fbfcff;
   --ph-surface-rgb: 251, 252, 255;
-  --ph-surface-raised: #ffffff;
-  --ph-surface-raised-rgb: 255, 255, 255;
+  --ph-surface-raised: #f7f4ff;
+  --ph-surface-raised-rgb: rgb(247, 244, 255);
   --ph-border: #d9ddf2;
   --ph-text: #2b2f4a;
   --ph-text-rgb: 43, 47, 74;

@@ -8,10 +8,13 @@ import type {
   Board,
   Card,
   Column,
+  Forum,
+  ForumOverview,
   Inbox,
   Limits,
   Me,
   Post,
+  Project,
   Reaction,
   SetupInput,
   Thread,
@@ -96,24 +99,78 @@ export class ApiService {
     return this.request<{ agents: Agent[] }>('GET', '/api/agents').then((r) => r.agents);
   }
 
-  listBoards(): Promise<Board[]> {
-    return this.request<{ boards: Board[] }>('GET', '/api/boards').then((r) => r.boards);
+  listBoards(forumId?: number): Promise<Board[]> {
+    const query = forumId === undefined ? '' : `?forum=${forumId}`;
+    return this.request<{ boards: Board[] }>('GET', `/api/boards${query}`).then((r) => r.boards);
   }
 
-  listThreads(boardId: number, category?: string): Promise<ThreadSummary[]> {
-    const query = category ? `?category=${encodeURIComponent(category)}` : '';
-    return this.request<{ threads: ThreadSummary[] }>(
+  listForums(): Promise<Forum[]> {
+    return this.request<{ forums: Forum[] }>('GET', '/api/forums').then((r) => r.forums);
+  }
+
+  createForum(input: {
+    name: string;
+    description?: string | null;
+  }): Promise<Forum> {
+    return this.request<{ forum: Forum }>('POST', '/api/forums', input).then((r) => r.forum);
+  }
+
+  listProjects(forumId?: number): Promise<Project[]> {
+    const query = forumId === undefined ? '' : `?forum=${forumId}`;
+    return this.request<{ projects: Project[] }>('GET', `/api/projects${query}`).then(
+      (r) => r.projects,
+    );
+  }
+
+  /** Create a project — the server creates its single board + default columns. */
+  createProject(input: {
+    name: string;
+    description?: string | null;
+    forum_id?: number;
+  }): Promise<{ project: Project; board: Board; columns: Column[] }> {
+    return this.request('POST', '/api/projects', input);
+  }
+
+  /** Forum home: counts + recently active threads for one forum. */
+  forumOverview(forumId: number): Promise<ForumOverview> {
+    return this.request<ForumOverview>('GET', `/api/forums/${forumId}/overview`);
+  }
+
+  listThreads(
+    forumId: number,
+    categories?: string[],
+    sort?: string,
+    page?: { limit: number; offset: number },
+  ): Promise<{ threads: ThreadSummary[]; total: number }> {
+    const params = new URLSearchParams();
+    for (const cat of categories ?? []) params.append('category', cat);
+    if (sort) params.set('sort', sort);
+    if (page) {
+      params.set('limit', String(page.limit));
+      params.set('offset', String(page.offset));
+    }
+    const query = params.toString() ? `?${params}` : '';
+    return this.request<{ threads: ThreadSummary[]; total?: number }>(
       'GET',
-      `/api/boards/${boardId}/threads${query}`,
-    ).then((r) => r.threads);
+      `/api/forums/${forumId}/threads${query}`,
+    ).then((r) => ({ threads: r.threads, total: r.total ?? r.threads.length }));
   }
 
   getThread(id: number): Promise<ThreadDetail> {
     return this.request<ThreadDetail>('GET', `/api/threads/${id}`);
   }
 
+  /** Count one view — the seat fires this once per thread open, never per poll. */
+  viewThread(id: number): Promise<{ thread: Thread }> {
+    return this.request('POST', `/api/threads/${id}/view`);
+  }
+
+  voteThread(id: number, op: 'up' | 'remove'): Promise<{ votes: number; voted: boolean }> {
+    return this.request('POST', `/api/threads/${id}/vote`, { op });
+  }
+
   createThread(input: {
-    board_id: number;
+    forum_id: number;
     category: string;
     title: string;
     body: string;

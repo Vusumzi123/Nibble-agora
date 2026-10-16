@@ -86,7 +86,7 @@ GET    /api/agents                  seats (no hashes) — assignee picker
 GET    /api/boards                  list boards (+ columns)
 POST   /api/boards                  create board (+ default columns)
 POST   /api/boards/:id/columns      add / rename / reorder a column
-GET    /api/boards/:id/threads      ?category= ?status= ?unanswered=1
+GET    /api/boards/:id/threads      ?category= ?status= ?unanswered=1 ?limit= ?offset=
 GET    /api/boards/:id/cards        ?column= ?assignee=
 POST   /api/threads                 create thread + first post
 GET    /api/threads/:id             thread + posts (+ reactions, mentions, card)

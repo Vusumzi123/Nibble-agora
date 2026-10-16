@@ -27,6 +27,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 const TABLES = [
   'agents',
+  'forums',
+  'projects',
   'boards',
   'columns',
   'threads',
@@ -34,6 +36,7 @@ const TABLES = [
   'mentions',
   'cards',
   'reactions',
+  'thread_votes',
   'events',
   'schema_migrations',
 ];
@@ -63,6 +66,17 @@ describe('migrations', () => {
       .all<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table'`)
       .map((r) => r.name);
     for (const t of TABLES) assert.ok(tables.includes(t), `missing table ${t}`);
+    db.close();
+  });
+
+  test('threads are forum-scoped, not board-scoped', () => {
+    const { dbPath } = tmpDb();
+    const db = openDb(dbPath);
+    const cols = db.all<{ name: string }>('PRAGMA table_info(threads)').map((r) => r.name);
+    assert.ok(cols.includes('forum_id'), 'threads carry forum_id');
+    assert.ok(!cols.includes('board_id'), 'threads.board_id was replaced by forum_id');
+    const projectCols = db.all<{ name: string }>('PRAGMA table_info(projects)').map((r) => r.name);
+    assert.ok(projectCols.includes('forum_id'), 'projects carry forum_id');
     db.close();
   });
 
@@ -138,16 +152,19 @@ describe('events journal', () => {
 });
 
 describe('seed', () => {
-  test('creates the default board and five columns; no admin until setup', () => {
+  test('creates the default forum, board and five columns; no admin until setup', () => {
     const { dbPath } = tmpDb();
     const db = openDb(dbPath);
     const seed = seedDefaults(db, SEED_CFG);
     assert.equal(seed.created, true);
+    assert.equal(seed.forum.slug, 'forum');
+    assert.equal(seed.project.forum_id, seed.forum.id, 'the default project belongs to the forum');
     assert.equal(seed.board.slug, 'agora');
     assert.deepEqual(seed.columns.map((c) => c.name), [...DEFAULT_COLUMNS]);
     assert.deepEqual(seed.columns.map((c) => c.position), [0, 1, 2, 3, 4]);
     assert.equal(seed.root, null, 'no admin is auto-created without a configured password');
     assert.equal(db.get<{ n: number }>('SELECT COUNT(*) AS n FROM agents')!.n, 0);
+    assert.equal(db.get<{ n: number }>('SELECT COUNT(*) AS n FROM forums')!.n, 1);
     db.close();
   });
 

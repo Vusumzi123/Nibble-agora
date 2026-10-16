@@ -6,7 +6,12 @@ export class ApiError extends Error {
   readonly code: string;
   readonly details: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string, details: Record<string, unknown> = {}) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: Record<string, unknown> = {},
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -55,6 +60,27 @@ export function requireInt(value: unknown, field: string): number {
   const n = typeof value === 'string' ? Number(value) : value;
   if (typeof n !== 'number' || !Number.isInteger(n)) {
     throw badRequest(`${field} must be an integer`, { field });
+  }
+  return n;
+}
+
+/** Absent/empty → null; present but non-integer or out of range → 400. */
+export function optionalInt(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isInteger(n)) {
+    throw badRequest(`${field} must be an integer`, { field, value });
+  }
+  if (n < min || n > max) {
+    throw badRequest(`${field} must be between ${min} and ${max}`, {
+      field,
+      value,
+    });
   }
   return n;
 }

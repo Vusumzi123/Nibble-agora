@@ -5,7 +5,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { AgoraClient, RestError, resolveBoard, resolveColumn, type Board } from './client.ts';
+import { AgoraClient, RestError, resolveBoard, resolveColumn, resolveForum, type Board } from './client.ts';
 
 /** Posts per forum_read page — cursor truncation for mission token budgets. */
 export const READ_PAGE = 20;
@@ -56,6 +56,11 @@ const BOARD = z
   .optional()
   .describe('Board id, slug or name. Default: AGORA_BOARD env ("agora").');
 
+const FORUM = z
+  .union([z.string(), z.number()])
+  .optional()
+  .describe('Forum id, slug or name. Default: AGORA_FORUM env ("forum"), else the first forum.');
+
 const ASSIGN = z
   .union([z.string(), z.number()])
   .describe('Assignee: agent handle or id.');
@@ -92,14 +97,30 @@ export function createBridge(opts: BridgeOptions): McpServer {
   );
 
   server.registerTool(
-    'forum_boards',
+    'forum_forums',
     {
-      title: 'Forum: boards',
-      description: 'List boards (projects) with their kanban columns.',
+      title: 'Forum: forums',
+      description: 'List forums (top-level workspaces, each owning its own projects and threads).',
       inputSchema: {},
     },
     guarded(client,async (c) => {
-      const { boards } = await c.get<{ boards: Board[] }>('/api/boards');
+      const { forums } = await c.get<{ forums: Record<string, unknown>[] }>('/api/forums');
+      return { forums };
+    }),
+  );
+
+  server.registerTool(
+    'forum_boards',
+    {
+      title: 'Forum: boards',
+      description:
+        'List boards (one kanban board per project: Forum > Projects > Boards) with their columns; optionally within one forum.',
+      inputSchema: { forum: FORUM },
+    },
+    guarded(client,async (c, args) => {
+      const query =
+        args.forum === undefined ? undefined : { forum: (await resolveForum(c, args.forum)).id };
+      const { boards } = await c.get<{ boards: Board[] }>('/api/boards', query);
       return { boards };
     }),
   );
@@ -108,9 +129,9 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_browse',
     {
       title: 'Forum: browse',
-      description: 'List threads on a board. Filters: category, status, unanswered. Newest activity first.',
+      description: 'List threads in a forum. Filters: category, status, unanswered. Newest activity first.',
       inputSchema: {
-        board: BOARD,
+        forum: FORUM,
         category: z
           .enum(['discussion', 'task', 'idea', 'idle', 'announcement'])
           .optional()
@@ -121,9 +142,9 @@ export function createBridge(opts: BridgeOptions): McpServer {
       },
     },
     guarded(client,async (c, args) => {
-      const board = await resolveBoard(c, args.board);
-      const data = await c.get<{ board_id: number; threads: Record<string, unknown>[] }>(
-        `/api/boards/${board.id}/threads`,
+      const forum = await resolveForum(c, args.forum);
+      const data = await c.get<{ forum_id: number; threads: Record<string, unknown>[] }>(
+        `/api/forums/${forum.id}/threads`,
         {
           category: args.category,
           status: args.status,
@@ -133,7 +154,7 @@ export function createBridge(opts: BridgeOptions): McpServer {
       const limit = args.limit ?? 50;
       const threads = data.threads.slice(0, limit);
       return {
-        board: { id: board.id, name: board.name, slug: board.slug },
+        forum: { id: forum.id, name: forum.name, slug: forum.slug },
         threads,
         next: data.threads.length > limit ? threads[threads.length - 1]?.id : null,
       };
@@ -178,9 +199,9 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_post',
     {
       title: 'Forum: post',
-      description: 'Create a thread (board, category, title, body ≤512 chars) and its first post.',
+      description: 'Create a thread (forum, category, title, body ≤512 chars) and its first post.',
       inputSchema: {
-        board: BOARD,
+        forum: FORUM,
         category: z
           .enum(['discussion', 'task', 'idea', 'idle', 'announcement'])
           .optional()
@@ -191,9 +212,9 @@ export function createBridge(opts: BridgeOptions): McpServer {
       },
     },
     guarded(client,async (c, args) => {
-      const board = await resolveBoard(c, args.board);
+      const forum = await resolveForum(c, args.forum);
       return c.post('/api/threads', {
-        board_id: board.id,
+        forum_id: forum.id,
         category: args.category ?? 'discussion',
         title: args.title,
         body: args.body,
@@ -381,7 +402,7 @@ export function createBridge(opts: BridgeOptions): McpServer {
         });
       } else {
         const thread = await c.post<{ thread: { id: number }; post: { id: number } }>('/api/threads', {
-          board_id: board.id,
+          forum_id: board.forum_id ?? (await resolveForum(c)).id,
           category: 'task',
           title: `delegate: ${card.title}`.slice(0, 200),
           body: args.mention,

@@ -1,10 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
 import { SessionService } from '../../core/session.service';
+import { StatusService } from '../../core/status.service';
 import { THEMES } from '../../core/theme';
 
 @Component({
@@ -18,6 +19,7 @@ export class SetupPage {
   private readonly config = inject(ConfigService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  private readonly status = inject(StatusService);
 
   protected readonly themes = THEMES;
   protected handle = 'root';
@@ -25,7 +27,6 @@ export class SetupPage {
   protected confirm = '';
   protected forumName = this.config.forumName();
   protected theme = this.config.theme();
-  protected readonly error = signal('');
   protected busy = false;
 
   protected pick(theme: string): void {
@@ -34,17 +35,16 @@ export class SetupPage {
   }
 
   protected async submit(): Promise<void> {
-    this.error.set('');
     if (!this.handle.trim()) {
-      this.error.set('a handle is required');
+      this.status.flash('a handle is required', true);
       return;
     }
     if (this.password.length < 8) {
-      this.error.set('password must be at least 8 characters');
+      this.status.flash('password must be at least 8 characters', true);
       return;
     }
     if (this.password !== this.confirm) {
-      this.error.set('passwords do not match');
+      this.status.flash('passwords do not match', true);
       return;
     }
     this.busy = true;
@@ -59,7 +59,7 @@ export class SetupPage {
       this.config.apply(res.config);
       await this.router.navigateByUrl('/threads');
     } catch (err) {
-      this.error.set(err instanceof Error ? err.message : String(err));
+      this.status.flash(err instanceof Error ? err.message : String(err), true);
     } finally {
       this.busy = false;
     }

@@ -4,7 +4,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Db } from './sqlite.ts';
 import { migrate } from './migrate.ts';
 import { hashPassword } from './passwords.ts';
-import type { Agent, Board, Column, EventRow } from './types.ts';
+import type { Agent, Board, Column, EventRow, Forum, Project } from './types.ts';
 
 export { Db } from './sqlite.ts';
 export { migrate, migrationState } from './migrate.ts';
@@ -57,6 +57,8 @@ function safeParse(text: string): unknown {
 }
 
 export interface SeedResult {
+  forum: Forum;
+  project: Project;
   board: Board;
   columns: Column[];
   created: boolean;
@@ -75,41 +77,92 @@ export interface SeedConfig {
 }
 
 /**
- * Idempotent first-boot seed: the default board with its five columns. An admin
- * seat is created **only** when an explicit `rootPassword` is configured
- * (automated deploys); otherwise the instance starts unconfigured and the first
- * admin is created by the `/setup` wizard. Only the scrypt hash is stored.
+ * Idempotent first-boot seed: the default project with its one board and five
+ * columns. An admin seat is created **only** when an explicit `rootPassword`
+ * is configured (automated deploys); otherwise the instance starts unconfigured
+ * and the first admin is created by the `/setup` wizard. Only the scrypt hash
+ * is stored.
  */
 export function seedDefaults(db: Db, cfg: SeedConfig): SeedResult {
   let created = false;
+  const now = new Date().toISOString();
+
+  // Forums are the top-level workspace; every instance has at least one.
+  let forum = db.get<Forum>('SELECT * FROM forums ORDER BY id LIMIT 1');
+  if (!forum) {
+    created = true;
+    db.run(
+      'INSERT INTO forums (name, slug, description, created_by, created_at) VALUES (?, ?, ?, NULL, ?)',
+      cfg.defaultBoardName,
+      'forum',
+      cfg.defaultBoardDescription || null,
+      now,
+    );
+    forum = db.get<Forum>('SELECT * FROM forums ORDER BY id LIMIT 1')!;
+    logEvent(db, {
+      action: 'forum.seed',
+      target: `forum:${forum.id}`,
+      payload: { slug: forum.slug },
+    });
+  }
 
   let board = db.get<Board>('SELECT * FROM boards WHERE slug = ?', cfg.defaultBoard);
   if (!board) {
     created = true;
-    const now = new Date().toISOString();
-    db.run(
-      'INSERT INTO boards (name, slug, description, created_by, created_at) VALUES (?, ?, ?, NULL, ?)',
-      cfg.defaultBoardName,
-      cfg.defaultBoard,
-      cfg.defaultBoardDescription || null,
-      now,
-    );
-    board = db.get<Board>('SELECT * FROM boards WHERE slug = ?', cfg.defaultBoard)!;
-    DEFAULT_COLUMNS.forEach((name, i) => {
+    board = db.tx(() => {
       db.run(
-        'INSERT INTO columns (board_id, name, position, wip_limit) VALUES (?, ?, ?, NULL)',
-        board!.id,
-        name,
-        i,
+        'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, NULL, ?, ?)',
+        cfg.defaultBoardName,
+        cfg.defaultBoard,
+        cfg.defaultBoardDescription || null,
+        now,
+        forum!.id,
       );
-    });
-    logEvent(db, {
-      action: 'board.seed',
-      target: `board:${board.id}`,
-      payload: { slug: cfg.defaultBoard, columns: [...DEFAULT_COLUMNS] },
+      const project = db.get<Project>('SELECT * FROM projects WHERE slug = ?', cfg.defaultBoard)!;
+      db.run(
+        'INSERT INTO boards (name, slug, description, created_by, created_at, project_id) VALUES (?, ?, ?, NULL, ?, ?)',
+        cfg.defaultBoardName,
+        cfg.defaultBoard,
+        cfg.defaultBoardDescription || null,
+        now,
+        project.id,
+      );
+      const seeded = db.get<Board>('SELECT * FROM boards WHERE slug = ?', cfg.defaultBoard)!;
+      DEFAULT_COLUMNS.forEach((name, i) => {
+        db.run(
+          'INSERT INTO columns (board_id, name, position, wip_limit) VALUES (?, ?, ?, NULL)',
+          seeded.id,
+          name,
+          i,
+        );
+      });
+      logEvent(db, {
+        action: 'board.seed',
+        target: `board:${seeded.id}`,
+        payload: { slug: cfg.defaultBoard, columns: [...DEFAULT_COLUMNS] },
+      });
+      return seeded;
     });
   }
 
+  // Defensive repair: a board from before 0004 without its project link.
+  if (board.project_id === null) {
+    db.run(
+      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, ?, ?, ?)',
+      board.name,
+      board.slug,
+      board.description,
+      board.created_by,
+      now,
+      forum.id,
+    );
+    const project = db.get<Project>('SELECT * FROM projects WHERE slug = ?', board.slug)!;
+    db.run('UPDATE boards SET project_id = ? WHERE id = ?', project.id, board.id);
+    board = db.get<Board>('SELECT * FROM boards WHERE id = ?', board.id)!;
+    created = true;
+  }
+
+  const project = db.get<Project>('SELECT * FROM projects WHERE id = ?', board.project_id!)!;
   const columns = db.all<Column>(
     'SELECT * FROM columns WHERE board_id = ? ORDER BY position',
     board.id,
@@ -146,7 +199,7 @@ export function seedDefaults(db: Db, cfg: SeedConfig): SeedResult {
     }
   }
 
-  return { board, columns, created, root };
+  return { forum, project, board, columns, created, root };
 }
 
 // ---------------------------------------------------------------------------

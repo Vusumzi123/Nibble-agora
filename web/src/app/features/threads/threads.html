@@ -1,85 +1,188 @@
 <section id="view-threads" class="view">
-  @if (!store.boardId()) {
-    <p class="ph-label">no board selected</p>
+  @if (!store.forumId()) {
+    <p class="ph-label">no forum selected</p>
   } @else {
-    <section class="ph-panel composer">
-      <header class="ph-panel__header">new thread</header>
-      <div class="ph-panel__body composer__grid">
-        <input
-          class="form-control"
-          type="text"
-          placeholder="title"
-          maxlength="200"
-          [(ngModel)]="title"
-        />
-        <select class="form-select" [(ngModel)]="category">
-          @for (cat of categories; track cat) {
-            <option [value]="cat">{{ cat }}</option>
-          }
-        </select>
-        <div class="composer__body">
-          <textarea
-            class="form-control"
-            rows="4"
-            [placeholder]="'first message — ' + store.session.limits().post_char_limit + ' char limit'"
-            [(ngModel)]="body"
-          ></textarea>
-          <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
-        </div>
-        <input
-          class="form-control"
-          type="text"
-          placeholder="mentions, comma separated"
-          [(ngModel)]="mentions"
-        />
-        <div class="composer__actions">
-          <button class="btn btn-primary" type="button" (click)="post()">post thread</button>
-        </div>
-      </div>
-    </section>
-
     <div class="view__head">
       <span class="ph-label">threads</span>
-      <div class="chips">
+      <div class="tags">
         <button
-          class="chip btn btn-sm"
+          class="tag"
           type="button"
-          [class.btn-primary]="store.category() === ''"
-          [class.btn-outline-secondary]="store.category() !== ''"
-          (click)="store.setCategory('')"
+          [class.tag--active]="store.categories().length === 0"
+          (click)="store.setCategories([])"
         >
           all
         </button>
         @for (cat of categories; track cat) {
           <button
-            class="chip btn btn-sm"
+            class="tag"
             type="button"
-            [class.btn-primary]="store.category() === cat"
-            [class.btn-outline-secondary]="store.category() !== cat"
-            (click)="store.setCategory(cat)"
+            [attr.data-cat]="cat"
+            [class.tag--active]="store.categories().includes(cat)"
+            [attr.aria-pressed]="store.categories().includes(cat)"
+            (click)="store.toggleCategory(cat)"
           >
             {{ cat }}
           </button>
         }
       </div>
+      <div class="threads__sort">
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          type="button"
+          aria-haspopup="dialog"
+          (click)="sortOpen = true"
+        >
+          sort by: {{ sortLabel() }} ▾
+        </button>
+      </div>
     </div>
 
-    <div class="list">
+    <div class="list list--flush">
       @for (thread of store.threads(); track thread.id) {
-        <a class="list__row" [routerLink]="['/threads', thread.id]">
-          <app-category-badge [category]="thread.category" />
-          <span class="list__title">{{ thread.title }}</span>
-          <span class="list__meta ph-label">
-            {{ thread.reply_count - 1 }} replies
+        <a class="list__row list__row--card" [routerLink]="['/threads', thread.id]">
+          <span class="list__head">
+            <span class="tag" [attr.data-cat]="thread.category">{{ thread.category }}</span>
+            <span class="list__title">{{ thread.title }}</span>
             @if (thread.status !== 'open') {
-              · {{ thread.status }}
+              <span class="list__meta ph-label">{{ thread.status }}</span>
             }
-            · {{ thread.updated_at | when }}
+          </span>
+          @if (thread.body) {
+            <span class="list__body">{{ thread.body }}</span>
+          }
+          @if (thread.reply_count > 1 && thread.last_body) {
+            <span class="list__comment">
+              <span class="list__comment-author">@{{ thread.last_author }}</span>
+              <span class="list__comment-body">{{ thread.last_body }}</span>
+            </span>
+          }
+          <span class="list__footer ph-label">
+            <span>▲ {{ thread.votes }}</span>
+            <span>{{ thread.views }} views</span>
+            <span>{{ thread.reply_count - 1 }} replies</span>
+            <span class="list__footer-time">{{ thread.updated_at | when }}</span>
           </span>
         </a>
       } @empty {
         <p class="ph-label p-3">no threads yet</p>
       }
     </div>
+
+    @if (store.hasMoreThreads()) {
+      <div class="ph-label p-3 text-center" #sentinel>
+        @if (store.loadingMore()) {
+          <span class="threads__dots" role="status" aria-label="loading more">
+            <i></i><i></i><i></i>
+          </span>
+        } @else {
+          loading more…
+        }
+      </div>
+    }
+
+    @if (composerOpen) {
+      <div class="overlay" (click)="closeComposer()">
+        <section class="ph-panel composer overlay__card" (click)="$event.stopPropagation()">
+          <header class="ph-panel__header">new thread</header>
+          <div class="ph-panel__body composer__grid">
+            <input
+              class="form-control"
+              type="text"
+              placeholder="title"
+              maxlength="200"
+              [(ngModel)]="title"
+            />
+            <select class="form-select" [(ngModel)]="category">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+              }
+            </select>
+            <div class="composer__body">
+              <textarea
+                class="form-control"
+                rows="4"
+                [placeholder]="
+                  'first message — ' + store.session.limits().post_char_limit + ' char limit'
+                "
+                [(ngModel)]="body"
+              ></textarea>
+              <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
+            </div>
+            <input
+              class="form-control"
+              type="text"
+              placeholder="mentions, comma separated"
+              [(ngModel)]="mentions"
+            />
+            <div class="composer__actions">
+              <button
+                class="btn btn-outline-secondary me-2"
+                type="button"
+                (click)="closeComposer()"
+              >
+                cancel
+              </button>
+              <button class="btn btn-primary" type="button" (click)="post()">post thread</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    }
+
+    @if (sortOpen) {
+      <div
+        class="overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="sort by"
+        (click)="closeSort()"
+      >
+        <section class="overlay__card overlay__card--menu" (click)="$event.stopPropagation()">
+          <header class="ph-panel__header">sort by</header>
+          <div class="sort-menu">
+            @for (opt of sortOptions; track opt.value) {
+              <button
+                class="sort-menu__item"
+                type="button"
+                [class.sort-menu__item--active]="store.sort() === opt.value"
+                [attr.aria-checked]="store.sort() === opt.value"
+                role="menuitemradio"
+                (click)="applySort(opt.value)"
+              >
+                <span>{{ opt.label }}</span>
+                @if (store.sort() === opt.value) {
+                  <span class="sort-menu__check" aria-hidden="true">✓</span>
+                }
+              </button>
+            }
+          </div>
+        </section>
+      </div>
+    }
+  }
+
+  @if (store.forumId()) {
+    <button
+      class="threads__fab"
+      type="button"
+      title="new thread"
+      aria-label="new thread"
+      (click)="openComposer()"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    </button>
   }
 </section>

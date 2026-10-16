@@ -1,0 +1,25 @@
+.thread-detail__stats {
+  margin-left: auto;
+}
+
+/* Detail view pins head + composer; only the post feed scrolls. */
+.view--detail {
+  overflow: hidden;
+}
+
+.view--detail .feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: var(--ph-space-1);
+}
+
+.view--detail .composer {
+  flex: none;
+}
+
+.feed__sentinel {
+  padding: var(--ph-space-3);
+  text-align: center;
+}

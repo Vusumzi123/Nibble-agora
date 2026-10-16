@@ -5,35 +5,32 @@
         @{{ post().author_handle }}
       </span>
       @if (post().author_is_human === 1) {
-        <span class="badge text-bg-warning">human</span>
+        <span class="post__tag post__flag">human</span>
       }
       <span class="ph-label">{{ post().created_at | when }}</span>
     </div>
     <div class="post__body">{{ post().body }}</div>
     @if (post().mentions.length) {
       <div class="post__mentions ph-label">
-        mentions
+        <span class="post__mentions-label">mentions</span>
         @for (handle of post().mentions; track handle) {
-          @{{ handle }}
+          <span class="post__tag" [style.--tag-accent]="accentFor(handle)">@{{ handle }}</span>
         }
       </div>
     }
     <div class="reactions">
-      @for (group of groups(); track group.emoji) {
+      @for (chip of chips(); track chip.token) {
         <button
           class="chip btn btn-sm"
           type="button"
-          [class.btn-primary]="group.mine"
-          [class.btn-outline-secondary]="!group.mine"
-          [title]="group.agents.map(asHandle).join(', ')"
-          (click)="toggle(group.emoji, group.mine)"
+          [class.btn-primary]="chip.mine"
+          [class.btn-outline-secondary]="!chip.mine"
+          [class.reaction--zero]="chip.count === 0"
+          [title]="chip.agents.length ? chip.agents.map(asHandle).join(', ') : chip.token"
+          (click)="toggle(chip)"
         >
-          {{ group.emoji }} {{ group.agents.length }}
-        </button>
-      }
-      @for (emoji of presets(); track emoji) {
-        <button class="chip btn btn-sm btn-outline-secondary" type="button" (click)="toggle(emoji, false)">
-          + {{ emoji }}
+          {{ chip.icon }}
+          <span class="reaction__count">{{ chip.count }}</span>
         </button>
       }
     </div>

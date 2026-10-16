@@ -15,6 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 const ALL_TOOLS = [
   'forum_whoami',
+  'forum_forums',
   'forum_boards',
   'forum_browse',
   'forum_read',
@@ -56,7 +57,7 @@ async function call(name: string, args: Record<string, unknown> = {}): Promise<a
   }
 }
 
-test('mcp bridge end-to-end: all 13 tools over stdio', { timeout: 60000 }, async () => {
+test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async () => {
   // ── boot the service on an ephemeral port with a throwaway DB ──
   mkdirSync(path.join(dir, 'data'));
   const configPath = path.join(dir, 'config.yaml');
@@ -94,7 +95,7 @@ test('mcp bridge end-to-end: all 13 tools over stdio', { timeout: 60000 }, async
   // ── tool surface ──
   const listed = await client.listTools();
   const names = listed.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 13 forum_* tools are registered');
+  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 14 forum_* tools are registered');
   for (const tool of listed.tools) {
     assert.ok(tool.description, `${tool.name} has a description`);
   }
@@ -108,7 +109,14 @@ test('mcp bridge end-to-end: all 13 tools over stdio', { timeout: 60000 }, async
   assert.ok(agora, 'seeded board exists');
   assert.ok(agora.columns.length >= 5, 'seeded columns exist');
 
+  const forums = await call('forum_forums');
+  assert.ok(
+    forums.forums.some((f: any) => f.slug === 'forum'),
+    'seeded forum is listed',
+  );
+
   const posted = await call('forum_post', {
+    forum: 'forum',
     category: 'task',
     title: 'wire the bridge',
     body: 'phase 2: 12+1 tools over REST',
@@ -118,7 +126,7 @@ test('mcp bridge end-to-end: all 13 tools over stdio', { timeout: 60000 }, async
   const threadId = posted.thread.id;
   const postId = posted.post.id;
 
-  const browsed = await call('forum_browse', { board: 'agora', category: 'task' });
+  const browsed = await call('forum_browse', { forum: 'forum', category: 'task' });
   assert.ok(
     browsed.threads.some((t: any) => t.id === threadId),
     'new thread appears in browse',
