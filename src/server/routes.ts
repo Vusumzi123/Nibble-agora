@@ -563,6 +563,89 @@ const handlers = {
     return { status: 200, body: { boards } };
   },
 
+  /**
+   * Rename / re-describe a project. The project and its single board mirror
+   * each other (name, slug, description), so both rows move together.
+   */
+  updateBoard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const board = boardById(ctx, requireInt(m[1], 'board_id'));
+    const name =
+      body.name === undefined ? board.name : String(requireString(body.name, 'name', 64)).trim();
+    const description =
+      body.description === undefined
+        ? board.description
+        : typeof body.description === 'string'
+          ? body.description
+          : null;
+
+    if (name !== board.name) {
+      const boardDup = ctx.db.get(
+        'SELECT id FROM boards WHERE name = ? AND id != ?',
+        name,
+        board.id,
+      );
+      const projectDup =
+        board.project_id === null
+          ? ctx.db.get('SELECT id FROM projects WHERE name = ?', name)
+          : ctx.db.get('SELECT id FROM projects WHERE name = ? AND id != ?', name, board.project_id);
+      if (boardDup || projectDup) {
+        throw conflict(`"${name}" is already taken`, { field: 'name', value: name });
+      }
+    }
+
+    ctx.db.tx(() => {
+      ctx.db.run('UPDATE boards SET name = ?, description = ? WHERE id = ?', name, description, board.id);
+      if (board.project_id !== null) {
+        ctx.db.run('UPDATE projects SET name = ?, description = ? WHERE id = ?', name, description, board.project_id);
+      }
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'project.update',
+        target: `board:${board.id}`,
+        payload: { name, description },
+      });
+    });
+
+    const project =
+      board.project_id === null
+        ? null
+        : ctx.db.get<Project>('SELECT * FROM projects WHERE id = ?', board.project_id) ?? null;
+    const updated = {
+      ...(board as Board & { forum_id?: number | null }),
+      name,
+      description,
+      columns: columnsOf(ctx, board.id),
+    };
+    return { status: 200, body: { board: updated, project } };
+  },
+
+  /**
+   * Delete the project and its single board. The schema cascades the board's
+   * columns and cards (threads belong to the forum, they survive); reactions
+   * are plain rows, so this board's card reactions go first.
+   */
+  deleteBoard(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const board = boardById(ctx, requireInt(m[1], 'board_id'));
+    ctx.db.tx(() => {
+      ctx.db.run(
+        `DELETE FROM reactions
+          WHERE target_type = 'card' AND target_id IN (SELECT id FROM cards WHERE board_id = ?)`,
+        board.id,
+      );
+      ctx.db.run('DELETE FROM boards WHERE id = ?', board.id);
+      if (board.project_id !== null) {
+        ctx.db.run('DELETE FROM projects WHERE id = ?', board.project_id);
+      }
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'project.delete',
+        target: `board:${board.id}`,
+        payload: { name: board.name, slug: board.slug },
+      });
+    });
+    return { status: 200, body: { ok: true, id: board.id } };
+  },
+
   /** Legacy create-board endpoint; now also creates the project (one per board). */
   createBoard(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
     const name = String(requireString(body.name, 'name', 64)).trim();
@@ -1604,6 +1687,18 @@ export const ROUTES: Route[] = [
   { method: 'GET', re: /^\/api\/agents$/, auth: true, h: handlers.listAgents },
 
   { method: 'GET', re: /^\/api\/boards$/, auth: true, h: handlers.listBoards },
+  {
+    method: 'PATCH',
+    re: /^\/api\/boards\/(\d+)$/,
+    auth: true,
+    h: handlers.updateBoard,
+  },
+  {
+    method: 'DELETE',
+    re: /^\/api\/boards\/(\d+)$/,
+    auth: true,
+    h: handlers.deleteBoard,
+  },
   {
     method: 'POST',
     re: /^\/api\/boards$/,

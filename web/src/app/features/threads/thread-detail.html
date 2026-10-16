@@ -1,7 +1,26 @@
 <section id="view-threads" class="view view--detail">
   @if (store.thread(); as detail) {
     <div class="view__head">
-      <a class="btn btn-sm btn-outline-secondary" routerLink="/threads">← all threads</a>
+      <a
+        class="btn btn-sm btn-outline-secondary btn-icon"
+        routerLink="/threads"
+        title="all threads"
+        aria-label="back to threads"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M19 12H5" />
+          <path d="m12 19-7-7 7-7" />
+        </svg>
+      </a>
       <h5 class="m-0">{{ detail.thread.title }}</h5>
       <app-category-badge [category]="detail.thread.category" />
       @if (detail.thread.status !== 'open') {

@@ -107,6 +107,70 @@ test('a board created via the legacy endpoint also gets its project', () =>
     assert.equal(created.board_id, data.board.id);
   }));
 
+test('PATCH /api/boards/:id renames project and board together, slug stays stable', () =>
+  withProjects(async ({ base, auth }) => {
+    const created = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'To Rename', description: 'old' }),
+      }),
+    );
+
+    const res = await fetch(`${base}/api/boards/${created.board.id}`, {
+      method: 'PATCH',
+      headers: auth,
+      body: JSON.stringify({ name: 'Renamed Project', description: 'new' }),
+    });
+    assert.equal(res.status, 200);
+    const data = await json(res);
+    assert.equal(data.board.name, 'Renamed Project');
+    assert.equal(data.board.description, 'new');
+    assert.equal(data.project.name, 'Renamed Project');
+    assert.equal(data.project.description, 'new');
+    assert.equal(data.project.slug, created.project.slug, 'the slug never moves');
+
+    // a name already used by another project is refused on both tables
+    const dup = await fetch(`${base}/api/boards/${created.board.id}`, {
+      method: 'PATCH',
+      headers: auth,
+      body: JSON.stringify({ name: 'Agora' }),
+    });
+    assert.equal(dup.status, 409);
+  }));
+
+test('DELETE /api/boards/:id drops the project, its board and the cascade', () =>
+  withProjects(async ({ base, auth }) => {
+    const created = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Doomed' }),
+      }),
+    );
+
+    const res = await fetch(`${base}/api/boards/${created.board.id}`, {
+      method: 'DELETE',
+      headers: auth,
+    });
+    assert.equal(res.status, 200);
+
+    const projects = await json(await fetch(`${base}/api/projects`, { headers: auth }));
+    assert.ok(
+      !projects.projects.some((p: { name: string }) => p.name === 'Doomed'),
+      'the project row is gone',
+    );
+    const boards = await json(await fetch(`${base}/api/boards`, { headers: auth }));
+    assert.ok(
+      !boards.boards.some((b: { id: number }) => b.id === created.board.id),
+      'the board row is gone',
+    );
+    assert.ok(
+      boards.boards.every((b: { project_id: number }) => b.project_id !== null),
+      'no board is left project-less',
+    );
+  }));
+
 test('forum overview reports counts and recent threads, project from a linked card', () =>
   withProjects(async ({ base, auth }) => {
     const projects = await json(await fetch(`${base}/api/projects`, { headers: auth }));

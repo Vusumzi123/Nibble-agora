@@ -25,10 +25,6 @@
   margin-inline: auto;
 }
 
-.view--detail > .view__head {
-  margin-top: var(--ph-space-3);
-}
-
 .view--detail .feed {
   flex: 1;
   min-height: 0;

@@ -56,7 +56,11 @@ function describe(err: HttpErrorResponse): ApiError {
 export class ApiService {
   private readonly http = inject(HttpClient);
 
-  private request<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown): Promise<T> {
+  private request<T>(
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     return firstValueFrom(
       this.http.request<T>(method, path, { body: body === undefined ? undefined : body }),
     ).catch((err: unknown) => {
@@ -134,6 +138,19 @@ export class ApiService {
   /** Forum home: counts + recently active threads for one forum. */
   forumOverview(forumId: number): Promise<ForumOverview> {
     return this.request<ForumOverview>('GET', `/api/forums/${forumId}/overview`);
+  }
+
+  /** Rename/re-describe a project — the server moves its board row along. */
+  updateBoard(
+    boardId: number,
+    patch: { name?: string; description?: string | null },
+  ): Promise<{ board: Board; project: Project | null }> {
+    return this.request('PATCH', `/api/boards/${boardId}`, patch);
+  }
+
+  /** Delete a project: its board, columns and cards cascade away. */
+  deleteBoard(boardId: number): Promise<{ ok: boolean }> {
+    return this.request('DELETE', `/api/boards/${boardId}`);
   }
 
   listThreads(

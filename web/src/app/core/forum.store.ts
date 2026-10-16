@@ -439,6 +439,24 @@ export class ForumStore {
     });
   }
 
+  /** Rename / re-describe the open project (server moves both rows). */
+  async updateBoardDetails(name: string, description: string | null): Promise<boolean> {
+    const board = this.boardId();
+    if (board === null) return false;
+    return this.mutate(async () => {
+      await this.api.updateBoard(board, { name, description });
+      this.status.flash('project updated');
+    });
+  }
+
+  /** Delete a project (and everything hanging off its board). */
+  async deleteBoard(boardId: number): Promise<boolean> {
+    return this.mutate(async () => {
+      await this.api.deleteBoard(boardId);
+      this.status.flash('project deleted');
+    });
+  }
+
   async renameColumn(columnId: number, name: string): Promise<boolean> {
     const board = this.boardId();
     if (board === null) return false;

@@ -1,7 +1,3 @@
-.boards__new {
-  margin-left: auto;
-}
-
 /* Inline create row — sits under the head while a project is being named. */
 .boards__create {
   display: flex;

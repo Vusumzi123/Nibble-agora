@@ -1,17 +1,49 @@
 <section id="view-board" class="view">
   @if (store.currentBoard(); as board) {
     <div class="view__head">
+      <button
+        class="btn btn-sm btn-outline-secondary btn-icon"
+        type="button"
+        routerLink="/boards"
+        title="back to boards"
+        aria-label="back to boards"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M19 12H5" />
+          <path d="m12 19-7-7 7-7" />
+        </svg>
+      </button>
       <span class="ph-label">board · {{ board.name }}</span>
-      <div class="board__addcol">
-        <input
-          class="form-control form-control-sm"
-          type="text"
-          placeholder="column name"
-          [(ngModel)]="columnName"
-          (keydown.enter)="addColumn()"
-        />
-        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">+ column</button>
-      </div>
+      <button
+        class="btn btn-sm btn-outline-secondary btn-icon board__settings-btn"
+        type="button"
+        title="board settings"
+        aria-label="board settings"
+        (click)="openSettings()"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
     </div>
 
     <div class="lanes">
@@ -21,6 +53,109 @@
         <p class="ph-label p-3">no columns</p>
       }
     </div>
+
+    @if (addColumnOpen) {
+      <div class="board__addcol">
+        <input
+          #colName
+          class="form-control form-control-sm"
+          type="text"
+          placeholder="column name"
+          maxlength="64"
+          [(ngModel)]="columnName"
+          (keydown.enter)="addColumn()"
+          (keydown.escape)="closeAddColumn()"
+        />
+        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">add</button>
+      </div>
+    }
+    <button
+      class="fab"
+      type="button"
+      title="new column"
+      aria-label="new column"
+      (click)="toggleAddColumn()"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    </button>
+
+    @if (settingsOpen) {
+      <div class="overlay" (click)="closeSettings()">
+        <section
+          class="overlay__card board__settings"
+          (click)="$event.stopPropagation()"
+          (keydown.escape)="closeSettings()"
+        >
+          <header class="ph-panel__header">board settings</header>
+
+          <form class="board__settings-form" (ngSubmit)="saveSettings()">
+            <label class="ph-label" for="board-settings-name">name</label>
+            <input
+              #nameInput
+              id="board-settings-name"
+              class="form-control"
+              type="text"
+              name="name"
+              maxlength="64"
+              [(ngModel)]="editName"
+              (keydown.escape)="closeSettings()"
+            />
+            <label class="ph-label" for="board-settings-desc">description</label>
+            <textarea
+              id="board-settings-desc"
+              class="form-control"
+              name="description"
+              rows="3"
+              [(ngModel)]="editDesc"
+              (keydown.escape)="closeSettings()"
+            ></textarea>
+            <div class="board__settings-actions">
+              <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closeSettings()">
+                cancel
+              </button>
+              <button class="btn btn-sm btn-primary" type="submit">save</button>
+            </div>
+          </form>
+
+          <div class="board__danger">
+            <span class="ph-label">delete this project</span>
+            @if (!confirmDelete) {
+              <button class="btn btn-sm btn-outline-danger" type="button" (click)="confirmDelete = true">
+                delete project…
+              </button>
+            } @else {
+              <div class="board__danger-confirm">
+                <span class="ph-label">
+                  removes the project, its board, columns and cards. cannot be undone.
+                </span>
+                <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
+                  yes, delete
+                </button>
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  type="button"
+                  (click)="confirmDelete = false"
+                >
+                  keep
+                </button>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+    }
   } @else {
     <p class="ph-label">no board selected</p>
   }

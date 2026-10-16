@@ -1,11 +1,6 @@
 <section id="view-boards" class="view">
   <div class="view__head">
     <span class="ph-label">boards · projects</span>
-    @if (!createOpen) {
-      <button class="btn btn-sm btn-primary boards__new" type="button" (click)="openCreate()">
-        + project
-      </button>
-    }
   </div>
 
   @if (createOpen) {
@@ -44,4 +39,28 @@
       <p class="ph-label p-3">no projects yet</p>
     }
   </div>
+
+  @if (!createOpen) {
+    <button
+      class="fab"
+      type="button"
+      title="new project"
+      aria-label="new project"
+      (click)="openCreate()"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    </button>
+  }
 </section>

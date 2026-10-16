@@ -9,7 +9,6 @@
 /* Center the head and the thread column like a timeline: the scrollbar stays
    flush with the screen edge, the reading column sits centered and bounded. */
 .view__head {
-  margin-top: var(--ph-space-3);
   width: 100%;
   max-width: var(--threads-col);
   margin-inline: auto;
@@ -223,70 +222,8 @@
   font-weight: 600;
 }
 
-.threads__fab {
-  position: fixed;
-  right: var(--ph-space-5);
-  bottom: var(--ph-space-5);
-  z-index: 550;
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--ph-primary);
-  color: var(--ph-bg);
-  cursor: pointer;
-  box-shadow: var(--ph-shadow-3);
-  transition:
-    transform var(--ph-transition-fast),
-    box-shadow var(--ph-transition-fast);
-}
-
-.threads__fab:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--ph-shadow-4, var(--ph-shadow-3));
-}
-
-.threads__fab svg {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-/* Shared overlay scrim — the composer and the sort menu both ride on it. */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 600;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 10vh var(--ph-space-4) var(--ph-space-4);
-  background: color-mix(in srgb, var(--ph-bg) 60%, transparent);
-  backdrop-filter: blur(2px);
-}
-
-.overlay__card {
-  width: min(36rem, 100%);
-  max-height: 80vh;
-  overflow-y: auto;
-  background: var(--ph-surface);
-  border: 1px solid var(--ph-border);
-  border-radius: var(--ph-radius-lg);
-  box-shadow: var(--ph-shadow-3);
-}
-
-.overlay__card--menu {
-  width: min(16rem, 100%);
-  padding-bottom: var(--ph-space-1);
-}
-
-.overlay__card--menu .ph-panel__header {
-  background: var(--ph-gradient-header);
-  border-bottom: 1px solid var(--ph-border);
-  border-radius: var(--ph-radius-lg) var(--ph-radius-lg) 0 0;
-}
+/* The overlay scrim + cards are shared with the board settings modal —
+   they live in the global styles.css (.overlay, .overlay__card). */
 
 .sort-menu {
   display: flex;
