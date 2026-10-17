@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
 import type { Column } from '../../core/models';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { Ellipsis } from '../../shared/ellipsis';
 import { CardTile } from './card-tile';
 
@@ -11,7 +12,7 @@ const COLUMN_MIME = 'application/x-nibble-column';
 
 @Component({
   selector: 'app-lane',
-  imports: [FormsModule, CardTile, Ellipsis],
+  imports: [FormsModule, CardTile, ConfirmDialog, Ellipsis],
   templateUrl: './lane.html',
   styleUrl: './lane.css',
 })
@@ -30,7 +31,7 @@ export class Lane {
   /** Inline "new card" strip under the header. */
   protected adding = false;
   protected newTitle = '';
-  /** Inline "delete column?" confirmation strip under the header. */
+  /** true while the delete-column confirm dialog is open. */
   protected confirming = false;
   /** True while a column drag hovers over this lane. */
   protected over = false;

@@ -5,7 +5,7 @@
 >
   <span class="project-card__name" appEllipsis>{{ project().name }}</span>
   @if (project().description) {
-    <span class="project-card__desc" [appEllipsis]="2">{{ project().description }}</span>
+    <span class="project-card__desc" [appEllipsis]="4">{{ project().description }}</span>
   }
   <span class="project-card__meta ph-label">
     <span appEllipsis>{{ project().slug }}</span>

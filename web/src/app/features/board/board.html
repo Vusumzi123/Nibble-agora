@@ -140,16 +140,18 @@
                 <span class="ph-label">
                   removes the project, its board, columns and cards. cannot be undone.
                 </span>
-                <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
-                  yes, delete
-                </button>
-                <button
-                  class="btn btn-sm btn-outline-secondary"
-                  type="button"
-                  (click)="confirmDelete = false"
-                >
-                  keep
-                </button>
+                <div class="board__danger-confirm__actions">
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    (click)="confirmDelete = false"
+                  >
+                    keep
+                  </button>
+                  <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
+                    yes, delete
+                  </button>
+                </div>
               </div>
             }
           </div>

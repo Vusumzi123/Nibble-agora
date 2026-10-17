@@ -3,14 +3,14 @@ import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
 import type { Card } from '../../core/models';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { Ellipsis } from '../../shared/ellipsis';
 import { CardDetail } from './card-detail';
 
 @Component({
   selector: 'app-card-tile',
-  imports: [FormsModule, CardDetail, Ellipsis],
+  imports: [FormsModule, CardDetail, ConfirmDialog, Ellipsis],
   templateUrl: './card-tile.html',
-  styleUrl: './card-tile.css',
 })
 export class CardTile {
   readonly card = input.required<Card>();
@@ -20,7 +20,7 @@ export class CardTile {
   /** true while the card detail modal is open (click the tile's text). */
   protected open = false;
 
-  /** true while the inline "delete this card?" confirm is showing. */
+  /** true while the delete-card confirm dialog is open. */
   protected confirming = false;
 
   private readonly columnIndex = computed(() =>

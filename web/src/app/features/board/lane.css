@@ -34,26 +34,6 @@
   padding: var(--ph-space-2) var(--ph-space-3) 0;
 }
 
-/* "Delete column?" confirmation — same danger tint as the board modal. */
-.lane__confirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ph-space-2);
-  padding: var(--ph-space-2) var(--ph-space-3);
-  border-bottom: 1px solid var(--ph-border);
-  background: color-mix(in srgb, var(--ph-danger, #c0392b) 10%, transparent);
-}
-
-.lane__confirm .ph-label {
-  line-height: var(--ph-leading-tight, 1.25);
-}
-
-.lane__confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--ph-space-1);
-}
-
 .lane__cards {
   flex: 1;
   min-height: 0;

@@ -87,21 +87,18 @@
     </div>
   }
 
-  @if (confirming) {
-    <div class="lane__confirm" (keydown.escape)="confirming = false">
-      <span class="ph-label">delete this column and its cards?</span>
-      <div class="lane__confirm-actions">
-        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="confirming = false">
-          keep
-        </button>
-        <button class="btn btn-sm btn-danger" type="button" (click)="deleteColumn()">delete</button>
-      </div>
-    </div>
-  }
-
   <div class="lane__cards" (dragover)="allow($event)" (drop)="onDrop($event)">
     @for (card of cards(); track card.id) {
       <app-card-tile [card]="card" />
     }
   </div>
 </section>
+
+@if (confirming) {
+  <app-confirm-dialog
+    title="delete column"
+    message="delete this column and its cards?"
+    (confirmed)="deleteColumn()"
+    (cancelled)="confirming = false"
+  />
+}

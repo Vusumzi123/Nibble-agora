@@ -62,7 +62,7 @@ describe('CardTile (excerpt + click-through to the modal)', () => {
     expect(el.querySelector('app-card-detail')).toBeNull();
   });
 
-  it('the trash button confirms first: keep aborts, delete issues DELETE', async () => {
+  it('the trash button asks via the confirm dialog: keep aborts, delete issues DELETE', async () => {
     const store = TestBed.inject(ForumStore);
     const http = TestBed.inject(HttpTestingController);
     store.view.set('settings');
@@ -75,16 +75,19 @@ describe('CardTile (excerpt + click-through to the modal)', () => {
 
     el.querySelector<HTMLButtonElement>('[title="delete card"]')?.click();
     fixture.detectChanges();
-    const confirm = el.querySelector('.kanban-card__confirm');
-    expect(confirm).toBeTruthy();
+    const dialog = el.querySelector('app-confirm-dialog');
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('delete this card?');
 
-    confirm!.querySelector<HTMLButtonElement>('button')?.click();
+    // the footer stays put now — only the dialog toggles
+    expect(el.querySelector('.kanban-card__foot')).toBeTruthy();
+    dialog!.querySelector<HTMLButtonElement>('button')?.click();
     fixture.detectChanges();
-    expect(el.querySelector('.kanban-card__confirm')).toBeNull();
+    expect(el.querySelector('app-confirm-dialog')).toBeNull();
 
     el.querySelector<HTMLButtonElement>('[title="delete card"]')?.click();
     fixture.detectChanges();
-    el.querySelector<HTMLButtonElement>('.kanban-card__confirm .btn-danger')?.click();
+    el.querySelector<HTMLElement>('app-confirm-dialog .btn-danger')?.click();
     await new Promise((r) => setTimeout(r, 0));
 
     const req = http.expectOne('/api/cards/3');
