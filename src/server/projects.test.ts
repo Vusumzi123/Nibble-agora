@@ -171,26 +171,116 @@ test('DELETE /api/boards/:id drops the project, its board and the cascade', () =
     );
   }));
 
-test('forum overview reports counts and recent threads, project from a linked card', () =>
+test('DELETE /api/columns/:id cascades cards, denses positions, needs a token', () =>
   withProjects(async ({ base, auth }) => {
-    const projects = await json(await fetch(`${base}/api/projects`, { headers: auth }));
-    const boardId = projects.projects[0].board_id;
+    const created = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Column Test' }),
+      }),
+    );
+    const boardId: number = created.board.id;
+    const first: { id: number } = created.columns[0];
+
+    const card = await json(
+      await fetch(`${base}/api/cards`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ board_id: boardId, column_id: first.id, title: 'doomed card' }),
+      }),
+    );
+    assert.equal(card.card.column_id, first.id);
+
+    // anonymous delete is refused
+    assert.equal((await fetch(`${base}/api/columns/${first.id}`, { method: 'DELETE' })).status, 401);
+
+    const res = await fetch(`${base}/api/columns/${first.id}`, { method: 'DELETE', headers: auth });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await json(res), { ok: true, id: first.id });
+
+    const boards = await json(await fetch(`${base}/api/boards`, { headers: auth }));
+    const board = boards.boards.find((b: { id: number }) => b.id === boardId);
+    assert.ok(
+      !board.columns.some((c: { id: number }) => c.id === first.id),
+      'the column row is gone',
+    );
+    assert.deepEqual(
+      board.columns.map((c: { position: number }) => c.position),
+      [0, 1, 2, 3],
+      'remaining positions are dense',
+    );
+
+    const cards = await json(await fetch(`${base}/api/boards/${boardId}/cards`, { headers: auth }));
+    assert.ok(
+      !cards.cards.some((c: { id: number }) => c.id === card.card.id),
+      'the card cascaded away',
+    );
+
+    assert.equal(
+      (await fetch(`${base}/api/columns/999999`, { method: 'DELETE', headers: auth })).status,
+      404,
+    );
+  }));
+
+test('DELETE /api/cards/:id removes the card, re-denses its column, needs a token', () =>
+  withProjects(async ({ base, auth }) => {
+    const created = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Card Delete' }),
+      }),
+    );
+    const boardId: number = created.board.id;
+    const colId: number = created.columns[0].id;
+
+    const mk = async (title: string) => {
+      const r = await json(
+        await fetch(`${base}/api/cards`, {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({ board_id: boardId, column_id: colId, title }),
+        }),
+      );
+      return r.card as { id: number; position: number };
+    };
+    const a = await mk('first');
+    const b = await mk('second');
+    const c = await mk('third');
+
+    // anonymous delete is refused
+    assert.equal((await fetch(`${base}/api/cards/${b.id}`, { method: 'DELETE' })).status, 401);
+
+    const res = await fetch(`${base}/api/cards/${b.id}`, { method: 'DELETE', headers: auth });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await json(res), { ok: true, id: b.id });
+
+    const cards = await json(await fetch(`${base}/api/boards/${boardId}/cards`, { headers: auth }));
+    const ids = cards.cards.map((x: { id: number }) => x.id);
+    assert.ok(!ids.includes(b.id), 'the card row is gone');
+    assert.ok(ids.includes(a.id) && ids.includes(c.id), 'its neighbours survive');
+    assert.deepEqual(
+      cards.cards.map((x: { position: number }) => x.position),
+      [0, 1],
+      'remaining positions are dense',
+    );
+
+    assert.equal(
+      (await fetch(`${base}/api/cards/${b.id}`, { method: 'DELETE', headers: auth })).status,
+      404,
+    );
+  }));
+
+test('forum overview reports counts and recent threads; threads carry no project link', () =>
+  withProjects(async ({ base, auth }) => {
     const forums = await json(await fetch(`${base}/api/forums`, { headers: auth }));
     const forumId = forums.forums[0].id;
 
-    const thread = await json(
-      await fetch(`${base}/api/threads`, {
-        method: 'POST',
-        headers: auth,
-        body: JSON.stringify({ forum_id: forumId, category: 'idea', title: 'overview topic', body: 'hi' }),
-      }),
-    );
-
-    // link a card to the thread → the overview attributes the project name
-    await fetch(`${base}/api/cards`, {
+    await fetch(`${base}/api/threads`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ board_id: boardId, title: 'linked', thread_id: thread.thread.id }),
+      body: JSON.stringify({ forum_id: forumId, category: 'idea', title: 'overview topic', body: 'hi' }),
     });
 
     const data = await json(await fetch(`${base}/api/forums/${forumId}/overview`, { headers: auth }));
@@ -199,7 +289,10 @@ test('forum overview reports counts and recent threads, project from a linked ca
     assert.equal(data.counts.threads, 1);
     assert.equal(data.recent_threads.length, 1);
     assert.equal(data.recent_threads[0].title, 'overview topic');
-    assert.equal(data.recent_threads[0].project_name, 'Agora');
+    assert.ok(
+      !('project_name' in data.recent_threads[0]),
+      'no project association on threads',
+    );
   }));
 
 test('forums own their projects and threads; a second forum is isolated', () =>
@@ -249,6 +342,77 @@ test('forums own their projects and threads; a second forum is isolated', () =>
     );
     assert.equal(secondThreads.threads.length, 1);
     assert.equal(secondThreads.threads[0].title, 'second forum thread');
+  }));
+
+test('cards carry a body (renamed from description); the thread bridge is gone', () =>
+  withProjects(async ({ base, auth }) => {
+    const created = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Body Test' }),
+      }),
+    );
+    const boardId: number = created.board.id;
+    const colId: number = created.columns[0].id;
+
+    const made = await json(
+      await fetch(`${base}/api/cards`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: colId,
+          title: 'body card',
+          body: 'hello\nworld',
+        }),
+      }),
+    );
+    assert.equal(made.card.body, 'hello\nworld');
+    assert.equal('thread_id' in made.card, false, 'cards carry no thread link');
+    assert.equal('description' in made.card, false, 'description became body');
+
+    const patched = await json(
+      await fetch(`${base}/api/cards/${made.card.id}`, {
+        method: 'PATCH',
+        headers: auth,
+        body: JSON.stringify({ title: 'renamed', body: 'v2' }),
+      }),
+    );
+    assert.equal(patched.card.title, 'renamed');
+    assert.equal(patched.card.body, 'v2');
+
+    // the old field name is inert — cards have one text field now
+    const stale = await json(
+      await fetch(`${base}/api/cards/${made.card.id}`, {
+        method: 'PATCH',
+        headers: auth,
+        body: JSON.stringify({ description: 'ignored' }),
+      }),
+    );
+    assert.equal(stale.card.body, 'v2', 'description is not a field anymore');
+
+    // both link endpoints are gone
+    assert.equal(
+      (
+        await fetch(`${base}/api/cards/${made.card.id}/link`, {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({ thread_id: 1 }),
+        })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/threads/1/link`, {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({ card_id: made.card.id }),
+        })
+      ).status,
+      404,
+    );
   }));
 
 test('projects and overview reads require a bearer token', () =>

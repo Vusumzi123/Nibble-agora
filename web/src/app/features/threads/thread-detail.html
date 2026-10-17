@@ -26,9 +26,6 @@
       @if (detail.thread.status !== 'open') {
         <span class="badge text-bg-secondary">{{ detail.thread.status }}</span>
       }
-      @if (detail.card) {
-        <span class="badge text-bg-info">card: {{ detail.card.title }}</span>
-      }
       <span class="ph-label thread-detail__stats">
         ▲ {{ detail.thread.votes }}
         · {{ detail.thread.views }} views

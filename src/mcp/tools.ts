@@ -22,10 +22,9 @@ interface CardRow {
   column_name: string;
   position: number;
   title: string;
-  description: string;
+  body: string;
   assignee_id: number | null;
   assignee_handle: string | null;
-  thread_id: number | null;
   done_at: string | null;
 }
 
@@ -165,7 +164,7 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_read',
     {
       title: 'Forum: read',
-      description: `Read one thread: title, posts (with reactions/mentions), linked card. Long threads truncate at ${READ_PAGE} posts — pass next_cursor (from the previous reply) to continue.`,
+      description: `Read one thread: title, posts (with reactions/mentions). Long threads truncate at ${READ_PAGE} posts — pass next_cursor (from the previous reply) to continue.`,
       inputSchema: {
         thread_id: z.number().int().positive().describe('Thread id to read.'),
         cursor: z
@@ -227,24 +226,18 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_reply',
     {
       title: 'Forum: reply',
-      description: 'Reply to a thread; optionally attach the thread to a card in the same call.',
+      description: 'Reply to a thread.',
       inputSchema: {
         thread_id: z.number().int().positive().describe('Thread to reply to.'),
         body: z.string().min(1).describe('Reply body (server enforces 512 chars).'),
         mentions: z.array(z.string()).optional().describe('Handles to @mention.'),
-        card_id: z.number().int().positive().optional().describe('Link this card to the thread.'),
       },
     },
     guarded(client,async (c, args) => {
-      const reply = await c.post(`/api/threads/${args.thread_id}/replies`, {
+      return c.post(`/api/threads/${args.thread_id}/replies`, {
         body: args.body,
         mentions: args.mentions,
       });
-      const linked =
-        args.card_id === undefined
-          ? null
-          : (await c.post(`/api/threads/${args.thread_id}/link`, { card_id: args.card_id })).card;
-      return { ...reply, linked_card: linked };
     }),
   );
 
@@ -290,14 +283,13 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_card_create',
     {
       title: 'Forum: card create',
-      description: 'Create a card (title, optional description ≤4000 chars, column, assignee, linked thread).',
+      description: 'Create a card (title, optional body ≤4000 chars, column, assignee).',
       inputSchema: {
         board: BOARD,
         title: z.string().min(1).max(200).describe('Card title.'),
-        description: z.string().optional().describe('Card body (server enforces 4000 chars).'),
+        body: z.string().optional().describe('Card body (server enforces 4000 chars).'),
         column: z.union([z.string(), z.number()]).optional().describe('Column id or name (default: first column).'),
         assignee: z.union([z.string(), z.number()]).optional().describe('Assignee handle or id.'),
-        thread_id: z.number().int().positive().optional().describe('Link an existing thread.'),
       },
     },
     guarded(client,async (c, args) => {
@@ -305,11 +297,10 @@ export function createBridge(opts: BridgeOptions): McpServer {
       return c.post('/api/cards', {
         board_id: board.id,
         title: args.title,
-        description: args.description,
+        body: args.body,
         column: typeof args.column === 'string' ? args.column : undefined,
         column_id: typeof args.column === 'number' ? args.column : undefined,
         assignee: args.assignee,
-        thread_id: args.thread_id,
       });
     }),
   );
@@ -353,14 +344,14 @@ export function createBridge(opts: BridgeOptions): McpServer {
         board: BOARD,
         card_id: z.number().int().positive().optional().describe('Existing card to move/assign; omit to create.'),
         title: z.string().min(1).max(200).optional().describe('New card title (required when creating).'),
-        description: z.string().optional().describe('New card description (creating only).'),
+        body: z.string().optional().describe('New card body (creating only).'),
         column: z.union([z.string(), z.number()]).optional().describe('Column id or name.'),
         position: z.number().int().min(0).optional().describe('Position within the column.'),
         assignee: ASSIGN,
         mention: z
           .string()
           .optional()
-          .describe('Text to post @assignee (≤512 chars). Posts on the card’s thread, or opens a task thread and links it.'),
+          .describe('Text to post @assignee (≤512 chars). Opens a task thread in the board’s forum and posts it there.'),
       },
     },
     guarded(client,async (c, args) => {
@@ -383,7 +374,7 @@ export function createBridge(opts: BridgeOptions): McpServer {
           await c.post<{ card: CardRow }>('/api/cards', {
             board_id: board.id,
             title: args.title,
-            description: args.description,
+            body: args.body,
             column: typeof args.column === 'string' ? args.column : undefined,
             column_id: typeof args.column === 'number' ? args.column : undefined,
             assignee: args.assignee,
@@ -394,25 +385,14 @@ export function createBridge(opts: BridgeOptions): McpServer {
       if (args.mention === undefined) return { card, mention: null };
 
       const handle = String(args.assignee).replace(/^@/, '');
-      let mention: Record<string, unknown>;
-      if (card.thread_id !== null && card.thread_id !== undefined) {
-        mention = await c.post(`/api/threads/${card.thread_id}/replies`, {
-          body: args.mention,
-          mentions: [handle],
-        });
-      } else {
-        const thread = await c.post<{ thread: { id: number }; post: { id: number } }>('/api/threads', {
-          forum_id: board.forum_id ?? (await resolveForum(c)).id,
-          category: 'task',
-          title: `delegate: ${card.title}`.slice(0, 200),
-          body: args.mention,
-          mentions: [handle],
-        });
-        await c.post(`/api/cards/${card.id}/link`, { thread_id: thread.thread.id });
-        card = { ...card, thread_id: thread.thread.id };
-        mention = { thread: thread.thread, post: thread.post };
-      }
-      return { card, mention };
+      const thread = await c.post<{ thread: { id: number }; post: { id: number } }>('/api/threads', {
+        forum_id: board.forum_id ?? (await resolveForum(c)).id,
+        category: 'task',
+        title: `delegate: ${card.title}`.slice(0, 200),
+        body: args.mention,
+        mentions: [handle],
+      });
+      return { card, mention: { thread: thread.thread, post: thread.post } };
     }),
   );
 

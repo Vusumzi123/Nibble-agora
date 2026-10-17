@@ -3,10 +3,12 @@ import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
 import type { Card } from '../../core/models';
+import { Ellipsis } from '../../shared/ellipsis';
+import { CardDetail } from './card-detail';
 
 @Component({
   selector: 'app-card-tile',
-  imports: [FormsModule],
+  imports: [FormsModule, CardDetail, Ellipsis],
   templateUrl: './card-tile.html',
   styleUrl: './card-tile.css',
 })
@@ -15,6 +17,12 @@ export class CardTile {
 
   protected readonly store = inject(ForumStore);
 
+  /** true while the card detail modal is open (click the tile's text). */
+  protected open = false;
+
+  /** true while the inline "delete this card?" confirm is showing. */
+  protected confirming = false;
+
   private readonly columnIndex = computed(() =>
     this.store.columns().findIndex((c) => c.id === this.card().column_id),
   );
@@ -22,7 +30,14 @@ export class CardTile {
   protected readonly canRight = computed(
     () => this.columnIndex() < this.store.columns().length - 1,
   );
-  protected readonly excerpt = computed(() => (this.card().description ?? '').split('\n')[0]?.slice(0, 120) ?? '');
+  /**
+   * Flattened body snippet for the tile. The snippet carries
+   * `[appEllipsis]="3"` — three lines show first, then the directive's CSS
+   * clamp draws the "…" plus a hover tooltip; the title stays one line.
+   */
+  protected readonly excerpt = computed(() =>
+    (this.card().body ?? '').replace(/\s+/g, ' ').trim().slice(0, 240),
+  );
 
   protected move(delta: number): void {
     const target = this.store.columns()[this.columnIndex() + delta];
@@ -35,8 +50,13 @@ export class CardTile {
     void this.store.setAssignee(this.card().id, value === null ? null : Number(value));
   }
 
-  protected toggleDone(): void {
-    void this.store.toggleDone(this.card());
+  protected startDelete(): void {
+    this.confirming = true;
+  }
+
+  protected async remove(): Promise<void> {
+    this.confirming = false;
+    await this.store.deleteCard(this.card());
   }
 
   protected onDragStart(event: DragEvent): void {

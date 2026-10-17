@@ -1,0 +1,43 @@
+<div class="overlay" (click)="closed.emit()">
+  <section
+    class="overlay__card card-detail"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="closed.emit()"
+  >
+    <header class="ph-panel__header">card</header>
+
+    <form class="card-detail__form" (ngSubmit)="save()">
+      <label class="ph-label" for="card-detail-title">title</label>
+      <input
+        id="card-detail-title"
+        class="form-control"
+        type="text"
+        name="title"
+        maxlength="200"
+        [ngModel]="title()"
+        (ngModelChange)="title.set($event)"
+        (keydown.escape)="closed.emit()"
+      />
+
+      <div class="card-detail__bodyhead">
+        <label class="ph-label" for="card-detail-body">body</label>
+        <app-char-counter [value]="body()" [limit]="limit" />
+      </div>
+      <textarea
+        id="card-detail-body"
+        class="form-control card-detail__body"
+        name="body"
+        rows="10"
+        [ngModel]="body()"
+        (ngModelChange)="body.set($event)"
+      ></textarea>
+
+      <div class="card-detail__actions">
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
+          cancel
+        </button>
+        <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">save</button>
+      </div>
+    </form>
+  </section>
+</div>

@@ -47,8 +47,8 @@
     </div>
 
     <div class="lanes">
-      @for (column of store.columns(); track column.id; let i = $index) {
-        <app-lane [column]="column" [index]="i" [total]="store.columns().length" />
+      @for (column of store.columns(); track column.id) {
+        <app-lane [column]="column" />
       } @empty {
         <p class="ph-label p-3">no columns</p>
       }

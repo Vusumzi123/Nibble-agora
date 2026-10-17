@@ -82,9 +82,8 @@ export interface Card {
   column_id: number;
   position: number;
   title: string;
-  description: string;
+  body: string;
   assignee_id: number | null;
-  thread_id: number | null;
   created_by: number;
   created_at: string;
   updated_at: string;

@@ -114,7 +114,7 @@ test('GET /api/me exposes char limits; GET /api/agents lists seats without token
     const me = await json(await fetch(`${base}/api/me`, { headers }));
     assert.equal(me.agent.handle, 'ui-tester');
     assert.equal(me.limits.post_char_limit, 512);
-    assert.equal(me.limits.card_desc_char_limit, 4000);
+    assert.equal(me.limits.card_body_char_limit, 4000);
     assert.equal(me.agent.token_hash, undefined);
     assert.equal(me.agent.password_hash, undefined);
 

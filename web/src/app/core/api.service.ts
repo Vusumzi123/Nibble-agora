@@ -223,7 +223,14 @@ export class ApiService {
 
   patchCard(
     cardId: number,
-    patch: { column_id?: number; position?: number; assignee?: number | null; done?: boolean },
+    patch: {
+      column_id?: number;
+      position?: number;
+      assignee?: number | null;
+      done?: boolean;
+      title?: string;
+      body?: string;
+    },
   ): Promise<Card> {
     return this.request<{ card: Card }>('PATCH', `/api/cards/${cardId}`, patch).then((r) => r.card);
   }
@@ -232,6 +239,24 @@ export class ApiService {
     return this.request<{ column: Column }>('POST', `/api/boards/${boardId}/columns`, {
       name,
     }).then((r) => r.column);
+  }
+
+  createCard(
+    boardId: number,
+    patch: { column_id?: number; title: string; body?: string },
+  ): Promise<Card> {
+    return this.request<{ card: Card }>('POST', '/api/cards', {
+      board_id: boardId,
+      ...patch,
+    }).then((r) => r.card);
+  }
+
+  deleteColumn(columnId: number): Promise<{ ok: boolean; id: number }> {
+    return this.request<{ ok: boolean; id: number }>('DELETE', `/api/columns/${columnId}`);
+  }
+
+  deleteCard(cardId: number): Promise<{ ok: boolean; id: number }> {
+    return this.request<{ ok: boolean; id: number }>('DELETE', `/api/cards/${cardId}`);
   }
 
   updateColumn(

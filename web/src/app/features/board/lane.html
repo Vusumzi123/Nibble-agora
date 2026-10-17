@@ -1,31 +1,104 @@
-<section class="lane">
-  <header class="lane__head">
-    <span class="lane__name">{{ column().name }}</span>
+<section class="lane" [class.lane--over]="over" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onLaneDrop($event)">
+  <!-- Grabbing the header drags the column; the header goes inert mid-rename
+       so the inline input stays selectable. -->
+  <header
+    class="lane__head"
+    [attr.draggable]="editing ? null : 'true'"
+    (dragstart)="onDragStart($event)"
+    (dragend)="over = false"
+  >
+    @if (editing) {
+      <input
+        #renameInput
+        class="form-control form-control-sm lane__rename"
+        type="text"
+        maxlength="64"
+        [(ngModel)]="editName"
+        (blur)="commitRename()"
+        (keydown.enter)="commitRename()"
+        (keydown.escape)="cancelRename()"
+      />
+    } @else {
+      <span class="lane__name" appEllipsis (dblclick)="startRename()">
+        {{ column().name }}
+      </span>
+    }
     <span class="badge text-bg-secondary">{{ cards().length }}</span>
     <span class="lane__tools">
       <button
-        class="btn btn-sm btn-outline-secondary"
+        class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
-        title="move column left"
-        [disabled]="index() === 0"
-        (click)="move(-1)"
+        title="add card"
+        aria-label="add card"
+        (click)="startAddCard()"
       >
-        ◀
-      </button>
-      <button class="btn btn-sm btn-outline-secondary" type="button" title="rename column" (click)="rename()">
-        ✎
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
       </button>
       <button
-        class="btn btn-sm btn-outline-secondary"
+        class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
-        title="move column right"
-        [disabled]="index() === total() - 1"
-        (click)="move(1)"
+        title="delete column"
+        aria-label="delete column"
+        (click)="startDelete()"
       >
-        ▶
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 6h18" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
       </button>
     </span>
   </header>
+
+  @if (adding) {
+    <div class="lane__newcard">
+      <input
+        #newcardInput
+        class="form-control form-control-sm"
+        type="text"
+        placeholder="card title"
+        maxlength="200"
+        [(ngModel)]="newTitle"
+        (keydown.enter)="addCard()"
+        (keydown.escape)="cancelAddCard()"
+        (blur)="cancelAddCard()"
+      />
+    </div>
+  }
+
+  @if (confirming) {
+    <div class="lane__confirm" (keydown.escape)="confirming = false">
+      <span class="ph-label">delete this column and its cards?</span>
+      <div class="lane__confirm-actions">
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="confirming = false">
+          keep
+        </button>
+        <button class="btn btn-sm btn-danger" type="button" (click)="deleteColumn()">delete</button>
+      </div>
+    </div>
+  }
+
   <div class="lane__cards" (dragover)="allow($event)" (drop)="onDrop($event)">
     @for (card of cards(); track card.id) {
       <app-card-tile [card]="card" />

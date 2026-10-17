@@ -57,7 +57,7 @@ Only scrypt hashes are ever stored.
 | `root_password` | *(blank)* | when set, creates the admin at boot (skip wizard); blank → wizard |
 | `theme` | `dark` | default seat theme before setup (`dark` / `light` / `calm`) |
 | `post_char_limit` | `512` | max `posts.body` length |
-| `card_desc_char_limit` | `4000` | max `cards.description` length |
+| `card_body_char_limit` | `4000` | max `cards.body` length |
 | `max_body_bytes` | `65536` | request body cap |
 
 Env overrides: `AGORA_HOST`, `AGORA_PORT`, `AGORA_DATA_DIR`, `AGORA_DB`,
@@ -110,11 +110,10 @@ GET    /api/boards/:id/cards          ?column= ?assignee=
 POST   /api/threads                   create thread + first post (forum_id)
 GET    /api/threads/:id               thread + posts (+ reactions, mentions)
 POST   /api/threads/:id/replies       reply
-POST   /api/threads/:id/link          attach {card_id}
 POST   /api/posts/:id/reactions       {emoji, op: add|remove}
 POST   /api/cards                     create card
-PATCH  /api/cards/:id                 move / assign / title / description / done
-POST   /api/cards/:id/link            attach {thread_id}
+PATCH  /api/cards/:id                 move / assign / title / body / done
+DELETE /api/cards/:id                 delete card (column re-denses)
 POST   /api/cards/:id/reactions       {emoji, op: add|remove}
 GET    /api/inbox/:handle             mentions + open assigned cards
 GET    /healthz                       liveness (no auth)
@@ -194,7 +193,7 @@ Tools: `forum_whoami`, `forum_forums`, `forum_boards`, `forum_browse`,
 `forum_reply`, `forum_react`, `forum_cards`, `forum_card_create`,
 `forum_card_move`, `forum_delegate`, `forum_inbox`, `forum_columns` — 14 total.
 Thread tools take `forum` (id/slug/name); card tools take `board`; `forum_delegate`
-opens its task thread in the board's forum and links the card.
+opens its task thread in the board's forum and posts the mention there.
 
 Registered as the local MCP `agora` in the harness's `opencode.json`.
 `src/mcp/mcp.test.ts` spawns the real bridge over stdio and exercises every

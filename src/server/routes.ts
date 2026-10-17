@@ -77,11 +77,11 @@ function publicAgent(agent: Agent): Omit<Agent, 'token_hash' | 'password_hash'> 
 
 function limitsOf(cfg: Config): {
   post_char_limit: number;
-  card_desc_char_limit: number;
+  card_body_char_limit: number;
 } {
   return {
     post_char_limit: cfg.postCharLimit,
-    card_desc_char_limit: cfg.cardDescCharLimit,
+    card_body_char_limit: cfg.cardBodyCharLimit,
   };
 }
 
@@ -794,15 +794,8 @@ const handlers = {
       views: number;
       updated_at: string;
       forum_id: number;
-      project_name: string | null;
     }>(
-      `SELECT t.id, t.title, t.category, t.status, t.votes, t.views, t.updated_at, t.forum_id,
-              (SELECT p.name
-                 FROM cards c
-                 JOIN boards b  ON b.id = c.board_id
-                 JOIN projects p ON p.id = b.project_id
-                WHERE c.thread_id = t.id
-                LIMIT 1) AS project_name
+      `SELECT t.id, t.title, t.category, t.status, t.votes, t.views, t.updated_at, t.forum_id
          FROM threads t
         WHERE t.forum_id = ?
         ORDER BY t.updated_at DESC, t.id DESC
@@ -897,6 +890,35 @@ const handlers = {
         column: ctx.db.get<Column>('SELECT * FROM columns WHERE id = ?', colId),
       },
     };
+  },
+
+  /**
+   * Delete a column; its cards cascade away (composite FK). Reactions are
+   * plain rows so they go first, and the remaining columns close the gap so
+   * positions stay dense.
+   */
+  deleteColumn(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const col = columnById(ctx, requireInt(m[1], 'column_id'));
+    ctx.db.tx(() => {
+      ctx.db.run(
+        `DELETE FROM reactions
+          WHERE target_type = 'card' AND target_id IN (SELECT id FROM cards WHERE column_id = ?)`,
+        col.id,
+      );
+      ctx.db.run('DELETE FROM columns WHERE id = ?', col.id);
+      columnsOf(ctx, col.board_id).forEach((rest, i) => {
+        if (rest.position !== i) {
+          ctx.db.run('UPDATE columns SET position = ? WHERE id = ?', i, rest.id);
+        }
+      });
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'column.delete',
+        target: `column:${col.id}`,
+        payload: { board_id: col.board_id, name: col.name },
+      });
+    });
+    return { status: 200, body: { ok: true, id: col.id } };
   },
 
   listThreads(
@@ -1106,13 +1128,12 @@ const handlers = {
           )
           .map((r) => r.handle),
       }));
-    const card = ctx.db.get<Card>('SELECT * FROM cards WHERE thread_id = ?', thread.id) ?? null;
     const voted = !!ctx.db.get(
       'SELECT 1 FROM thread_votes WHERE thread_id = ? AND agent_id = ?',
       thread.id,
       agent.id,
     );
-    return { status: 200, body: { thread, posts, card, voted } };
+    return { status: 200, body: { thread, posts, voted } };
   },
 
   /** One view per call — the web seat fires this once per thread open, not per poll. */
@@ -1291,9 +1312,9 @@ const handlers = {
   createCard(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
     const board = boardById(ctx, requireInt(body.board_id, 'board_id'));
     const title = String(requireString(body.title, 'title', 200)).trim();
-    const description = typeof body.description === 'string' ? body.description : '';
-    if (description.length > ctx.cfg.cardDescCharLimit) {
-      throw charLimit('description', ctx.cfg.cardDescCharLimit, description.length);
+    const cardBody = typeof body.body === 'string' ? body.body : '';
+    if (cardBody.length > ctx.cfg.cardBodyCharLimit) {
+      throw charLimit('body', ctx.cfg.cardBodyCharLimit, cardBody.length);
     }
 
     const cols = columnsOf(ctx, board.id);
@@ -1325,24 +1346,18 @@ const handlers = {
       });
 
     const assignee = agentByRef(ctx, body.assignee, 'assignee');
-    let threadId: number | null = null;
-    if (body.thread_id !== undefined && body.thread_id !== null && body.thread_id !== '') {
-      const th = threadById(ctx, requireInt(body.thread_id, 'thread_id'));
-      threadId = th.id;
-    }
 
     const cardId = ctx.db.tx(() => {
       const position = nextCardPosition(ctx, column!.id);
       const r = ctx.db.run(
-        `INSERT INTO cards (board_id, column_id, position, title, description, assignee_id, thread_id, created_by, created_at, updated_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        `INSERT INTO cards (board_id, column_id, position, title, body, assignee_id, created_by, created_at, updated_at, done_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
         board.id,
         column!.id,
         position,
         title,
-        description,
+        cardBody,
         assignee ? assignee.id : null,
-        threadId,
         agent.id,
         now(),
         now(),
@@ -1371,7 +1386,7 @@ const handlers = {
     let columnId = card.column_id;
     let position = card.position;
     let title = card.title;
-    let description = card.description;
+    let cardBody = card.body;
     let assigneeId = card.assignee_id;
     let doneAt = card.done_at;
 
@@ -1390,10 +1405,10 @@ const handlers = {
       columnId = col.id;
     }
     if (body.title !== undefined) title = String(requireString(body.title, 'title', 200)).trim();
-    if (body.description !== undefined) {
-      description = typeof body.description === 'string' ? body.description : '';
-      if (description.length > ctx.cfg.cardDescCharLimit) {
-        throw charLimit('description', ctx.cfg.cardDescCharLimit, description.length);
+    if (body.body !== undefined) {
+      cardBody = typeof body.body === 'string' ? body.body : '';
+      if (cardBody.length > ctx.cfg.cardBodyCharLimit) {
+        throw charLimit('body', ctx.cfg.cardBodyCharLimit, cardBody.length);
       }
     }
     if (body.assignee !== undefined) {
@@ -1413,12 +1428,12 @@ const handlers = {
 
     ctx.db.tx(() => {
       ctx.db.run(
-        `UPDATE cards SET column_id = ?, position = ?, title = ?, description = ?,
+        `UPDATE cards SET column_id = ?, position = ?, title = ?, body = ?,
                           assignee_id = ?, updated_at = ?, done_at = ? WHERE id = ?`,
         columnId,
         position,
         title,
-        description,
+        cardBody,
         assigneeId,
         now(),
         doneAt,
@@ -1455,7 +1470,7 @@ const handlers = {
             column_id: columnId,
             position,
             title,
-            description,
+            body: cardBody,
             assignee_id: assigneeId,
             done_at: doneAt,
           }),
@@ -1471,54 +1486,36 @@ const handlers = {
     };
   },
 
-  linkCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
+  /**
+   * Delete a card outright. Reactions are plain rows so they go first, and
+   * the rest of the column closes the gap so positions stay dense.
+   */
+  deleteCard(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
     const card = cardById(ctx, requireInt(m[1], 'card_id'));
-    const thread = threadById(ctx, requireInt(body.thread_id, 'thread_id'));
     ctx.db.tx(() => {
-      ctx.db.run(
-        'UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?',
-        thread.id,
-        now(),
-        card.id,
+      ctx.db.run(`DELETE FROM reactions WHERE target_type = 'card' AND target_id = ?`, card.id);
+      ctx.db.run('DELETE FROM cards WHERE id = ?', card.id);
+      const rest = ctx.db.all<Card>(
+        'SELECT * FROM cards WHERE column_id = ? ORDER BY position',
+        card.column_id,
       );
+      rest.forEach((c, i) => {
+        if (c.position !== i) {
+          ctx.db.run('UPDATE cards SET position = ? WHERE id = ?', i, c.id);
+        }
+      });
       logEvent(ctx.db, {
         actorId: agent.id,
-        action: 'card.link',
+        action: 'card.delete',
         target: `card:${card.id}`,
-        payload: { thread_id: thread.id },
+        payload: {
+          board_id: card.board_id,
+          column_id: card.column_id,
+          title: card.title,
+        },
       });
     });
-    return {
-      status: 200,
-      body: {
-        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id),
-      },
-    };
-  },
-
-  linkThread(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
-    const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
-    const card = cardById(ctx, requireInt(body.card_id, 'card_id'));
-    ctx.db.tx(() => {
-      ctx.db.run(
-        'UPDATE cards SET thread_id = ?, updated_at = ? WHERE id = ?',
-        thread.id,
-        now(),
-        card.id,
-      );
-      logEvent(ctx.db, {
-        actorId: agent.id,
-        action: 'card.link',
-        target: `card:${card.id}`,
-        payload: { thread_id: thread.id, via: 'thread' },
-      });
-    });
-    return {
-      status: 200,
-      body: {
-        card: ctx.db.get<Card>('SELECT * FROM cards WHERE id = ?', card.id),
-      },
-    };
+    return { status: 200, body: { ok: true, id: card.id } };
   },
 
   reactToCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
@@ -1741,6 +1738,12 @@ export const ROUTES: Route[] = [
     h: handlers.manageColumns,
   },
   {
+    method: 'DELETE',
+    re: /^\/api\/columns\/(\d+)$/,
+    auth: true,
+    h: handlers.deleteColumn,
+  },
+  {
     method: 'GET',
     re: /^\/api\/boards\/(\d+)\/cards$/,
     auth: true,
@@ -1777,12 +1780,6 @@ export const ROUTES: Route[] = [
     auth: true,
     h: handlers.reply,
   },
-  {
-    method: 'POST',
-    re: /^\/api\/threads\/(\d+)\/link$/,
-    auth: true,
-    h: handlers.linkThread,
-  },
 
   {
     method: 'POST',
@@ -1799,10 +1796,10 @@ export const ROUTES: Route[] = [
     h: handlers.patchCard,
   },
   {
-    method: 'POST',
-    re: /^\/api\/cards\/(\d+)\/link$/,
+    method: 'DELETE',
+    re: /^\/api\/cards\/(\d+)$/,
     auth: true,
-    h: handlers.linkCard,
+    h: handlers.deleteCard,
   },
   {
     method: 'POST',

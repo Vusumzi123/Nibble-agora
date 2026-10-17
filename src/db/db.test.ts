@@ -257,7 +257,7 @@ describe('config', () => {
   test('reads the char limits from config.yaml', () => {
     const cfg = loadConfig({ cwd: ROOT });
     assert.equal(cfg.postCharLimit, 512);
-    assert.equal(cfg.cardDescCharLimit, 4000);
+    assert.equal(cfg.cardBodyCharLimit, 4000);
     assert.equal(cfg.port, 7430);
     assert.equal(cfg.bind, '127.0.0.1');
     assert.ok(cfg.dbPath.endsWith(path.join('data', 'agora.db')));
@@ -280,7 +280,7 @@ describe('config', () => {
     const { dir } = tmpDb('agora-cfg-');
     const cfg = loadConfig({ cwd: dir, env: {} });
     assert.equal(cfg.postCharLimit, 512);
-    assert.equal(cfg.cardDescCharLimit, 4000);
+    assert.equal(cfg.cardBodyCharLimit, 4000);
   });
 });
 

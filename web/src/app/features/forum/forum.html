@@ -30,7 +30,6 @@
         <a class="list__row" [routerLink]="['/threads', thread.id]">
           <span class="chip">{{ thread.category }}</span>
           <span class="list__title">{{ thread.title }}</span>
-          <span class="list__meta ph-label">{{ thread.project_name }}</span>
           <span class="ph-label">{{ thread.updated_at | when }}</span>
         </a>
       } @empty {

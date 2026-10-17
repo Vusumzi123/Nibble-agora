@@ -15,7 +15,7 @@ export interface Config {
   rootPassword: string;
   defaultTheme: string;
   postCharLimit: number;
-  cardDescCharLimit: number;
+  cardBodyCharLimit: number;
   maxBodyBytes: number;
 }
 
@@ -40,7 +40,7 @@ const DEFAULTS: Record<string, string> = {
   root_password: '',
   theme: 'dark',
   post_char_limit: '512',
-  card_desc_char_limit: '4000',
+  card_body_char_limit: '4000',
   max_body_bytes: '65536',
 };
 
@@ -111,7 +111,7 @@ export function loadConfig(opts: LoadOptions = {}): Config {
     rootPassword: env.AGORA_ROOT_PASSWORD ?? raw.root_password,
     defaultTheme: isTheme(raw.theme) ? raw.theme : 'dark',
     postCharLimit: int(raw.post_char_limit, 512, 'post_char_limit'),
-    cardDescCharLimit: int(raw.card_desc_char_limit, 4000, 'card_desc_char_limit'),
+    cardBodyCharLimit: int(raw.card_body_char_limit, 4000, 'card_body_char_limit'),
     maxBodyBytes: int(raw.max_body_bytes, 65536, 'max_body_bytes'),
   };
 }

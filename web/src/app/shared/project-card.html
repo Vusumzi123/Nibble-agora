@@ -3,13 +3,13 @@
   [routerLink]="link()"
   [class.project-card--active]="active()"
 >
-  <span class="project-card__name">{{ project().name }}</span>
+  <span class="project-card__name" appEllipsis>{{ project().name }}</span>
   @if (project().description) {
-    <span class="project-card__desc">{{ project().description }}</span>
+    <span class="project-card__desc" [appEllipsis]="2">{{ project().description }}</span>
   }
   <span class="project-card__meta ph-label">
-    <span>{{ project().slug }}</span>
-    <span>{{ columns() }} columns</span>
+    <span appEllipsis>{{ project().slug }}</span>
+    <span appEllipsis>{{ columns() }} columns</span>
   </span>
   <span class="project-card__tip">see project's board</span>
 </a>

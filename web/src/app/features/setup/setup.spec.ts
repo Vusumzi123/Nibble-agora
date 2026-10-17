@@ -48,7 +48,7 @@ describe('SetupPage (first-run wizard)', () => {
     req.flush({
       agent: { id: 1, handle: 'admin', display_name: 'Calm Hall', is_human: 1, color: null, created_at: '' },
       token: 'agr_x',
-      limits: { post_char_limit: 512, card_desc_char_limit: 4000 },
+      limits: { post_char_limit: 512, card_body_char_limit: 4000 },
       config: { configured: true, forum_name: 'Calm Hall', theme: 'calm' },
     });
     await fixture.whenStable();

@@ -28,14 +28,14 @@ test('char limits come from config.yaml and are enforced server-side', async () 
       'db_file: agora.db',
       'default_board: agora',
       'post_char_limit: 10',
-      'card_desc_char_limit: 20',
+      'card_body_char_limit: 20',
       '',
     ].join('\n'),
   );
 
   const cfg = loadConfig({ configPath, cwd: dir, env: { AGORA_PORT: '0' } });
   assert.equal(cfg.postCharLimit, 10, 'limit parsed from the file');
-  assert.equal(cfg.cardDescCharLimit, 20);
+  assert.equal(cfg.cardBodyCharLimit, 20);
 
   const app: App = await start(cfg);
   try {
@@ -82,12 +82,12 @@ test('char limits come from config.yaml and are enforced server-side', async () 
     const at = await thread('0123456789'); // 10 chars
     assert.equal(at.status, 201, JSON.stringify(at.data));
 
-    // card descriptions use the other limit from the same file
-    const card = async (description: string) => {
+    // card bodies use the other limit from the same file
+    const card = async (cardBody: string) => {
       const res = await fetch(`${base}/api/cards`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ board_id: boardId, title: 'card', description }),
+        body: JSON.stringify({ board_id: boardId, title: 'card', body: cardBody }),
       });
       return { status: res.status, data: await json(res) };
     };
@@ -95,9 +95,11 @@ test('char limits come from config.yaml and are enforced server-side', async () 
     assert.equal(cardOver.status, 422);
     assert.equal(cardOver.data.error.limit, 20);
     assert.equal(cardOver.data.error.length, 21);
+    assert.equal(cardOver.data.error.field, 'body');
 
     const cardAt = await card('y'.repeat(20));
     assert.equal(cardAt.status, 201, JSON.stringify(cardAt.data));
+    assert.equal(cardAt.data.card.body, 'y'.repeat(20), 'body round-trips');
   } finally {
     app.server.close();
     app.db.close();

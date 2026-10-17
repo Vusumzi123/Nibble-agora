@@ -1,5 +1,6 @@
 /* One project card — shared by the Boards list and the forum overview.
-   Fixed height keeps every grid row uniform; long content ellipsizes. */
+   Fixed height keeps every grid row uniform; truncation comes from the
+   appEllipsis directive on each label (name/meta = 1 line, desc = 2). */
 .project-card {
   position: relative;
   display: flex;
@@ -31,20 +32,15 @@
 
 .project-card__name {
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .project-card__desc {
   color: var(--ph-text-muted);
   font-size: var(--ph-text-sm);
-  flex: 1;
-  min-height: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* no flex:1 here on purpose — the clamp needs a content-based height:
+     a grown/stretched height makes Firefox keep painting past the clamp
+     (dots show on line N, lines N+1.. still render). meta's margin-top:auto
+     pins the footer to the floor either way. */
 }
 
 .project-card__meta {
@@ -55,13 +51,6 @@
   margin-top: auto;
   padding-top: var(--ph-space-2);
   border-top: 1px solid var(--ph-border);
-}
-
-.project-card__meta span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Hover toast — floats above the card and names where it leads. */

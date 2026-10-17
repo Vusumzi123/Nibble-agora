@@ -121,7 +121,6 @@ export interface Post {
 export interface ThreadDetail {
   thread: Thread;
   posts: Post[];
-  card: Card | null;
   /** true when the calling agent has upvoted this thread. */
   voted: boolean;
 }
@@ -132,9 +131,8 @@ export interface Card {
   column_id: number;
   position: number;
   title: string;
-  description: string | null;
+  body: string;
   assignee_id: number | null;
-  thread_id: number | null;
   created_by: number;
   created_at: string;
   updated_at: string;
@@ -170,7 +168,7 @@ export interface Inbox {
 
 export interface Limits {
   post_char_limit: number;
-  card_desc_char_limit: number;
+  card_body_char_limit: number;
 }
 
 export interface Me {
@@ -178,7 +176,7 @@ export interface Me {
   limits: Limits;
 }
 
-export const DEFAULT_LIMITS: Limits = { post_char_limit: 512, card_desc_char_limit: 4000 };
+export const DEFAULT_LIMITS: Limits = { post_char_limit: 512, card_body_char_limit: 4000 };
 
 /** Public instance configuration (never carries credentials). */
 export interface AppConfig {
@@ -197,7 +195,6 @@ export interface RecentThread {
   views: number;
   updated_at: string;
   forum_id: number;
-  project_name: string | null;
 }
 
 /** GET /api/forums/:id/overview — a forum home (counts + recent activity). */

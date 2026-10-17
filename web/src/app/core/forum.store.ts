@@ -439,6 +439,24 @@ export class ForumStore {
     });
   }
 
+  async addCard(columnId: number, title: string): Promise<boolean> {
+    const board = this.boardId();
+    if (board === null) return false;
+    return this.mutate(async () => {
+      await this.api.createCard(board, { column_id: columnId, title });
+      this.status.flash('card added');
+    });
+  }
+
+  /** Delete a column; the server cascades its cards and re-denses positions. */
+  async deleteColumn(columnId: number): Promise<boolean> {
+    if (this.boardId() === null) return false;
+    return this.mutate(async () => {
+      await this.api.deleteColumn(columnId);
+      this.status.flash('column deleted');
+    });
+  }
+
   /** Rename / re-describe the open project (server moves both rows). */
   async updateBoardDetails(name: string, description: string | null): Promise<boolean> {
     const board = this.boardId();
@@ -507,9 +525,18 @@ export class ForumStore {
     });
   }
 
-  async toggleDone(card: Card): Promise<boolean> {
+  async deleteCard(card: Card): Promise<boolean> {
     return this.mutate(async () => {
-      await this.api.patchCard(card.id, { done: !card.done_at });
+      await this.api.deleteCard(card.id);
+      this.status.flash('card deleted');
+    });
+  }
+
+  /** Card detail modal save — rewrite title/body (either may be omitted). */
+  async updateCard(cardId: number, patch: { title?: string; body?: string }): Promise<boolean> {
+    return this.mutate(async () => {
+      await this.api.patchCard(cardId, patch);
+      this.status.flash('card updated');
     });
   }
 

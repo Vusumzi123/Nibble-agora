@@ -67,7 +67,6 @@ describe('ForumOverviewPage (forum home)', () => {
           views: 1,
           updated_at: '2026-10-15T00:00:00.000Z',
           forum_id: 1,
-          project_name: 'Agora',
         },
       ],
     });

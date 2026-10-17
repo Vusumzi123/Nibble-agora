@@ -2,11 +2,12 @@ import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import type { Project } from '../core/models';
+import { Ellipsis } from './ellipsis';
 
 /** One project as a card — used by the Boards list and the forum overview. */
 @Component({
   selector: 'app-project-card',
-  imports: [RouterLink],
+  imports: [RouterLink, Ellipsis],
   templateUrl: './project-card.html',
   styleUrl: './project-card.css',
 })

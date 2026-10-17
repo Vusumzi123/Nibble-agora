@@ -87,9 +87,9 @@ echo "== Agora smoke tests (port $PORT) =="
 
 # --- limits are read from config.yaml, not hard-coded ------------------------
 POST_LIMIT=$(sed -n 's/^post_char_limit:[[:space:]]*//p' "$ROOT/config.yaml")
-DESC_LIMIT=$(sed -n 's/^card_desc_char_limit:[[:space:]]*//p' "$ROOT/config.yaml")
+DESC_LIMIT=$(sed -n 's/^card_body_char_limit:[[:space:]]*//p' "$ROOT/config.yaml")
 check "config.yaml declares post_char_limit" "${POST_LIMIT:-missing}" "512"
-check "config.yaml declares card_desc_char_limit" "${DESC_LIMIT:-missing}" "4000"
+check "config.yaml declares card_body_char_limit" "${DESC_LIMIT:-missing}" "4000"
 
 # --- boot --------------------------------------------------------------------
 rm -rf "$DATA"
@@ -248,15 +248,16 @@ req_once POST "/api/posts/$R_ID/reactions" '{"emoji":"bogus","op":"explode"}'
 check "unknown reaction op rejected" "$LAST_STATUS" "400"
 
 # --- cards -------------------------------------------------------------------
-req_once POST /api/cards "{\"board_id\":$BOARD_ID,\"title\":\"Ship phase 1\",\"description\":\"db + rest + seed\"}"
+req_once POST /api/cards "{\"board_id\":$BOARD_ID,\"title\":\"Ship phase 1\",\"body\":\"db + rest + seed\"}"
 check "create card returns 201" "$LAST_STATUS" "201"
 C_ID=$(echo "$RESP" | get card.id)
+check "card body stored" "$(echo "$RESP" | get card.body)" "db + rest + seed"
 INBOX_ID=$(sql "SELECT id FROM columns WHERE board_id = $BOARD_ID AND name = 'inbox'")
 check "new card lands in the first column (inbox)" "$(echo "$RESP" | get card.column_id)" "$INBOX_ID"
 
 BIG=$(printf 'y%.0s' $(seq 1 4001))
-req_once POST /api/cards "{\"board_id\":$BOARD_ID,\"title\":\"big\",\"description\":\"$BIG\"}"
-check "description over card_desc_char_limit rejected" "$LAST_STATUS" "422"
+req_once POST /api/cards "{\"board_id\":$BOARD_ID,\"title\":\"big\",\"body\":\"$BIG\"}"
+check "body over card_body_char_limit rejected" "$LAST_STATUS" "422"
 check "card error names the configured limit" "$(echo "$RESP" | get error.limit)" "$DESC_LIMIT"
 check "card error reports actual length" "$(echo "$RESP" | get error.length)" "4001"
 
@@ -280,15 +281,21 @@ check "inbox resolves handle" "$(echo "$RESP" | get handle)" "kael"
 TOKEN="$NEMU_TOKEN"
 
 req_once POST "/api/cards/$C_ID/link" "{\"thread_id\":$T_ID}"
-check "link card to thread" "$(echo "$RESP" | get card.thread_id)" "$T_ID"
+check "card link endpoint is gone" "$LAST_STATUS" "404"
 req_once POST "/api/threads/$T_ID/link" "{\"card_id\":$C_ID}"
-check "link thread to card (reverse)" "$(echo "$RESP" | get card.thread_id)" "$T_ID"
+check "thread link endpoint is gone" "$LAST_STATUS" "404"
 
 req_once PATCH "/api/cards/$C_ID" '{"done":true}'
 check "card done_at set" "$(nonempty "$(echo "$RESP" | get card.done_at)")" "true"
 TOKEN="$KEL_TOKEN" req_once GET /api/inbox/kael
 check "completed card leaves the inbox" "$(echo "$RESP" | get counts.cards)" "0"
 TOKEN="$NEMU_TOKEN"
+
+req_once DELETE "/api/cards/$C_ID"
+check "delete card returns 200" "$LAST_STATUS" "200"
+check "delete card echoes the id" "$(echo "$RESP" | get id)" "$C_ID"
+req_once DELETE "/api/cards/$C_ID"
+check "second delete is a 404" "$LAST_STATUS" "404"
 
 # --- columns -----------------------------------------------------------------
 req_once POST "/api/boards/$BOARD_ID/columns" '{"name":"review"}'

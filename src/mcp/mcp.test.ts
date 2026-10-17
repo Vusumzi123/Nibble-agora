@@ -148,7 +148,7 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
   const created = await call('forum_card_create', {
     board: 'agora',
     title: 'bridge card',
-    description: 'made via forum_card_create',
+    body: 'made via forum_card_create',
     column: 'todo',
     assignee: 'nemu-test',
   });
@@ -157,6 +157,7 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
   const doingId = agora.columns.find((c: any) => c.name === 'doing').id;
   assert.equal(created.card.column_id, todoId, 'card lands in "todo"');
   assert.equal(created.card.assignee_id, reg.id);
+  assert.equal(created.card.body, 'made via forum_card_create', 'card body round-trips');
 
   const cards = await call('forum_cards', { board: 'agora', column: 'todo', assignee: 'nemu-test' });
   assert.ok(cards.cards.some((c: any) => c.id === cardId), 'filters find the card');
@@ -172,7 +173,11 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
     mention: '@nemu-test please pick this up',
   });
   assert.equal(delegated.card.assignee_id, reg.id);
-  assert.ok(delegated.card.thread_id, 'mention opened and linked a task thread');
+  assert.ok(
+    delegated.mention?.thread?.id,
+    'mention opens a task thread in the forum (no card link)',
+  );
+  assert.equal(delegated.card.thread_id, undefined, 'cards carry no thread link');
 
   const inbox = await call('forum_inbox');
   assert.equal(inbox.handle, 'nemu-test');

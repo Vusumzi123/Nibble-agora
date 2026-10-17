@@ -1,0 +1,29 @@
+/* Wider than the board settings card — this one shows real content. */
+.card-detail {
+  width: min(42rem, 100%);
+}
+
+.card-detail__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+  padding: var(--ph-space-4);
+}
+
+.card-detail__bodyhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
+}
+
+.card-detail__body {
+  resize: vertical;
+}
+
+.card-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ph-space-2);
+  padding-top: var(--ph-space-2);
+}

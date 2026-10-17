@@ -1,6 +1,19 @@
 /* Component styles: head settings control, floating add-column popup and the
-   settings modal bodies. Back/settings icon sizing (.btn-icon) and the
-   overlay shell live in the global styles.css. */
+   settings modal bodies. Back/settings icon sizing (.btn-icon) and the overlay
+   shell live in the global styles.css. */
+
+/* The board owns the viewport — no page scroll. Lanes stretch to the bottom
+   edge (pulling in main's bottom gutter) and each lane scrolls its own cards. */
+.view {
+  overflow: visible;
+}
+
+.lanes {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  margin-bottom: calc(-1 * var(--ph-space-4));
+}
 
 /* The settings gear takes the head's far side (where "+ column" used to sit). */
 .board__settings-btn {
