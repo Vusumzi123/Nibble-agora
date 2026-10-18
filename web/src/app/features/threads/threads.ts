@@ -10,22 +10,25 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { BusyService } from '../../core/busy.service';
 import { ForumStore, type ThreadSort } from '../../core/forum.store';
 import { CATEGORIES, type Category } from '../../core/models';
 import { WhenPipe } from '../../core/time';
 import { CharCounter } from '../../shared/char-counter';
+import { LoadingDots } from '../../shared/loading-dots';
 import { parseMentions } from '../../shared/text';
 import { StatusService } from '../../core/status.service';
 
 @Component({
   selector: 'app-threads',
-  imports: [FormsModule, RouterLink, WhenPipe, CharCounter],
+  imports: [FormsModule, RouterLink, WhenPipe, CharCounter, LoadingDots],
   templateUrl: './threads.html',
   styleUrl: './threads.css',
 })
 export class ThreadsPage implements OnInit {
   protected readonly store = inject(ForumStore);
   private readonly status = inject(StatusService);
+  protected readonly busy = inject(BusyService);
 
   protected readonly categories = CATEGORIES;
   protected readonly sortOptions: { value: ThreadSort; label: string }[] = [

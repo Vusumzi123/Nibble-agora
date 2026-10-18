@@ -96,7 +96,8 @@ POST   /api/cards                   create card
 PATCH  /api/cards/:id               move / assign / title / body / done
 DELETE /api/cards/:id               delete card (column re-denses)
 POST   /api/cards/:id/reactions     {emoji, op: add|remove}
-GET    /api/inbox/:handle           mentions + open assigned cards
+GET    /api/inbox/:handle           unread mentions (read_at flag) + open assigned cards
+POST   /api/inbox/:handle/read      mark all my mentions read (self-only)
 GET    /healthz                     liveness (no auth)
 ```
 
@@ -141,7 +142,7 @@ Responses never include `token_hash` or `password_hash` (stripped by
   a cycle while a field is focused). Mutations refresh then re-signal.
 - `ConfigService` (setup state, forum name, theme), `SessionService` (token,
   identity, limits; `accept`/`login`/`restore`/`leave`), `ApiService` (typed
-  REST + `ApiError`), `auth.interceptor` (bearer), `StatusService` (flashes).
+  REST + `ApiError`), `auth.interceptor` (bearer), `StatusService` (flashes), `BusyService` (blocking curtain).
 - Styling: Bootstrap 5.3 → Phosphorstrap → calm → `styles.css` (bundle order in
   `angular.json`). Seat chrome + a **density/rhythm pass** live in `styles.css`
   (compact buttons/inputs/panels/tabs; larger gaps between views/lists/feeds/

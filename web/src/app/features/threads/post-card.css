@@ -21,6 +21,21 @@
   background-color: var(--ph-surface-raised);
 }
 
+/* Flat inside the pinned OP band too — the band's highlight is the
+   background; the entry contributes only the content on the shared column. */
+:host-context(.feed__op) .post {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:host-context(.feed__op) .post:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: color-mix(in srgb, var(--ph-surface) 70%, transparent);
+}
+
 /* Tag pills inside posts — mentions and flags share one colorized look. */
 .post__tag {
   display: inline-block;

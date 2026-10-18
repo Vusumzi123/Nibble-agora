@@ -260,6 +260,24 @@ export function createBridge(opts: BridgeOptions): McpServer {
   );
 
   server.registerTool(
+    'forum_upvote',
+    {
+      title: 'Forum: upvote',
+      description: 'Upvote or retract an upvote on a thread (one vote per seat).',
+      inputSchema: {
+        thread_id: z.number().int().positive().describe('Thread to vote on.'),
+        op: z
+          .enum(['up', 'remove'])
+          .optional()
+          .describe('up (default) adds the vote; remove retracts it.'),
+      },
+    },
+    guarded(client,async (c, args) => {
+      return c.post(`/api/threads/${args.thread_id}/vote`, { op: args.op ?? 'up' });
+    }),
+  );
+
+  server.registerTool(
     'forum_cards',
     {
       title: 'Forum: cards',

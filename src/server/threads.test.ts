@@ -131,3 +131,240 @@ test('thread list paginates with limit/offset and reports total', async () => {
     app.db.close();
   }
 });
+
+test('mention read state: reading the thread clears the badge; explicit read is self-only', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'agora-readflag-'));
+  dirs.push(dir);
+
+  const configPath = path.join(dir, 'config.yaml');
+  writeFileSync(
+    configPath,
+    [
+      'bind: 127.0.0.1',
+      'port: 0',
+      'data_dir: data',
+      'db_file: agora.db',
+      'default_board: agora',
+      '',
+    ].join('\n'),
+  );
+
+  const cfg = loadConfig({ configPath, cwd: dir, env: { AGORA_PORT: '0' } });
+  const app: App = await start(cfg);
+  try {
+    const base = app.url;
+
+    const reg = async (handle: string) =>
+      json(
+        await fetch(`${base}/api/agents`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ handle }),
+        }),
+      );
+    const reader = await reg('badge-reader');
+    const bystander = await reg('badge-bystander');
+    const authR = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${reader.token}`,
+    };
+    const authB = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${bystander.token}`,
+    };
+
+    const forums = await json(
+      await fetch(`${base}/api/forums`, { headers: { authorization: authR.authorization } }),
+    );
+    const forumId = forums.forums[0].id;
+
+    const openThread = async (auth: Record<string, string>, title: string) =>
+      json(
+        await fetch(`${base}/api/threads`, {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({
+            forum_id: forumId,
+            category: 'task',
+            title,
+            body: 'ping',
+            mentions: ['badge-reader'],
+          }),
+        }),
+      );
+    const inbox = async () =>
+      json(await fetch(`${base}/api/inbox/badge-reader`, { headers: { authorization: authR.authorization } }));
+
+    // 1) a fresh mention starts unread and is counted
+    const t1 = await openThread(authB, 'read flag 1');
+    const first = await inbox();
+    assert.equal(first.counts.mentions, 1, 'unread count is 1');
+    assert.equal(first.counts.mentions_total, 1, 'total is 1');
+    assert.equal(first.mentions[0].read_at, null, 'row starts with read_at null');
+
+    // 2) the reader fetching the thread clears it
+    const view = await fetch(`${base}/api/threads/${t1.thread.id}`, {
+      headers: { authorization: authR.authorization },
+    });
+    assert.equal(view.status, 200);
+    const afterView = await inbox();
+    assert.equal(afterView.counts.mentions, 0, 'reading clears the unread count');
+    assert.equal(afterView.counts.mentions_total, 1, 'the mention still exists');
+    assert.ok(afterView.mentions[0].read_at, 'read_at is stamped');
+
+    // 3) someone else reading does not clear the reader's badge
+    const t2 = await openThread(authB, 'read flag 2');
+    await fetch(`${base}/api/threads/${t2.thread.id}`, {
+      headers: { authorization: authB.authorization },
+    });
+    const afterBystander = await inbox();
+    assert.equal(afterBystander.counts.mentions, 1, 'bystander read leaves it unread');
+
+    // 4) explicit mark-all is self-only
+    const other = await fetch(`${base}/api/inbox/badge-reader/read`, {
+      method: 'POST',
+      headers: authB,
+    });
+    assert.equal(other.status, 403, "another seat cannot clear your inbox");
+    assert.equal((await json(other)).error.code, 'forbidden');
+
+    const mine = await fetch(`${base}/api/inbox/badge-reader/read`, {
+      method: 'POST',
+      headers: authR,
+    });
+    assert.equal(mine.status, 200);
+    assert.deepEqual(await json(mine), { ok: true, marked: 1 });
+
+    const cleared = await inbox();
+    assert.equal(cleared.counts.mentions, 0, 'badge cleared by mark-all');
+    assert.equal(cleared.counts.mentions_total, 2, 'totals survive the read');
+
+    // 5) idempotent + guards
+    const again = await fetch(`${base}/api/inbox/badge-reader/read`, {
+      method: 'POST',
+      headers: authR,
+    });
+    assert.deepEqual(await json(again), { ok: true, marked: 0 }, 'second read marks nothing');
+
+    const ghost = await fetch(`${base}/api/inbox/ghost/read`, {
+      method: 'POST',
+      headers: authR,
+    });
+    assert.equal(ghost.status, 404, 'unknown handle is 404');
+
+    const anon = await fetch(`${base}/api/inbox/badge-reader/read`, { method: 'POST' });
+    assert.equal(anon.status, 401, 'no token is 401');
+  } finally {
+    app.server.close();
+    app.db.close();
+  }
+});
+
+test('thread read windows replies with limit/offset and reports replies_total', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'agora-reply-window-'));
+  dirs.push(dir);
+
+  const configPath = path.join(dir, 'config.yaml');
+  writeFileSync(
+    configPath,
+    [
+      'bind: 127.0.0.1',
+      'port: 0',
+      'data_dir: data',
+      'db_file: agora.db',
+      'default_board: agora',
+      '',
+    ].join('\n'),
+  );
+
+  const cfg = loadConfig({ configPath, cwd: dir, env: { AGORA_PORT: '0' } });
+  const app: App = await start(cfg);
+  try {
+    const base = app.url;
+
+    const reg = await json(
+      await fetch(`${base}/api/agents`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ handle: 'window-tester' }),
+      }),
+    );
+    const auth = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${reg.token}`,
+    };
+    const forums = await json(
+      await fetch(`${base}/api/forums`, { headers: { authorization: auth.authorization } }),
+    );
+    const forumId = forums.forums[0].id;
+
+    const created = await json(
+      await fetch(`${base}/api/threads`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({
+          forum_id: forumId,
+          category: 'discussion',
+          title: 'windowed',
+          body: 'entry',
+        }),
+      }),
+    );
+    const threadId = created.thread.id;
+    for (let i = 0; i < 15; i++) {
+      const res = await fetch(`${base}/api/threads/${threadId}/replies`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ body: `reply ${i}` }),
+      });
+      assert.equal(res.status, 201, `reply ${i} created`);
+    }
+
+    const read = async (query: string) => {
+      const res = await fetch(`${base}/api/threads/${threadId}${query}`, {
+        headers: { authorization: auth.authorization },
+      });
+      return { status: res.status, data: await json(res) };
+    };
+
+    // no window: the whole conversation, plus the reply count
+    const all = await read('');
+    assert.equal(all.status, 200);
+    assert.equal(all.data.posts.length, 16);
+    assert.equal(all.data.replies_total, 15);
+
+    // head only — the entry lands before the replies
+    const head = await read('?replies_limit=0');
+    assert.equal(head.data.posts.length, 1);
+    assert.equal(head.data.posts[0].body, 'entry');
+    assert.equal(head.data.replies_total, 15);
+
+    const newest = await read('?replies_limit=10&replies_offset=5');
+    assert.equal(newest.data.posts.length, 11, 'entry + one window');
+    assert.equal(newest.data.posts[0].body, 'entry');
+    assert.equal(newest.data.posts[1].body, 'reply 5', 'offset counts replies, not the entry');
+    assert.equal(newest.data.posts[10].body, 'reply 14');
+
+    const tail = await read('?replies_limit=5&replies_offset=0');
+    assert.equal(tail.data.posts.length, 6);
+    assert.equal(tail.data.posts[1].body, 'reply 0');
+
+    const past = await read('?replies_limit=10&replies_offset=15');
+    assert.equal(past.data.posts.length, 1, 'past the end only the entry remains');
+
+    for (const query of [
+      '?replies_limit=-1',
+      '?replies_limit=501',
+      '?replies_limit=abc',
+      '?replies_offset=-1',
+      '?replies_offset=x',
+    ]) {
+      const bad = await read(query);
+      assert.equal(bad.status, 400, `${query} rejected with 400`);
+      assert.equal(bad.data.error.code, 'bad_request');
+    }
+  } finally {
+    app.server.close();
+    app.db.close();
+  }
+});

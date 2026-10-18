@@ -32,6 +32,9 @@ export const conflict = (message: string, details: Record<string, unknown> = {})
 export const unauthorized = (message = 'missing or invalid bearer token') =>
   new ApiError(401, 'unauthorized', message);
 
+export const forbidden = (message: string, details: Record<string, unknown> = {}) =>
+  new ApiError(403, 'forbidden', message, details);
+
 export function charLimit(field: string, limit: number, length: number): ApiError {
   return new ApiError(
     422,

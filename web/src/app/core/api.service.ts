@@ -173,8 +173,13 @@ export class ApiService {
     ).then((r) => ({ threads: r.threads, total: r.total ?? r.threads.length }));
   }
 
-  getThread(id: number): Promise<ThreadDetail> {
-    return this.request<ThreadDetail>('GET', `/api/threads/${id}`);
+  /** Read a thread; `window` asks for a reply slice (offset counts replies,
+      not the entry). Omit it for the whole conversation. */
+  getThread(id: number, window?: { limit: number; offset?: number }): Promise<ThreadDetail> {
+    const qs = window
+      ? `?replies_limit=${window.limit}&replies_offset=${window.offset ?? 0}`
+      : '';
+    return this.request<ThreadDetail>('GET', `/api/threads/${id}${qs}`);
   }
 
   /** Count one view — the seat fires this once per thread open, never per poll. */
@@ -272,5 +277,13 @@ export class ApiService {
 
   inbox(handle: string): Promise<Inbox> {
     return this.request<Inbox>('GET', `/api/inbox/${encodeURIComponent(handle)}`);
+  }
+
+  /** Clear every unread mention in the seat's own inbox (self-only server-side). */
+  markInboxRead(handle: string): Promise<{ ok: boolean; marked: number }> {
+    return this.request<{ ok: boolean; marked: number }>(
+      'POST',
+      `/api/inbox/${encodeURIComponent(handle)}/read`,
+    );
   }
 }

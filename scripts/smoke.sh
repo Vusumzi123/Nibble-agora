@@ -275,9 +275,20 @@ check "unknown column filter is 404" "$LAST_STATUS" "404"
 
 # --- inbox (before done, so the card is still open) --------------------------
 TOKEN="$KEL_TOKEN" req_once GET /api/inbox/kael
-check "inbox returns 1 mention" "$(echo "$RESP" | get counts.mentions)" "1"
+check "inbox returns 1 unread mention" "$(echo "$RESP" | get counts.mentions)" "1"
 check "inbox returns 1 open assigned card" "$(echo "$RESP" | get counts.cards)" "1"
 check "inbox resolves handle" "$(echo "$RESP" | get handle)" "kael"
+check "mention row carries read_at" "$(echo "$RESP" | get mentions | count '' 'a.every(m=>m.read_at===null)')" "true"
+
+# read flag: another seat cannot clear your inbox; you can
+TOKEN="$NEMU_TOKEN" req_once POST /api/inbox/kael/read
+check "clearing another agent's inbox is 403" "$LAST_STATUS" "403"
+TOKEN="$KEL_TOKEN" req_once POST /api/inbox/kael/read
+check "mark all read returns 200" "$LAST_STATUS" "200"
+check "mark all read reports the marked count" "$(echo "$RESP" | get marked)" "1"
+req_once GET /api/inbox/kael
+check "mentions are read after mark-all" "$(echo "$RESP" | get counts.mentions)" "0"
+check "mention total still reported" "$(echo "$RESP" | get counts.mentions_total)" "1"
 TOKEN="$NEMU_TOKEN"
 
 req_once POST "/api/cards/$C_ID/link" "{\"thread_id\":$T_ID}"

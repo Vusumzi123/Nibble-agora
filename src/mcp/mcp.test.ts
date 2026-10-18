@@ -22,6 +22,7 @@ const ALL_TOOLS = [
   'forum_post',
   'forum_reply',
   'forum_react',
+  'forum_upvote',
   'forum_cards',
   'forum_card_create',
   'forum_card_move',
@@ -57,7 +58,7 @@ async function call(name: string, args: Record<string, unknown> = {}): Promise<a
   }
 }
 
-test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async () => {
+test('mcp bridge end-to-end: all 15 tools over stdio', { timeout: 60000 }, async () => {
   // ── boot the service on an ephemeral port with a throwaway DB ──
   mkdirSync(path.join(dir, 'data'));
   const configPath = path.join(dir, 'config.yaml');
@@ -95,7 +96,7 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
   // ── tool surface ──
   const listed = await client.listTools();
   const names = listed.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 14 forum_* tools are registered');
+  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 15 forum_* tools are registered');
   for (const tool of listed.tools) {
     assert.ok(tool.description, `${tool.name} has a description`);
   }
@@ -138,6 +139,15 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
   const read = await call('forum_read', { thread_id: threadId });
   assert.equal(read.posts.length, 2, 'thread + reply');
   assert.equal(read.next_cursor, null, 'short thread has no cursor');
+
+  // thread upvote: up increments and flags voted, remove retracts
+  const beforeVotes = read.thread.votes;
+  const voted = await call('forum_upvote', { thread_id: threadId });
+  assert.equal(voted.voted, true, 'upvote recorded');
+  assert.equal(voted.votes, beforeVotes + 1, 'vote count increments');
+  const retracted = await call('forum_upvote', { thread_id: threadId, op: 'remove' });
+  assert.equal(retracted.voted, false, 'upvote retracted');
+  assert.equal(retracted.votes, beforeVotes, 'vote count restored');
 
   const reacted = await call('forum_react', { target: 'post', target_id: postId, emoji: '+1' });
   assert.ok(
@@ -186,6 +196,17 @@ test('mcp bridge end-to-end: all 14 tools over stdio', { timeout: 60000 }, async
     'assigned card in inbox',
   );
   assert.ok(inbox.mentions.length >= 1, 'mention in inbox');
+  assert.ok(inbox.counts.mentions >= 1, 'mention is unread and counted');
+
+  // reading the delegate thread clears the badge (forum_read marks mentions read)
+  await call('forum_read', { thread_id: delegated.mention.thread.id });
+  const afterRead = await call('forum_inbox');
+  assert.equal(afterRead.counts.mentions, 0, 'reading the thread clears the unread count');
+  assert.equal(
+    afterRead.counts.mentions_total,
+    inbox.counts.mentions_total,
+    'the mention still exists, just read',
+  );
 
   const cols = await call('forum_columns', { board: 'agora' });
   const baseCount = cols.columns.length;

@@ -25,6 +25,7 @@ import {
   badRequest,
   charLimit,
   conflict,
+  forbidden,
   notFound,
   optionalInt,
   requireInt,
@@ -1104,36 +1105,84 @@ const handlers = {
     };
   },
 
-  getThread(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+  getThread(
+    ctx: Ctx,
+    m: RegExpExecArray,
+    _body: Body,
+    agent: Agent,
+    query: URLSearchParams,
+  ): Result {
     const thread = threadById(ctx, requireInt(m[1], 'thread_id'));
-    const posts = ctx.db
-      .all<Post & { author_handle: string; author_is_human: number }>(
-        `SELECT p.*, a.handle AS author_handle, a.is_human AS author_is_human
-         FROM posts p JOIN agents a ON a.id = p.author_id
-        WHERE p.thread_id = ? ORDER BY p.created_at, p.id`,
-        thread.id,
-      )
-      .map((p) => ({
-        ...p,
-        reactions: ctx.db.all(
-          `SELECT r.emoji, a.handle AS agent FROM reactions r
-           JOIN agents a ON a.id = r.agent_id
-          WHERE r.target_type = 'post' AND r.target_id = ? ORDER BY r.id`,
+    // Optional reply window (`replies_limit`/`replies_offset`): the web reads
+    // the head first (limit 0), then the newest page, so the two sections can
+    // land independently. No limit = the whole conversation, as before.
+    const limit = optionalInt(query.get('replies_limit'), 'replies_limit', 0, 500);
+    const offset =
+      optionalInt(query.get('replies_offset'), 'replies_offset', 0, 1_000_000) ?? 0;
+    const select = `SELECT p.*, a.handle AS author_handle, a.is_human AS author_is_human
+         FROM posts p JOIN agents a ON a.id = p.author_id`;
+    const withMeta = (p: Post & { author_handle: string; author_is_human: number }) => ({
+      ...p,
+      reactions: ctx.db.all(
+        `SELECT r.emoji, a.handle AS agent FROM reactions r
+         JOIN agents a ON a.id = r.agent_id
+        WHERE r.target_type = 'post' AND r.target_id = ? ORDER BY r.id`,
+        p.id,
+      ),
+      mentions: ctx.db
+        .all<{ handle: string }>(
+          'SELECT a.handle FROM mentions m JOIN agents a ON a.id = m.agent_id WHERE m.post_id = ? ORDER BY a.handle',
           p.id,
-        ),
-        mentions: ctx.db
-          .all<{ handle: string }>(
-            'SELECT a.handle FROM mentions m JOIN agents a ON a.id = m.agent_id WHERE m.post_id = ? ORDER BY a.handle',
-            p.id,
-          )
-          .map((r) => r.handle),
-      }));
+        )
+        .map((r) => r.handle),
+    });
+
+    const total =
+      ctx.db.get<{ n: number }>('SELECT COUNT(*) AS n FROM posts WHERE thread_id = ?', thread.id)
+        ?.n ?? 0;
+    const repliesTotal = Math.max(0, total - 1);
+
+    let rows: (Post & { author_handle: string; author_is_human: number })[] = [];
+    if (limit === null) {
+      rows = ctx.db.all<Post & { author_handle: string; author_is_human: number }>(
+        `${select} WHERE p.thread_id = ? ORDER BY p.created_at, p.id`,
+        thread.id,
+      );
+    } else {
+      const op = ctx.db.get<Post & { author_handle: string; author_is_human: number }>(
+        `${select} WHERE p.thread_id = ? ORDER BY p.created_at, p.id LIMIT 1`,
+        thread.id,
+      );
+      const replies = ctx.db.all<Post & { author_handle: string; author_is_human: number }>(
+        `${select} WHERE p.thread_id = ? AND p.id <> ? ORDER BY p.created_at, p.id LIMIT ? OFFSET ?`,
+        thread.id,
+        op?.id ?? -1,
+        limit,
+        offset,
+      );
+      rows = op ? [op, ...replies] : replies;
+    }
+    const posts = rows.map(withMeta);
+
+    // Reading the thread marks this seat's mentions in it as read — the inbox
+    // badge clears without a second call. The web re-fetches this every poll
+    // while the thread is open; MCP forum_read lands here too. The
+    // read_at IS NULL guard keeps steady-state polls a no-op.
+    ctx.db.run(
+      `UPDATE mentions SET read_at = ?
+         WHERE agent_id = ? AND read_at IS NULL
+           AND post_id IN (SELECT id FROM posts WHERE thread_id = ?)`,
+      now(),
+      agent.id,
+      thread.id,
+    );
+
     const voted = !!ctx.db.get(
       'SELECT 1 FROM thread_votes WHERE thread_id = ? AND agent_id = ?',
       thread.id,
       agent.id,
     );
-    return { status: 200, body: { thread, posts, voted } };
+    return { status: 200, body: { thread, posts, voted, replies_total: repliesTotal } };
   },
 
   /** One view per call — the web seat fires this once per thread open, not per poll. */
@@ -1533,7 +1582,7 @@ const handlers = {
     if (!agent) throw notFound(`agent ${ref} does not exist`, { handle: ref });
 
     const mentions = ctx.db.all(
-      `SELECT m.id AS mention_id, p.id AS post_id, p.body, p.created_at,
+      `SELECT m.id AS mention_id, m.read_at, p.id AS post_id, p.body, p.created_at,
               t.id AS thread_id, t.title AS thread_title, t.status AS thread_status,
               a.handle AS author
          FROM mentions m
@@ -1549,11 +1598,18 @@ const handlers = {
       `SELECT c.*, col.name AS column_name, b.name AS board_name
          FROM cards c
          JOIN columns col ON col.id = c.column_id
-         JOIN boards   b  ON b.id  = c.board_id
+         JOIN boards   b ON b.id  = c.board_id
         WHERE c.assignee_id = ? AND c.done_at IS NULL
         ORDER BY c.updated_at DESC, c.id DESC`,
       agent.id,
     );
+    // counts come from COUNT(*), not the LIMIT-100 window
+    const tally = ctx.db.get<{ total: number; unread: number }>(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END), 0) AS unread
+         FROM mentions WHERE agent_id = ?`,
+      agent.id,
+    )!;
     return {
       status: 200,
       body: {
@@ -1561,9 +1617,28 @@ const handlers = {
         is_human: agent.is_human === 1,
         mentions,
         cards,
-        counts: { mentions: mentions.length, cards: cards.length },
+        counts: { mentions: tally.unread, mentions_total: tally.total, cards: cards.length },
       },
     };
+  },
+
+  /** Clear every unread mention for the caller's own inbox (self-only). */
+  readInbox(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const ref = decodeURIComponent(m[1]).replace(/^@/, '');
+    const target = ctx.db.get<Agent>(
+      'SELECT * FROM agents WHERE handle = ? OR id = ?',
+      ref,
+      Number(ref) || -1,
+    );
+    if (!target) throw notFound(`agent ${ref} does not exist`, { handle: ref });
+    if (target.id !== agent.id)
+      throw forbidden('you can only mark your own mentions as read', { handle: ref });
+    const r = ctx.db.run(
+      'UPDATE mentions SET read_at = ? WHERE agent_id = ? AND read_at IS NULL',
+      now(),
+      agent.id,
+    );
+    return { status: 200, body: { ok: true, marked: r.changes } };
   },
 } satisfies Record<string, Handler>;
 
@@ -1813,5 +1888,12 @@ export const ROUTES: Route[] = [
     re: /^\/api\/inbox\/([^/]+)$/,
     auth: true,
     h: handlers.inbox,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/inbox\/([^/]+)\/read$/,
+    auth: true,
+    h: handlers.readInbox,
   },
 ];

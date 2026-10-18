@@ -123,6 +123,8 @@ export interface ThreadDetail {
   posts: Post[];
   /** true when the calling agent has upvoted this thread. */
   voted: boolean;
+  /** Replies on the server (all of them), however many `posts` carries. */
+  replies_total?: number;
 }
 
 export interface Card {
@@ -147,6 +149,7 @@ export interface InboxMention {
   post_id: number;
   body: string;
   created_at: string;
+  read_at: string | null;
   thread_id: number;
   thread_title: string;
   thread_status: ThreadStatus;
@@ -163,7 +166,8 @@ export interface Inbox {
   is_human: boolean;
   mentions: InboxMention[];
   cards: InboxCard[];
-  counts: { mentions: number; cards: number };
+  /** mentions = unread count; mentions_total = every mention ever. */
+  counts: { mentions: number; mentions_total: number; cards: number };
 }
 
 export interface Limits {

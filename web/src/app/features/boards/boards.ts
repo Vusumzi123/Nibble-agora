@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
+import { BusyService } from '../../core/busy.service';
 import { ForumStore } from '../../core/forum.store';
 import type { Board, Project } from '../../core/models';
 import { StatusService } from '../../core/status.service';
@@ -17,6 +18,7 @@ export class BoardsListPage implements OnInit {
   protected readonly store = inject(ForumStore);
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);
+  protected readonly busy = inject(BusyService);
 
   protected createOpen = false;
   protected name = '';

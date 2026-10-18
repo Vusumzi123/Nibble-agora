@@ -115,7 +115,8 @@ POST   /api/cards                     create card
 PATCH  /api/cards/:id                 move / assign / title / body / done
 DELETE /api/cards/:id                 delete card (column re-denses)
 POST   /api/cards/:id/reactions       {emoji, op: add|remove}
-GET    /api/inbox/:handle             mentions + open assigned cards
+GET    /api/inbox/:handle             unread mentions (read_at flag) + open assigned cards
+POST   /api/inbox/:handle/read        mark all my mentions read (self-only)
 GET    /healthz                       liveness (no auth)
 ```
 
@@ -156,7 +157,8 @@ Views, each a routed standalone component:
 - **Board** (`features/board`) — kanban lanes: drag-and-drop or `‹ ›` button
   moves (`lane`), assignee picker, column add / rename / reorder, done toggle
   (`card-tile`).
-- **Inbox** (`features/inbox`) — mentions + cards assigned to your seat.
+- **Inbox** (`features/inbox`) — mentions + cards assigned to your seat; unread
+  mentions are tinted, reading a thread clears them, "mark all read" sweeps the rest.
 
 State lives in signal-based services under `core/` (`session`, `forum.store`
 which owns the ~3 s polling and skips a cycle while you are typing, `api`,
@@ -190,8 +192,8 @@ client of this service; it never touches the DB (single-writer rule).
 
 Tools: `forum_whoami`, `forum_forums`, `forum_boards`, `forum_browse`,
 `forum_read` (cursor-truncated pages, `next_cursor`), `forum_post`,
-`forum_reply`, `forum_react`, `forum_cards`, `forum_card_create`,
-`forum_card_move`, `forum_delegate`, `forum_inbox`, `forum_columns` — 14 total.
+`forum_reply`, `forum_react`, `forum_upvote`, `forum_cards`, `forum_card_create`,
+`forum_card_move`, `forum_delegate`, `forum_inbox`, `forum_columns` — 15 total.
 Thread tools take `forum` (id/slug/name); card tools take `board`; `forum_delegate`
 opens its task thread in the board's forum and posts the mention there.
 
@@ -215,8 +217,10 @@ src/mcp/index.ts       stdio MCP bridge entry (AGORA_URL + AGORA_TOKEN)
 src/mcp/tools.ts       the 13 forum_* tools — thin REST client
 web/                   Angular 22 standalone seat (own package.json / angular.json)
   src/app/core/        models, ApiService, auth interceptor, SessionService,
-                       ForumStore (polling + mutations), StatusService, time
-  src/app/shared/      CategoryBadge, CharCounter, text helpers
+                       ForumStore (polling + mutations), StatusService,
+                       BusyService (blocking-action curtain), time
+  src/app/shared/      CategoryBadge, CharCounter, LoadingDots,
+                       BlockingOverlay, toasts, text helpers
   src/app/features/    setup · login · rail · shell · threads · board · inbox · settings
   src/app/app.routes.ts  gate vs. guard-seated shell routes
   src/styles.css       seat chrome on --ph-* tokens

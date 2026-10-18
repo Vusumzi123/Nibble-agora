@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { ApiError, ApiService } from './api.service';
+import { BusyService } from './busy.service';
 import type {
   Agent,
   Board,
@@ -24,14 +25,21 @@ const POLL_MS = 3000;
 /** Threads fetched per batch; the list grows by one batch per sentinel hit. */
 export const THREAD_PAGE_SIZE = 20;
 
+/** Replies fetched per batch when scrolling up a thread. */
+export const REPLY_PAGE_SIZE = 10;
+
 /** Minimum time a batch's loading state stays visible, so the dots read as motion. */
 const MIN_LOADING_MS = 1000;
+/** Older replies stay behind the dots at least this long — same beat as the
+    thread list, longer because the prepend is anchored mid-scroll. */
+const MIN_OLDER_LOAD_MS = 2000;
 
 @Injectable({ providedIn: 'root' })
 export class ForumStore {
   private readonly api = inject(ApiService);
   readonly session = inject(SessionService);
   private readonly status = inject(StatusService);
+  private readonly curtain = inject(BusyService);
 
   readonly forums = signal<Forum[]>([]);
   readonly boards = signal<Board[]>([]);
@@ -48,6 +56,19 @@ export class ForumStore {
   /** True only while the list re-enters (a fresh first batch, not a poll). */
   readonly threadsReloading = signal(false);
   readonly thread = signal<ThreadDetail | null>(null);
+  /** True while the thread head (entry + meta) loads — replies are separate. */
+  readonly threadLoading = signal(false);
+  /** True while the newest reply page loads. */
+  readonly repliesLoading = signal(false);
+  /** True while an older reply page is being prepended. */
+  readonly repliesLoadingMore = signal(false);
+  /** Replies that exist on the server, however many are loaded. */
+  readonly repliesTotal = signal(0);
+  /** Index of the first loaded reply — >0 means older pages remain. */
+  readonly repliesOffset = signal(0);
+  readonly hasOlderReplies = computed(
+    () => this.repliesOffset() > 0 && !this.repliesLoading(),
+  );
   readonly cards = signal<Card[]>([]);
   readonly inbox = signal<Inbox | null>(null);
   /** Empty = all categories; multiple selections narrow the list (OR). */
@@ -75,6 +96,8 @@ export class ForumStore {
 
   private openThreadId: number | null = null;
   private busy = false;
+  /** Overridable so tests (and future tuning) need not wait out the beat. */
+  minOlderLoadMs = MIN_OLDER_LOAD_MS;
   private lastSig = '';
   private timer: ReturnType<typeof setInterval> | null = null;
   private forumsLoad: Promise<void> | null = null;
@@ -244,9 +267,27 @@ export class ForumStore {
     this.inbox.set(await this.api.inbox(me.handle));
   }
 
-  async loadThread(id: number): Promise<void> {
+  /** "Mark all read" on the inbox page — clears every unread mention. */
+  async markInboxRead(): Promise<boolean> {
+    const me = this.session.me();
+    if (!me) return false;
+    return this.mutate(async () => {
+      await this.api.markInboxRead(me.handle);
+      this.status.flash('mentions marked read');
+    });
+  }
+
+  /** Open a thread: the head lands first, then the newest reply page. The two
+      sections track their own loading flags, so the entry renders while the
+      responses are still in flight. */
+  async openThread(id: number): Promise<void> {
     const firstOpen = this.openThreadId !== id;
     this.openThreadId = id;
+    this.thread.set(null);
+    this.repliesTotal.set(0);
+    this.repliesOffset.set(0);
+    this.threadLoading.set(true);
+    this.repliesLoading.set(true);
     if (firstOpen) {
       // count the view once per open — polling must not inflate it.
       try {
@@ -255,7 +296,90 @@ export class ForumStore {
         /* view counting is best-effort; the thread still loads */
       }
     }
-    this.thread.set(await this.api.getThread(id));
+    try {
+      const head = await this.api.getThread(id, { limit: 0 });
+      if (this.openThreadId !== id) return;
+      this.thread.set(head);
+      this.repliesTotal.set(head.replies_total ?? 0);
+      this.threadLoading.set(false);
+
+      const total = this.repliesTotal();
+      const offset = Math.max(0, total - REPLY_PAGE_SIZE);
+      const page = await this.api.getThread(id, { limit: REPLY_PAGE_SIZE, offset });
+      if (this.openThreadId !== id) return;
+      this.thread.set(page);
+      this.repliesTotal.set(page.replies_total ?? total);
+      this.repliesOffset.set(offset);
+    } catch (err) {
+      if (this.openThreadId === id) this.fail(err);
+    } finally {
+      if (this.openThreadId === id) {
+        this.threadLoading.set(false);
+        this.repliesLoading.set(false);
+      }
+    }
+  }
+
+  /** Scroll-up pagination: prepend the previous reply page, keeping the
+      loaded suffix anchored on the newest reply. */
+  async loadOlderReplies(): Promise<void> {
+    const id = this.openThreadId;
+    if (
+      id === null ||
+      !this.hasOlderReplies() ||
+      this.repliesLoading() ||
+      this.repliesLoadingMore()
+    ) {
+      return;
+    }
+    const total = this.repliesTotal();
+    const offset = Math.max(0, this.repliesOffset() - REPLY_PAGE_SIZE);
+    // Ask only for the replies that are missing: when the window is not
+    // page-aligned a full page would overlap (and duplicate) what is loaded.
+    const limit = this.repliesOffset() - offset;
+    const started = Date.now();
+    this.repliesLoadingMore.set(true);
+    try {
+      const page = await this.api.getThread(id, { limit, offset });
+      // hold the prepend back until the beat is up, so the dots are seen and
+      // the anchoring lands on the settled layout.
+      const left = this.minOlderLoadMs - (Date.now() - started);
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      if (this.openThreadId !== id) return;
+      const current = this.thread();
+      if (current?.thread.id === id) {
+        this.thread.set({
+          ...page,
+          posts: [page.posts[0], ...page.posts.slice(1), ...current.posts.slice(1)],
+        });
+      } else {
+        this.thread.set(page);
+      }
+      this.repliesTotal.set(page.replies_total ?? total);
+      this.repliesOffset.set(offset);
+    } catch (err) {
+      if (this.openThreadId === id) this.fail(err);
+    } finally {
+      if (this.openThreadId === id) this.repliesLoadingMore.set(false);
+    }
+  }
+
+  /** Silent poll refresh of the open thread — keeps the loaded reply window
+      (anything new is picked up because the window runs to the newest reply). */
+  async loadThread(id: number): Promise<void> {
+    if (this.openThreadId !== id || this.thread() === null) return;
+    const head = await this.api.getThread(id, { limit: 0 });
+    if (this.openThreadId !== id) return;
+    const total = head.replies_total ?? 0;
+    const offset = Math.min(this.repliesOffset(), Math.max(0, total));
+    const page =
+      total > offset
+        ? await this.api.getThread(id, { limit: Math.min(total - offset, 500), offset })
+        : head;
+    if (this.openThreadId !== id) return;
+    this.thread.set(page);
+    this.repliesTotal.set(page.replies_total ?? total);
+    this.repliesOffset.set(offset);
   }
 
   /** One refresh cycle: forums always (the panel + every scoped read needs
@@ -305,6 +429,11 @@ export class ForumStore {
   private clearThread(): void {
     this.openThreadId = null;
     this.thread.set(null);
+    this.threadLoading.set(false);
+    this.repliesLoading.set(false);
+    this.repliesLoadingMore.set(false);
+    this.repliesTotal.set(0);
+    this.repliesOffset.set(0);
   }
 
   /** A new board/filter/sort starts over at the first batch. */
@@ -365,7 +494,7 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.createThread({ forum_id: forum, ...input });
       this.status.flash('thread posted');
-    });
+    }, 'posting thread');
   }
 
   async voteThread(threadId: number, remove: boolean): Promise<boolean> {
@@ -380,14 +509,14 @@ export class ForumStore {
         });
       }
       this.status.flash(remove ? 'vote removed' : 'thread upvoted');
-    });
+    }, remove ? 'removing vote' : 'upvoting thread');
   }
 
   async reply(threadId: number, body: string, mentions: string[]): Promise<boolean> {
     return this.mutate(async () => {
       await this.api.reply(threadId, body, mentions);
       this.status.flash('reply posted');
-    });
+    }, 'posting reply');
   }
 
   async toggleReaction(postId: number, emoji: string, remove: boolean): Promise<boolean> {
@@ -415,7 +544,7 @@ export class ForumStore {
         forum_id: forum,
       });
       this.status.flash(`project "${name}" created`);
-    });
+    }, 'creating project');
     return ok ? created : null;
   }
 
@@ -542,11 +671,15 @@ export class ForumStore {
 
   // ---- internals -----------------------------------------------------------
 
-  private async mutate(action: () => Promise<void>): Promise<boolean> {
-    try {
+  private async mutate(action: () => Promise<void>, blocking?: string): Promise<boolean> {
+    const work = async () => {
       await action();
       await this.refreshAll();
       this.lastSig = this.signature();
+    };
+    try {
+      if (blocking) await this.curtain.run(blocking, work);
+      else await work();
       return true;
     } catch (err) {
       this.fail(err);

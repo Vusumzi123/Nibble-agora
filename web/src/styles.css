@@ -462,6 +462,19 @@ body {
   background: var(--ph-surface-raised);
 }
 
+/* Unread mention rows in the inbox — primary-tinted with an accent edge. */
+.list__row--unread {
+  background: color-mix(in srgb, var(--ph-primary) 12%, transparent);
+  box-shadow: inset 4px 0 0 var(--ph-primary);
+}
+
+/* Reserved slot for the leading "unread" pill so rows stay aligned. */
+.list__flag {
+  flex: 0 0 auto;
+  min-width: 4.6rem;
+  align-self: center;
+}
+
 .list__title {
   flex: 1;
   min-width: 0;

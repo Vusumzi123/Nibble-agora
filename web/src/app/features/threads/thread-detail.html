@@ -1,26 +1,26 @@
 <section id="view-threads" class="view view--detail">
-  @if (store.thread(); as detail) {
-    <div class="view__head">
-      <a
-        class="btn btn-sm btn-outline-secondary btn-icon"
-        routerLink="/threads"
-        title="all threads"
-        aria-label="back to threads"
+  <div class="view__head">
+    <a
+      class="btn btn-sm btn-outline-secondary btn-icon"
+      routerLink="/threads"
+      title="all threads"
+      aria-label="back to threads"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M19 12H5" />
-          <path d="m12 19-7-7 7-7" />
-        </svg>
-      </a>
+        <path d="M19 12H5" />
+        <path d="m12 19-7-7 7-7" />
+      </svg>
+    </a>
+    @if (store.thread(); as detail) {
       <h5 class="m-0">{{ detail.thread.title }}</h5>
       <app-category-badge [category]="detail.thread.category" />
       @if (detail.thread.status !== 'open') {
@@ -33,22 +33,53 @@
       <button
         class="btn btn-sm"
         type="button"
+        [disabled]="busy.active()"
         [class.btn-primary]="detail.voted"
         [class.btn-outline-secondary]="!detail.voted"
         (click)="vote()"
       >
         {{ detail.voted ? 'upvoted' : 'upvote' }}
       </button>
-    </div>
+    } @else if (store.threadLoading()) {
+      <app-loading-dots label="loading thread" />
+    }
+  </div>
 
-    <div class="feed" #feed>
-      @if (visible()[0]; as op) {
-        <app-post-card [post]="op" />
+  <div
+    class="feed"
+    #feed
+    (wheel)="arm()"
+    (touchstart)="arm()"
+    (pointerdown)="arm()"
+  >
+    @if (store.thread(); as detail) {
+      @if (op(); as entry) {
+        <div class="feed__op">
+          <app-post-card [post]="entry" />
+        </div>
       }
-      @if (visible().length > 1) {
+      @if (!pendingBottom() && (store.hasOlderReplies() || store.repliesLoadingMore())) {
+        <div class="feed__sentinel ph-label" #sentinel>
+          @if (store.repliesLoadingMore()) {
+            <app-loading-dots label="loading older replies" />
+          } @else {
+            ↑ older replies
+          }
+        </div>
+      }
+      @if (store.repliesLoading()) {
+        <div class="feed__loader">
+          <app-loading-dots label="loading replies" />
+        </div>
+      }
+      @if (replies().length) {
         <div class="replies">
-          @for (post of visible().slice(1); track post.id) {
-            <app-post-card [post]="post" />
+          @for (post of replies(); track post.id) {
+            <app-post-card
+              [post]="post"
+              [attr.data-post-id]="post.id"
+              [class.post--enter]="post.id === justPostedId()"
+            />
           }
         </div>
       }
@@ -57,47 +88,49 @@
           ↳ join the conversation
         </button>
       }
-      @if (hasMore()) {
-        <div class="feed__sentinel ph-label" #sentinel>loading more…</div>
+    } @else {
+      <div class="feed__loader">
+        <app-loading-dots label="loading thread" />
+      </div>
+    }
+  </div>
+
+  <section class="composer" #composer (focusout)="onFocusOut($event)">
+    <span class="composer__glyph" aria-hidden="true">↳</span>
+    <div class="composer__field">
+      <textarea
+        class="form-control composer__input"
+        #input
+        rows="1"
+        placeholder="write a reply…"
+        [(ngModel)]="body"
+        (focus)="controlsOpen = true"
+        (keydown)="onComposerKeydown($event)"
+      ></textarea>
+      @if (controlsOpen) {
+        <div class="composer__controls">
+          <input
+            class="form-control composer__mentions"
+            type="text"
+            placeholder="mentions, comma separated"
+            [(ngModel)]="mentions"
+            (keydown)="onComposerKeydown($event)"
+          />
+          <app-char-counter
+            [value]="body"
+            [limit]="store.session.limits().post_char_limit"
+          />
+          <button
+            class="btn btn-primary btn-sm"
+            type="button"
+            [disabled]="busy.active()"
+            (mousedown)="$event.preventDefault()"
+            (click)="reply()"
+          >
+            reply
+          </button>
+        </div>
       }
     </div>
-
-    <section class="composer" #composer (focusout)="onFocusOut($event)">
-      <span class="composer__glyph" aria-hidden="true">↳</span>
-      <div class="composer__field">
-        <textarea
-          class="form-control composer__input"
-          #input
-          rows="1"
-          placeholder="write a reply…"
-          [(ngModel)]="body"
-          (focus)="controlsOpen = true"
-        ></textarea>
-        @if (controlsOpen) {
-          <div class="composer__controls">
-            <input
-              class="form-control composer__mentions"
-              type="text"
-              placeholder="mentions, comma separated"
-              [(ngModel)]="mentions"
-            />
-            <app-char-counter
-              [value]="body"
-              [limit]="store.session.limits().post_char_limit"
-            />
-            <button
-              class="btn btn-primary btn-sm"
-              type="button"
-              (mousedown)="$event.preventDefault()"
-              (click)="reply()"
-            >
-              reply
-            </button>
-          </div>
-        }
-      </div>
-    </section>
-  } @else {
-    <p class="ph-label">loading…</p>
-  }
+  </section>
 </section>

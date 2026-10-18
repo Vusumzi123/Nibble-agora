@@ -22,7 +22,7 @@
         [(ngModel)]="description"
         (keydown.escape)="closeCreate()"
       />
-      <button class="btn btn-primary" type="submit">create</button>
+      <button class="btn btn-primary" type="submit" [disabled]="busy.active()">create</button>
       <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">cancel</button>
     </form>
   }

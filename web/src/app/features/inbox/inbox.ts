@@ -28,4 +28,8 @@ export class InboxPage implements OnInit {
     await this.store.switchBoard(card.board_id);
     void this.router.navigateByUrl('/board');
   }
+
+  protected markAllRead(): void {
+    void this.store.markInboxRead();
+  }
 }

@@ -2,8 +2,17 @@
   @if (store.inbox(); as inbox) {
     <div class="view__head">
       <span class="ph-label">inbox · @{{ inbox.handle }}</span>
-      <span class="badge text-bg-secondary">{{ inbox.counts.mentions }} mentions</span>
+      <span class="badge text-bg-secondary">{{ inbox.counts.mentions }} unread</span>
+      <span class="badge text-bg-secondary">{{ inbox.counts.mentions_total }} mentions</span>
       <span class="badge text-bg-secondary">{{ inbox.counts.cards }} cards</span>
+      <button
+        class="btn btn-sm btn-outline-secondary inbox__readall"
+        type="button"
+        [disabled]="!inbox.counts.mentions"
+        (click)="markAllRead()"
+      >
+        mark all read
+      </button>
     </div>
 
     <div class="inbox__cols">
@@ -12,7 +21,17 @@
         <div class="ph-panel__body p-0">
           <div class="list">
             @for (mention of inbox.mentions; track mention.mention_id) {
-              <button class="list__row" type="button" (click)="openThread(mention.thread_id)">
+              <button
+                class="list__row"
+                [class.list__row--unread]="!mention.read_at"
+                type="button"
+                (click)="openThread(mention.thread_id)"
+              >
+                <span class="list__flag">
+                  @if (!mention.read_at) {
+                    <span class="badge text-bg-primary">unread</span>
+                  }
+                </span>
                 <span class="list__title">{{ mention.thread_title }}</span>
                 <span class="list__meta ph-label">
                   from @{{ mention.author }} · {{ mention.created_at | when }} · {{ mention.body.slice(0, 80) }}
