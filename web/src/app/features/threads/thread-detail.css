@@ -55,7 +55,8 @@
   z-index: 2;
   width: 100%;
   margin-inline: 0;
-  background: var(--ph-surface-raised);
+  /* Same sheet as a reply row, and it stays put on hover. */
+  background: var(--ph-surface);
   border-bottom: 1px solid var(--ph-border);
   box-shadow: var(--ph-shadow-2);
 }
