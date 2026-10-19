@@ -16,12 +16,13 @@ import { CATEGORIES, type Category } from '../../core/models';
 import { WhenPipe } from '../../core/time';
 import { CharCounter } from '../../shared/char-counter';
 import { LoadingDots } from '../../shared/loading-dots';
+import { MentionInput } from '../../shared/mention-input';
 import { parseMentions } from '../../shared/text';
 import { StatusService } from '../../core/status.service';
 
 @Component({
   selector: 'app-threads',
-  imports: [FormsModule, RouterLink, WhenPipe, CharCounter, LoadingDots],
+  imports: [FormsModule, RouterLink, WhenPipe, CharCounter, LoadingDots, MentionInput],
   templateUrl: './threads.html',
   styleUrl: './threads.css',
 })

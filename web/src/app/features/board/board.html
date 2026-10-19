@@ -46,9 +46,15 @@
       </button>
     </div>
 
-    <div class="lanes">
+    <div
+      #lanesStrip
+      class="lanes"
+      (dragover)="onDragOverStrip($event)"
+      (dragend)="stopDragScroll()"
+      (drop)="stopDragScroll()"
+    >
       @for (column of store.columns(); track column.id) {
-        <app-lane [column]="column" />
+        <app-lane [column]="column" [loading]="store.cardsLoading()" />
       } @empty {
         <p class="ph-label p-3">no columns</p>
       }
@@ -158,6 +164,58 @@
         </section>
       </div>
     }
+  } @else if (loadingBoard()) {
+    <div class="view__head">
+      <button
+        class="btn btn-sm btn-outline-secondary btn-icon"
+        type="button"
+        routerLink="/boards"
+        title="back to boards"
+        aria-label="back to boards"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M19 12H5" />
+          <path d="m12 19-7-7 7-7" />
+        </svg>
+      </button>
+      <span class="skeleton skeleton--label"></span>
+    </div>
+
+    <div class="lanes" aria-busy="true" aria-label="loading board">
+      @for (i of skeletonLanes; track i) {
+        <section class="lane lane--skeleton" aria-hidden="true">
+          <header class="lane__head">
+            <span class="skeleton skeleton--lane-name"></span>
+            <span class="skeleton skeleton--badge"></span>
+          </header>
+          <div class="lane__cards">
+            @for (j of skeletonCards; track j) {
+              <div class="card kanban-card kanban-card--skeleton">
+                <div class="card-body">
+                  <span class="skeleton skeleton--card-title"></span>
+                  <span class="skeleton skeleton--card-line"></span>
+                  <span class="skeleton skeleton--card-line skeleton--short"></span>
+                  <div class="kanban-card__foot">
+                    <span class="skeleton skeleton--card-pill"></span>
+                    <span class="skeleton skeleton--card-chip"></span>
+                    <span class="skeleton skeleton--card-chip"></span>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
   } @else {
     <p class="ph-label">no board selected</p>
   }

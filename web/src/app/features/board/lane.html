@@ -71,28 +71,42 @@
     </span>
   </header>
 
-  @if (adding) {
-    <div class="lane__newcard">
-      <input
-        #newcardInput
-        class="form-control form-control-sm"
-        type="text"
-        placeholder="card title"
-        maxlength="200"
-        [(ngModel)]="newTitle"
-        (keydown.enter)="addCard()"
-        (keydown.escape)="cancelAddCard()"
-        (blur)="cancelAddCard()"
-      />
-    </div>
-  }
-
-  <div class="lane__cards" (dragover)="allow($event)" (drop)="onDrop($event)">
-    @for (card of cards(); track card.id) {
-      <app-card-tile [card]="card" />
+  <div
+    #cardsEl
+    class="lane__cards"
+    (dragover)="onCardsDragOver($event)"
+    (dragleave)="onCardsDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    @if (loading() && !cards().length) {
+      @for (i of skeletons; track i) {
+        <div class="card kanban-card kanban-card--skeleton" aria-hidden="true">
+          <div class="card-body">
+            <span class="skeleton skeleton--card-title"></span>
+            <span class="skeleton skeleton--card-line"></span>
+            <span class="skeleton skeleton--card-line skeleton--short"></span>
+            <div class="kanban-card__foot">
+              <span class="skeleton skeleton--card-pill"></span>
+              <span class="skeleton skeleton--card-chip"></span>
+              <span class="skeleton skeleton--card-chip"></span>
+            </div>
+          </div>
+        </div>
+      }
+    }
+    @for (row of rows(); track $index) {
+      @if (row.gap) {
+        <div class="kanban-card kanban-card--placeholder" aria-hidden="true"></div>
+      } @else if (row.card) {
+        <app-card-tile [card]="row.card" />
+      }
     }
   </div>
 </section>
+
+@if (creating) {
+  <app-card-detail [columnId]="column().id" (closed)="creating = false" />
+}
 
 @if (confirming) {
   <app-confirm-dialog

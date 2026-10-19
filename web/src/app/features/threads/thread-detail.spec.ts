@@ -349,7 +349,7 @@ describe('ThreadDetailPage (windowed replies, open lands at newest, reply scroll
     fixture.detectChanges();
     await fixture.whenStable();
 
-    const mentions = fixture.nativeElement.querySelector('input.composer__mentions') as HTMLInputElement;
+    const mentions = fixture.nativeElement.querySelector('app-mention-input input') as HTMLInputElement;
     expect(box).toBeTruthy();
     expect(mentions).toBeTruthy();
 

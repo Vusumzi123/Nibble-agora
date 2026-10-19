@@ -5,6 +5,7 @@ data/
 *.db-wal
 *.db-shm
 .tmp/
+.opencode/logs/
 
 # Secrets — tokens are shown once, never committed
 .env

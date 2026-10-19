@@ -1,10 +1,21 @@
-import { Component, ElementRef, OnInit, ViewChild, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { ForumStore } from '../../core/forum.store';
 import { StatusService } from '../../core/status.service';
+import { dragScroll, stopDragScroll } from '../../shared/drag-reorder';
 import { Lane } from './lane';
 
 @Component({
@@ -13,7 +24,7 @@ import { Lane } from './lane';
   templateUrl: './board.html',
   styleUrl: './board.css',
 })
-export class BoardPage implements OnInit {
+export class BoardPage implements OnInit, OnDestroy {
   protected readonly store = inject(ForumStore);
   private readonly status = inject(StatusService);
   private readonly route = inject(ActivatedRoute);
@@ -21,9 +32,14 @@ export class BoardPage implements OnInit {
 
   /** Board the URL asks for (`/boards/:id`); null = legacy `/board`, keep selection. */
   private readonly paramId = signal<number | null>(null);
+  /** One-shot: the inbox handed us this card to reveal once the board renders. */
+  private readonly targetCardId = signal<number | null>(null);
+
+  private readonly host = inject(ElementRef) as ElementRef<HTMLElement>;
 
   @ViewChild('colName') private colName?: ElementRef<HTMLInputElement>;
   @ViewChild('nameInput') private nameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('lanesStrip') private lanesStrip?: ElementRef<HTMLElement>;
 
   protected columnName = '';
   /** The floating "new column" popup and the settings modal are local UI. */
@@ -33,9 +49,55 @@ export class BoardPage implements OnInit {
   protected editName = '';
   protected editDesc = '';
 
+  /** True until the first board/card read settles (or a board is found). */
+  private readonly entering = signal(true);
+  /** Show the board skeleton only when there is no board to draw yet. */
+  protected readonly loadingBoard = computed(
+    () =>
+      !this.store.currentBoard() &&
+      (this.entering() || this.store.boardsLoading() || this.store.cardsLoading()),
+  );
+  protected readonly skeletonLanes = [1, 2, 3];
+  protected readonly skeletonCards = [1, 2, 3];
+
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       this.applyParam(params.get('id'));
+    });
+
+    // Inbox → project detail hands over the card to land on.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const raw = params.get('card');
+      const id = raw === null ? NaN : Number(raw);
+      this.targetCardId.set(Number.isInteger(id) && id > 0 ? id : null);
+    });
+
+    // Once the cards are rendered, glide the target tile into view and flash it.
+    // The effect can outrun change detection, so poll the DOM for a few frames.
+    effect((onCleanup) => {
+      const target = this.targetCardId();
+      if (target === null || !this.store.cards().some((card) => card.id === target)) return;
+      let frames = 0;
+      let raf = 0;
+      const step = (): void => {
+        frames += 1;
+        const node = this.host.nativeElement.querySelector<HTMLElement>(
+          `.kanban-card[data-id="${target}"]`,
+        );
+        if (node) {
+          node.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          this.store.focusCard(target);
+          this.targetCardId.set(null);
+          return;
+        }
+        if (frames > 60) {
+          this.targetCardId.set(null);
+          return;
+        }
+        raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+      onCleanup(() => cancelAnimationFrame(raf));
     });
 
     // A deep-linked board id that the server doesn't know (or arrives later)
@@ -50,8 +112,22 @@ export class BoardPage implements OnInit {
 
   ngOnInit(): void {
     this.store.setView('board');
-    void this.store.refreshCards();
+    // `dragend` fires on the source tile, but `rows` removes that tile mid-drag,
+    // so the event never bubbles to a lane handler. A window listener always
+    // runs and guarantees the drag state is cleared (drop, cancel, or Escape).
+    window.addEventListener('dragend', this.onWindowDragEnd);
+    void this.store.refreshCards().finally(() => this.entering.set(false));
   }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('dragend', this.onWindowDragEnd);
+    stopDragScroll();
+  }
+
+  private readonly onWindowDragEnd = (): void => {
+    this.store.draggingCardId.set(null);
+    stopDragScroll();
+  };
 
   private applyParam(raw: string | null): void {
     if (raw === null) {
@@ -66,6 +142,18 @@ export class BoardPage implements OnInit {
     }
     this.paramId.set(id);
     if (id !== this.store.boardId()) void this.store.switchBoard(id);
+  }
+
+  // ---- drag auto-scroll ----------------------------------------------------
+
+  /** Keep the strip and the hovered column under the pointer as it drags. */
+  protected onDragOverStrip(event: DragEvent): void {
+    const strip = this.lanesStrip?.nativeElement;
+    if (strip) dragScroll(strip, event);
+  }
+
+  protected stopDragScroll(): void {
+    stopDragScroll();
   }
 
   protected async addColumn(): Promise<void> {

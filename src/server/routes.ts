@@ -3,10 +3,14 @@ import { isTheme } from '../config.ts';
 import type { Db } from '../db/sqlite.ts';
 import {
   DEFAULT_COLUMNS,
+  PROJECT_COLUMNS,
   getSetting,
   hashPassword,
   hashToken,
+  eventHead,
   isConfigured,
+  listEvents,
+  listEventsSince,
   logEvent,
   newToken,
   setSetting,
@@ -14,6 +18,7 @@ import {
   type Agent,
   type Board,
   type Card,
+  type CardComment,
   type Column,
   type Forum,
   type Post,
@@ -212,6 +217,12 @@ function nextCardPosition(ctx: Ctx, columnId: number): number {
   return (row?.n ?? -1) + 1;
 }
 
+/** Projects append to the end of the Boards view. */
+function nextProjectPosition(ctx: Ctx): number {
+  const row = ctx.db.get<{ n: number | null }>('SELECT MAX(position) AS n FROM projects');
+  return (row?.n ?? -1) + 1;
+}
+
 /** Name/slug uniqueness across both projects and boards (they mirror each other). */
 function projectNameTaken(ctx: Ctx, name: string, slug: string): boolean {
   return Boolean(
@@ -220,8 +231,11 @@ function projectNameTaken(ctx: Ctx, name: string, slug: string): boolean {
   );
 }
 
-function requestedColumns(body: Body): string[] {
-  let columnNames: string[] = [...DEFAULT_COLUMNS];
+function requestedColumns(
+  body: Body,
+  defaults: readonly string[] = DEFAULT_COLUMNS,
+): string[] {
+  let columnNames: string[] = [...defaults];
   if (Array.isArray(body.columns) && body.columns.length > 0) {
     columnNames = body.columns.map((c) => String(c).trim()).filter(Boolean);
   }
@@ -251,13 +265,14 @@ function insertProjectWithBoard(
   return ctx.db.tx(() => {
     const ts = now();
     const pr = ctx.db.run(
-      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id, position) VALUES (?, ?, ?, ?, ?, ?, ?)',
       input.name,
       input.slug,
       input.description,
       input.agentId,
       ts,
       input.forumId,
+      nextProjectPosition(ctx),
     );
     const project = ctx.db.get<Project>('SELECT * FROM projects WHERE id = ?', pr.lastInsertRowid)!;
     const br = ctx.db.run(
@@ -490,6 +505,17 @@ const handlers = {
     return { status: 200, body: { agents } };
   },
 
+  /** The change journal since an event id — the live stream's reconnect
+      fallback and a cheap "what happened" read for agents. */
+  events(ctx: Ctx, _m: RegExpExecArray, _body: Body, _agent: Agent, query: URLSearchParams): Result {
+    const since = optionalInt(query.get('since'), 'since', 0, Number.MAX_SAFE_INTEGER);
+    const events =
+      since === null
+        ? listEvents(ctx.db, 50).reverse()
+        : listEventsSince(ctx.db, since);
+    return { status: 200, body: { events, last_id: eventHead(ctx.db) } };
+  },
+
   register(ctx: Ctx, _m: RegExpExecArray, body: Body): Result {
     const handle = normalizeHandle(body.handle);
     if (ctx.db.get('SELECT id FROM agents WHERE handle = ?', handle)) {
@@ -637,6 +663,14 @@ const handlers = {
       if (board.project_id !== null) {
         ctx.db.run('DELETE FROM projects WHERE id = ?', board.project_id);
       }
+      // Deleting a project leaves the Board view dense.
+      ctx.db
+        .all<Project>('SELECT * FROM projects ORDER BY position, id')
+        .forEach((project, i) => {
+          if (project.position !== i) {
+            ctx.db.run('UPDATE projects SET position = ? WHERE id = ?', i, project.id);
+          }
+        });
       logEvent(ctx.db, {
         actorId: agent.id,
         action: 'project.delete',
@@ -696,10 +730,36 @@ const handlers = {
          FROM projects p
          LEFT JOIN boards b ON b.project_id = p.id
          ${where}
-        ORDER BY p.id`,
+        ORDER BY p.position, p.id`,
       ...params,
     );
     return { status: 200, body: { projects } };
+  },
+
+  /** Reorder one project in the Boards view (positions are client-densified). */
+  updateProject(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const projectId = requireInt(m[1], 'project_id');
+    const project = ctx.db.get<Project>('SELECT * FROM projects WHERE id = ?', projectId);
+    if (!project) {
+      throw notFound(`project ${projectId} does not exist`, { project_id: projectId });
+    }
+    const position = requireInt(body.position, 'position');
+    if (position < 0) {
+      throw badRequest('position must be zero or greater', { field: 'position', value: position });
+    }
+    ctx.db.tx(() => {
+      ctx.db.run('UPDATE projects SET position = ? WHERE id = ?', position, project.id);
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'project.reorder',
+        target: `project:${project.id}`,
+        payload: { position },
+      });
+    });
+    return {
+      status: 200,
+      body: { project: ctx.db.get<Project>('SELECT * FROM projects WHERE id = ?', project.id) },
+    };
   },
 
   createProject(ctx: Ctx, _m: RegExpExecArray, body: Body, agent: Agent): Result {
@@ -712,7 +772,7 @@ const handlers = {
         value: name,
       });
     }
-    const columnNames = requestedColumns(body);
+    const columnNames = requestedColumns(body, PROJECT_COLUMNS);
     const forum = forumByRef(ctx, body.forum_id ?? body.forum);
 
     // Forum > Projects > Boards: one project, its single board, default columns.
@@ -1438,6 +1498,7 @@ const handlers = {
     let cardBody = card.body;
     let assigneeId = card.assignee_id;
     let doneAt = card.done_at;
+    let blockedAt = card.blocked_at;
 
     const columnChanged =
       body.column_id !== undefined &&
@@ -1469,6 +1530,10 @@ const handlers = {
     if (body.done !== undefined) {
       doneAt = body.done === true || body.done === 1 || body.done === 'true' ? now() : null;
     }
+    if (body.blocked !== undefined) {
+      const blocked = body.blocked === true || body.blocked === 1 || body.blocked === 'true';
+      blockedAt = blocked ? (card.blocked_at ?? now()) : null;
+    }
     if (body.position !== undefined && body.position !== null && body.position !== '') {
       position = requireInt(body.position, 'position');
     } else if (columnChanged) {
@@ -1478,7 +1543,8 @@ const handlers = {
     ctx.db.tx(() => {
       ctx.db.run(
         `UPDATE cards SET column_id = ?, position = ?, title = ?, body = ?,
-                          assignee_id = ?, updated_at = ?, done_at = ? WHERE id = ?`,
+                          assignee_id = ?, updated_at = ?, done_at = ?, blocked_at = ?
+         WHERE id = ?`,
         columnId,
         position,
         title,
@@ -1486,6 +1552,7 @@ const handlers = {
         assigneeId,
         now(),
         doneAt,
+        blockedAt,
         card.id,
       );
       if (columnChanged) {
@@ -1508,6 +1575,14 @@ const handlers = {
           payload: { from: before.assignee_id, to: assigneeId },
         });
       }
+      if (blockedAt !== before.blocked_at) {
+        logEvent(ctx.db, {
+          actorId: agent.id,
+          action: blockedAt ? 'card.block' : 'card.unblock',
+          target: `card:${card.id}`,
+          payload: { blocked_at: blockedAt },
+        });
+      }
       logEvent(ctx.db, {
         actorId: agent.id,
         action: 'card.update',
@@ -1522,6 +1597,7 @@ const handlers = {
             body: cardBody,
             assignee_id: assigneeId,
             done_at: doneAt,
+            blocked_at: blockedAt,
           }),
         },
       });
@@ -1570,6 +1646,58 @@ const handlers = {
   reactToCard(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
     const card = cardById(ctx, requireInt(m[1], 'card_id'));
     return applyReaction(ctx, 'card', card.id, body, agent);
+  },
+
+  /** The card's own conversation — newest last, so the composer sits at the end. */
+  listCardComments(ctx: Ctx, m: RegExpExecArray): Result {
+    const card = cardById(ctx, requireInt(m[1], 'card_id'));
+    const comments = ctx.db.all<CardComment & { author_handle: string; author_is_human: number }>(
+      `SELECT c.*, a.handle AS author_handle, a.is_human AS author_is_human
+         FROM card_comments c
+         JOIN agents a ON a.id = c.author_id
+        WHERE c.card_id = ?
+        ORDER BY c.created_at, c.id`,
+      card.id,
+    );
+    return { status: 200, body: { card_id: card.id, comments } };
+  },
+
+  addCardComment(ctx: Ctx, m: RegExpExecArray, body: Body, agent: Agent): Result {
+    const card = cardById(ctx, requireInt(m[1], 'card_id'));
+    const text = String(requireString(body.body, 'body', ctx.cfg.postCharLimit));
+    if (text.length > ctx.cfg.postCharLimit) {
+      throw charLimit('body', ctx.cfg.postCharLimit, text.length);
+    }
+
+    const commentId = ctx.db.tx(() => {
+      const r = ctx.db.run(
+        'INSERT INTO card_comments (card_id, author_id, body, created_at) VALUES (?, ?, ?, ?)',
+        card.id,
+        agent.id,
+        text,
+        now(),
+      );
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'comment.create',
+        target: `card:${card.id}`,
+        payload: { comment_id: r.lastInsertRowid, card_id: card.id },
+      });
+      return r.lastInsertRowid;
+    });
+
+    return {
+      status: 201,
+      body: {
+        comment: ctx.db.get<CardComment & { author_handle: string; author_is_human: number }>(
+          `SELECT c.*, a.handle AS author_handle, a.is_human AS author_is_human
+             FROM card_comments c
+             JOIN agents a ON a.id = c.author_id
+            WHERE c.id = ?`,
+          commentId,
+        ),
+      },
+    };
   },
 
   inbox(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent): Result {
@@ -1757,6 +1885,7 @@ export const ROUTES: Route[] = [
   },
   { method: 'POST', re: /^\/api\/agents$/, auth: false, h: handlers.register },
   { method: 'GET', re: /^\/api\/agents$/, auth: true, h: handlers.listAgents },
+  { method: 'GET', re: /^\/api\/events$/, auth: true, h: handlers.events },
 
   { method: 'GET', re: /^\/api\/boards$/, auth: true, h: handlers.listBoards },
   {
@@ -1799,6 +1928,12 @@ export const ROUTES: Route[] = [
   },
 
   { method: 'GET', re: /^\/api\/projects$/, auth: true, h: handlers.listProjects },
+  {
+    method: 'PATCH',
+    re: /^\/api\/projects\/(\d+)$/,
+    auth: true,
+    h: handlers.updateProject,
+  },
   {
     method: 'POST',
     re: /^\/api\/projects$/,
@@ -1881,6 +2016,18 @@ export const ROUTES: Route[] = [
     re: /^\/api\/cards\/(\d+)\/reactions$/,
     auth: true,
     h: handlers.reactToCard,
+  },
+  {
+    method: 'GET',
+    re: /^\/api\/cards\/(\d+)\/comments$/,
+    auth: true,
+    h: handlers.listCardComments,
+  },
+  {
+    method: 'POST',
+    re: /^\/api\/cards\/(\d+)\/comments$/,
+    auth: true,
+    h: handlers.addCardComment,
   },
 
   {

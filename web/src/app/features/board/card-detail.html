@@ -1,43 +1,225 @@
 <div class="overlay" (click)="closed.emit()">
   <section
     class="overlay__card card-detail"
+    [class.card-detail--blocked]="blocked()"
     (click)="$event.stopPropagation()"
     (keydown.escape)="closed.emit()"
   >
-    <header class="ph-panel__header">card</header>
+    <header class="ph-panel__header card-detail__header">
+      @if (creating() || editingTitle()) {
+        <input
+          #titleInput
+          id="card-detail-title"
+          class="form-control card-detail__title-input"
+          type="text"
+          name="title"
+          maxlength="200"
+          aria-label="card title"
+          [placeholder]="creating() ? 'card title' : ''"
+          [ngModel]="title()"
+          (ngModelChange)="title.set($event)"
+          (blur)="commitTitle()"
+          (keydown.enter)="$event.preventDefault(); commitTitle()"
+          (keydown.escape)="$event.stopPropagation(); cancelTitle()"
+        />
+      } @else {
+        <h2
+          class="card-detail__title"
+          [class.card-detail__title--empty]="!title().trim()"
+          title="double-click to rename"
+          (dblclick)="startTitleEdit()"
+        >
+          {{ title().trim() || 'untitled' }}
+        </h2>
+      }
+      @if (blocked()) {
+        <span class="card-detail__blocked" role="status">blocked</span>
+      }
+      <button
+        class="btn btn-sm btn-outline-secondary card-detail__close"
+        type="button"
+        title="close card"
+        aria-label="close card"
+        (click)="closed.emit()"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
 
     <form class="card-detail__form" (ngSubmit)="save()">
-      <label class="ph-label" for="card-detail-title">title</label>
-      <input
-        id="card-detail-title"
-        class="form-control"
-        type="text"
-        name="title"
-        maxlength="200"
-        [ngModel]="title()"
-        (ngModelChange)="title.set($event)"
-        (keydown.escape)="closed.emit()"
-      />
+      @if (remoteChanged()) {
+        <div class="card-detail__remote" role="status">
+          <span>this card changed elsewhere — your draft is untouched.</span>
+          <button class="btn btn-sm btn-outline-secondary" type="button" (click)="reload()">
+            reload
+          </button>
+        </div>
+      }
 
       <div class="card-detail__bodyhead">
-        <label class="ph-label" for="card-detail-body">body</label>
-        <app-char-counter [value]="body()" [limit]="limit" />
+        <span class="ph-label">body · markdown</span>
+        <div class="card-detail__bodybar">
+          @if (editing()) {
+            <app-char-counter [value]="body()" [limit]="limit" />
+          }
+          <div class="card-detail__mode" role="group" aria-label="body mode">
+            <span
+              class="card-detail__mode-end"
+              [class.card-detail__mode-end--active]="!editing()"
+              >view</span
+            >
+            <label class="card-detail__switch" title="toggle view / edit">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="edit markdown"
+                [checked]="editing()"
+                (change)="editing.set(!editing())"
+              />
+              <span class="card-detail__switch-track"></span>
+            </label>
+            <span
+              class="card-detail__mode-end"
+              [class.card-detail__mode-end--active]="editing()"
+              >edit</span
+            >
+          </div>
+        </div>
       </div>
-      <textarea
-        id="card-detail-body"
-        class="form-control card-detail__body"
-        name="body"
-        rows="10"
-        [ngModel]="body()"
-        (ngModelChange)="body.set($event)"
-      ></textarea>
+      @if (editing()) {
+        <textarea
+          #bodyInput
+          id="card-detail-body"
+          class="form-control card-detail__body"
+          name="body"
+          rows="10"
+          aria-label="body markdown"
+          [ngModel]="body()"
+          (ngModelChange)="body.set($event)"
+        ></textarea>
+      } @else if (body().trim()) {
+        <div
+          class="markdown card-detail__preview"
+          title="double-click to edit"
+          [innerHTML]="rendered()"
+          (dblclick)="startBodyEdit()"
+        ></div>
+      } @else {
+        <p
+          class="card-detail__preview card-detail__preview--empty"
+          title="double-click to edit"
+          (dblclick)="startBodyEdit()"
+        >
+          no body yet — switch to edit to write one.
+        </p>
+      }
+
+      <label class="ph-label" for="card-detail-assignee">owner</label>
+      <select
+        id="card-detail-assignee"
+        class="form-select"
+        name="assignee"
+        (change)="onAssignee($event)"
+      >
+        <option value="" [selected]="assignee() === null">unassigned</option>
+        @for (agent of store.agents(); track agent.id) {
+          <option [value]="agent.id" [selected]="assignee() === agent.id">
+            @{{ agent.handle }}
+          </option>
+        }
+      </select>
+
+      @if (!creating()) {
+        <div class="card-detail__conversation">
+          <div class="card-detail__conversation-head">
+            <span class="ph-label">conversation</span>
+            @if (comments().length) {
+              <span class="ph-label">{{ comments().length }}</span>
+            }
+          </div>
+          <div class="card-detail__comment-list">
+            @if (commentsLoading()) {
+              <p class="card-detail__comment-empty">loading conversation…</p>
+            } @else if (!comments().length) {
+              <p class="card-detail__comment-empty">no comments yet — start the conversation.</p>
+            }
+            @for (comment of comments(); track comment.id) {
+              <article class="card-comment">
+                <header class="card-comment__head">
+                  <span class="card-comment__author">@{{ comment.author_handle }}</span>
+                  <time class="card-comment__time" [attr.datetime]="comment.created_at">
+                    {{ when(comment.created_at) }}
+                  </time>
+                </header>
+                <div class="card-comment__body markdown" [innerHTML]="render(comment.body)"></div>
+              </article>
+            }
+          </div>
+          <div class="card-detail__composer">
+            <textarea
+              class="form-control card-detail__comment-input"
+              name="comment"
+              rows="2"
+              placeholder="add a comment… (saved with the card)"
+              [ngModel]="commentDraft()"
+              (ngModelChange)="commentDraft.set($event)"
+            ></textarea>
+            <div class="card-detail__comment-bar">
+              <app-char-counter [value]="commentDraft()" [limit]="commentLimit" />
+            </div>
+          </div>
+        </div>
+      }
 
       <div class="card-detail__actions">
-        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
-          cancel
-        </button>
-        <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">save</button>
+        @if (!creating()) {
+          <button
+            class="btn btn-sm"
+            type="button"
+            [class.btn-outline-warning]="!blocked()"
+            [class.btn-warning]="blocked()"
+            [disabled]="blocking()"
+            (click)="toggleBlocked()"
+          >
+            {{ blocked() ? 'unblock' : 'mark blocked' }}
+          </button>
+          <button
+            class="btn btn-sm btn-outline-danger"
+            type="button"
+            (click)="confirmingDelete.set(true)"
+          >
+            delete
+          </button>
+        }
+        <div class="card-detail__buttons">
+          <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
+            cancel
+          </button>
+          <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">save</button>
+        </div>
       </div>
     </form>
+
+    @if (confirmingDelete()) {
+      <app-confirm-dialog
+        title="delete card"
+        message="delete this card?"
+        (keydown.escape)="$event.stopPropagation()"
+        (confirmed)="remove()"
+        (cancelled)="confirmingDelete.set(false)"
+      />
+    }
   </section>
 </div>

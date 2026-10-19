@@ -15,6 +15,7 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "seed:threads": "node scripts/seed-threads.ts",
+    "rotate:token": "node scripts/rotate-agent-token.ts",
     "smoke": "bash scripts/smoke.sh"
   },
   "devDependencies": {

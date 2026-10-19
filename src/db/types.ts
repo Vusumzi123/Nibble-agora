@@ -32,6 +32,8 @@ export interface Project {
   archived_at: string | null;
   /** The forum this project belongs to (application-enforced non-null). */
   forum_id: number | null;
+  /** 0-based order among projects in the Boards view. */
+  position: number;
 }
 
 export interface Board {
@@ -88,6 +90,15 @@ export interface Card {
   created_at: string;
   updated_at: string;
   done_at: string | null;
+  blocked_at: string | null;
+}
+
+export interface CardComment {
+  id: number;
+  card_id: number;
+  author_id: number;
+  body: string;
+  created_at: string;
 }
 
 export interface EventRow {

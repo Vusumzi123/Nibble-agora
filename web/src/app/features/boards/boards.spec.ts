@@ -29,6 +29,7 @@ const PROJECTS: Project[] = [
     created_at: '2026-10-15T00:00:00.000Z',
     archived_at: null,
     forum_id: 1,
+    position: 0,
     board_id: 7,
   },
   {
@@ -40,6 +41,7 @@ const PROJECTS: Project[] = [
     created_at: '2026-10-14T00:00:00.000Z',
     archived_at: '2026-10-15T01:00:00.000Z',
     forum_id: 1,
+    position: 1,
     board_id: 8,
   },
 ];
@@ -117,6 +119,26 @@ describe('BoardsListPage (project list)', () => {
     expect(store.view()).toBe('boards');
   });
 
+  it('opens a new-project modal with title and description fields', async () => {
+    const fixture = TestBed.createComponent(BoardsListPage);
+    fixture.detectChanges();
+    await loadInitial();
+    const el = fixture.nativeElement as HTMLElement;
+
+    el.querySelector<HTMLButtonElement>('[aria-label="new project"]')?.click();
+    fixture.detectChanges();
+
+    const modal = el.querySelector('.boards__modal');
+    expect(modal).toBeTruthy();
+    expect(modal?.querySelector('#new-project-title')?.textContent).toContain('new project');
+    expect(modal?.querySelector<HTMLInputElement>('#project-name')).toBeTruthy();
+    expect(modal?.querySelector<HTMLTextAreaElement>('#project-description')).toBeTruthy();
+
+    modal?.querySelector<HTMLButtonElement>('.boards__modal-actions .btn-outline-secondary')?.click();
+    fixture.detectChanges();
+    expect(el.querySelector('.boards__modal')).toBeNull();
+  });
+
   it('posts a new project (scoped to the forum) and navigates to its board', async () => {
     // no inbox polling in this test — keep mutate()'s refreshAll at forums+boards+projects
     TestBed.inject(SessionService).me.set(null);
@@ -150,6 +172,7 @@ describe('BoardsListPage (project list)', () => {
         created_at: '',
         archived_at: null,
         forum_id: 1,
+        position: 1,
         board_id: 9,
       },
       board: {

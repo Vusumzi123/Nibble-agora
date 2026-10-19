@@ -19,7 +19,8 @@ export class SettingsPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly status = inject(StatusService);
 
-  protected readonly themes = THEMES;
+  /** The switch owns dark ↔ parchment; calm stays a one-card choice. */
+  protected readonly calmTheme = THEMES.find((theme) => theme.id === 'calm')!;
   protected forumName = '';
   protected current = '';
   protected next = '';
@@ -32,6 +33,11 @@ export class SettingsPage implements OnInit {
     // whatever list was left open behind us.
     this.store.setView('settings');
     this.forumName = this.config.forumName();
+  }
+
+  protected toggleTheme(event: Event): void {
+    const light = (event.target as HTMLInputElement).checked;
+    void this.pickTheme(light ? 'light' : 'dark');
   }
 
   protected async pickTheme(theme: string): Promise<void> {

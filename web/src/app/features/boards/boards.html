@@ -4,37 +4,92 @@
   </div>
 
   @if (createOpen) {
-    <form class="boards__create" (ngSubmit)="create()">
-      <input
-        class="form-control"
-        type="text"
-        placeholder="project name"
-        name="name"
-        maxlength="64"
-        [(ngModel)]="name"
+    <div class="overlay" (click)="closeCreate()">
+      <section
+        class="overlay__card boards__modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-project-title"
+        (click)="$event.stopPropagation()"
         (keydown.escape)="closeCreate()"
-      />
-      <input
-        class="form-control"
-        type="text"
-        placeholder="description (optional)"
-        name="description"
-        [(ngModel)]="description"
-        (keydown.escape)="closeCreate()"
-      />
-      <button class="btn btn-primary" type="submit" [disabled]="busy.active()">create</button>
-      <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">cancel</button>
-    </form>
+      >
+        <header class="ph-panel__header boards__modal-head">
+          <span id="new-project-title">new project</span>
+          <button
+            class="btn btn-sm btn-outline-secondary btn-icon"
+            type="button"
+            title="close"
+            aria-label="close"
+            (click)="closeCreate()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </header>
+        <form class="boards__modal-form" (ngSubmit)="create()">
+          <label class="ph-label" for="project-name">title</label>
+          <input
+            #nameInput
+            id="project-name"
+            class="form-control"
+            type="text"
+            placeholder="project name"
+            name="name"
+            maxlength="64"
+            [(ngModel)]="name"
+          />
+          <label class="ph-label" for="project-description">description</label>
+          <textarea
+            id="project-description"
+            class="form-control boards__modal-desc"
+            rows="3"
+            placeholder="what is this project for? (optional)"
+            name="description"
+            [(ngModel)]="description"
+          ></textarea>
+          <div class="boards__modal-actions">
+            <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">
+              cancel
+            </button>
+            <button class="btn btn-primary" type="submit" [disabled]="busy.active()">
+              create
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   }
 
   <div class="boards__grid">
     @for (project of projects; track project.id) {
-      <app-project-card
-        [project]="project"
-        [link]="['/boards', project.board_id]"
-        [active]="project.board_id === store.boardId()"
-        [columns]="boardOf(project)?.columns.length ?? 0"
-      />
+      <div
+        class="boards__item"
+        [class.boards__item--over]="overProjectId === project.id"
+        [class.boards__item--dragging]="draggingProjectId === project.id"
+        (dragstart)="onProjectDragStart($event, project)"
+        (dragend)="endProjectDrag()"
+        (dragover)="onProjectDragOver($event, project)"
+        (dragleave)="onProjectDragLeave($event)"
+        (drop)="onProjectDrop($event, project)"
+      >
+        <app-project-card
+          [project]="project"
+          [link]="['/boards', project.board_id]"
+          [active]="project.board_id === store.boardId()"
+          [columns]="boardOf(project)?.columns.length ?? 0"
+        />
+      </div>
     } @empty {
       <p class="ph-label p-3">no projects yet</p>
     }

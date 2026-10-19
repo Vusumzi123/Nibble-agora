@@ -24,9 +24,10 @@ export class InboxPage implements OnInit {
     void this.router.navigate(['/threads', id]);
   }
 
-  protected async openCard(card: InboxCard): Promise<void> {
-    await this.store.switchBoard(card.board_id);
-    void this.router.navigateByUrl('/board');
+  protected openCard(card: InboxCard): void {
+    void this.router.navigate(['/boards', card.board_id], {
+      queryParams: { card: card.id },
+    });
   }
 
   protected markAllRead(): void {

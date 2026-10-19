@@ -23,13 +23,15 @@ export class CardTile {
   /** true while the delete-card confirm dialog is open. */
   protected confirming = false;
 
-  private readonly columnIndex = computed(() =>
-    this.store.columns().findIndex((c) => c.id === this.card().column_id),
+  private readonly order = computed(() => this.store.cardsIn(this.card().column_id));
+  private readonly index = computed(() =>
+    this.order().findIndex((card) => card.id === this.card().id),
   );
-  protected readonly canLeft = computed(() => this.columnIndex() > 0);
-  protected readonly canRight = computed(
-    () => this.columnIndex() < this.store.columns().length - 1,
-  );
+  protected readonly canUp = computed(() => this.index() > 0);
+  protected readonly canDown = computed(() => {
+    const index = this.index();
+    return index >= 0 && index < this.order().length - 1;
+  });
   /**
    * Flattened body snippet for the tile. The snippet carries
    * `[appEllipsis]="3"` — three lines show first, then the directive's CSS
@@ -40,10 +42,9 @@ export class CardTile {
   );
 
   protected move(delta: number): void {
-    const target = this.store.columns()[this.columnIndex() + delta];
-    if (!target) return;
-    const index = this.store.cardsIn(target.id).length;
-    void this.store.moveCard(this.card(), target.id, index);
+    const target = this.index() + delta;
+    if (target < 0 || target >= this.order().length) return;
+    void this.store.moveCard(this.card(), this.card().column_id, target);
   }
 
   protected setAssignee(value: number | null): void {
@@ -60,6 +61,7 @@ export class CardTile {
   }
 
   protected onDragStart(event: DragEvent): void {
+    this.store.draggingCardId.set(this.card().id);
     event.dataTransfer?.setData('text/plain', String(this.card().id));
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }

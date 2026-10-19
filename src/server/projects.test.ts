@@ -68,11 +68,12 @@ test('POST /api/projects creates the project, its single board and default colum
     const data = await json(res);
     assert.equal(data.project.name, 'Nemu Home');
     assert.equal(data.project.slug, 'nemu-home');
+    assert.equal(data.project.position, 1, 'new projects append after the seed');
     assert.equal(data.board.name, 'Nemu Home');
     assert.equal(data.board.project_id, data.project.id);
     assert.deepEqual(
       data.columns.map((c: { name: string }) => c.name),
-      ['inbox', 'todo', 'doing', 'done', 'dropped'],
+      ['INBOX', 'TODO', 'IN-PROGRESS', 'TESTING', 'DONE', 'DROPPED'],
     );
 
     // listed with its board link
@@ -88,6 +89,72 @@ test('POST /api/projects creates the project, its single board and default colum
       body: JSON.stringify({ name: 'Nemu Home' }),
     });
     assert.equal(dup.status, 409);
+  }));
+
+test('PATCH /api/projects/:id reorders the project list', () =>
+  withProjects(async ({ base, auth }) => {
+    const second = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Second' }),
+      }),
+    );
+    const third = await json(
+      await fetch(`${base}/api/projects`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ name: 'Third' }),
+      }),
+    );
+    const initial = await json(await fetch(`${base}/api/projects`, { headers: auth }));
+    assert.deepEqual(
+      initial.projects.map((p: { name: string }) => p.name),
+      ['Agora', 'Second', 'Third'],
+    );
+
+    // mirror the client: move Third to the front, then densify the rest
+    const order = [third.project.id, initial.projects[0].id, second.project.id];
+    for (let i = 0; i < order.length; i++) {
+      const res = await fetch(`${base}/api/projects/${order[i]}`, {
+        method: 'PATCH',
+        headers: auth,
+        body: JSON.stringify({ position: i }),
+      });
+      assert.equal(res.status, 200);
+      assert.equal((await json(res)).project.position, i);
+    }
+
+    const reordered = await json(await fetch(`${base}/api/projects`, { headers: auth }));
+    assert.deepEqual(
+      reordered.projects.map((p: { name: string }) => p.name),
+      ['Third', 'Agora', 'Second'],
+    );
+    assert.deepEqual(
+      reordered.projects.map((p: { position: number }) => p.position),
+      [0, 1, 2],
+    );
+
+    // negative positions and anonymous writes are refused
+    assert.equal(
+      (
+        await fetch(`${base}/api/projects/${second.project.id}`, {
+          method: 'PATCH',
+          headers: auth,
+          body: JSON.stringify({ position: -1 }),
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/projects/${second.project.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ position: 0 }),
+        })
+      ).status,
+      401,
+    );
   }));
 
 test('a board created via the legacy endpoint also gets its project', () =>
@@ -207,7 +274,7 @@ test('DELETE /api/columns/:id cascades cards, denses positions, needs a token', 
     );
     assert.deepEqual(
       board.columns.map((c: { position: number }) => c.position),
-      [0, 1, 2, 3],
+      [0, 1, 2, 3, 4],
       'remaining positions are dense',
     );
 

@@ -29,11 +29,6 @@
   gap: var(--ph-space-1);
 }
 
-/* "New card" strip under the header — Enter adds, blur/Esc closes. */
-.lane__newcard {
-  padding: var(--ph-space-2) var(--ph-space-3) 0;
-}
-
 .lane__cards {
   flex: 1;
   min-height: 0;

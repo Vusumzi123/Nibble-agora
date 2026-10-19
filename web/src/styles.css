@@ -598,13 +598,159 @@ body {
   min-height: 10rem;
 }
 
+/* First-load placeholders: quiet shimmering bars where the board and its
+   cards will render. The real chrome stays interactive, so navigation and
+   card creation never wait on the read. */
+.skeleton {
+  display: block;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--ph-surface-raised) 20%,
+    color-mix(in srgb, var(--ph-text) 9%, var(--ph-surface-raised)) 40%,
+    var(--ph-surface-raised) 60%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+.skeleton--label {
+  width: 9rem;
+  height: 1rem;
+}
+
+.skeleton--lane-name {
+  width: 55%;
+  height: 0.7rem;
+}
+
+.skeleton--badge {
+  width: 1.6rem;
+  height: 1rem;
+  margin-left: auto;
+}
+
+.skeleton--card-title {
+  width: 70%;
+  height: 0.8rem;
+}
+
+.skeleton--card-line {
+  width: 100%;
+  height: 0.6rem;
+  margin-top: 0.55rem;
+}
+
+.skeleton--short {
+  width: 55%;
+}
+
+.skeleton--card-pill {
+  width: 45%;
+  height: 1.6rem;
+  border-radius: var(--ph-radius-sm);
+}
+
+.skeleton--card-chip {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: var(--ph-radius-sm);
+}
+
+.lane--skeleton,
+.kanban-card--skeleton {
+  pointer-events: none;
+}
+
+.kanban-card--skeleton {
+  cursor: default;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 .kanban-card {
   cursor: grab;
+}
+
+/* Blocked tiles wear the same caution wash as the detail modal. */
+.kanban-card--blocked {
+  border-color: color-mix(in srgb, var(--ph-warning) 45%, var(--ph-border));
+  background: color-mix(in srgb, var(--ph-warning) 9%, var(--ph-surface));
+}
+
+/* Inbox → project landing: ring the card we jumped to, then fade back. */
+.kanban-card--target {
+  border-color: var(--ph-primary);
+  animation: kanban-card-land 1.6s ease-out;
+}
+
+@keyframes kanban-card-land {
+  from {
+    box-shadow: 0 0 0 0.4rem color-mix(in srgb, var(--ph-primary) 38%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kanban-card--target {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ph-primary) 45%, transparent);
+  }
+}
+
+/* Empty landing slot shown while a card is dragged over the column: dotted
+   like the Boards-view project indicator, sized to a card so the others shift. */
+.kanban-card--placeholder {
+  min-height: 5rem;
+  border: 2px dashed var(--ph-primary);
+  background: color-mix(in srgb, var(--ph-primary) 6%, transparent);
+  pointer-events: none;
 }
 
 .kanban-card__title {
   font-size: var(--ph-text-sm);
   font-weight: 600;
+}
+
+.kanban-card__blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: var(--ph-space-1);
+  padding: 0.1rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--ph-warning) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ph-warning) 18%, transparent);
+  color: var(--ph-text);
+  font-size: var(--ph-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.kanban-card__blocked::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--ph-warning);
 }
 
 .kanban-card__desc {
@@ -790,4 +936,89 @@ body {
   .board__addcol .form-control {
     max-width: none;
   }
+}
+
+/* Markdown bodies (card detail) — a small, escaped subset rendered by
+   shared/markdown.ts. Plain prose first, code blocks recessed. */
+.markdown {
+  line-height: var(--ph-leading-relaxed);
+  color: var(--ph-text);
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: var(--ph-space-3) 0 var(--ph-space-2);
+  font-weight: 600;
+  line-height: var(--ph-leading-tight);
+}
+
+.markdown h1 {
+  font-size: var(--ph-text-xl);
+}
+
+.markdown h2 {
+  font-size: var(--ph-text-lg);
+}
+
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: var(--ph-font-size-base);
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre {
+  margin: 0 0 var(--ph-space-2);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25rem;
+}
+
+.markdown blockquote {
+  padding-left: var(--ph-space-3);
+  border-left: 3px solid var(--ph-border);
+  color: var(--ph-text-muted);
+}
+
+.markdown code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--ph-surface-raised);
+  font-family: var(--ph-font-mono);
+  font-size: 0.92em;
+}
+
+.markdown pre {
+  padding: var(--ph-space-3);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.markdown a {
+  color: var(--ph-primary);
 }

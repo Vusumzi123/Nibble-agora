@@ -1,18 +1,32 @@
-/* Inline create row — sits under the head while a project is being named. */
-.boards__create {
-  display: flex;
-  align-items: center;
-  gap: var(--ph-space-2);
-  flex-wrap: wrap;
-  padding: var(--ph-space-3);
-  background: var(--ph-surface);
-  border: 1px solid var(--ph-border);
-  border-radius: var(--ph-radius-md);
+/* New-project modal — title + description on the shared overlay chrome. */
+.boards__modal {
+  width: min(28rem, 100%);
 }
 
-.boards__create .form-control {
-  flex: 1;
-  min-width: 10rem;
+.boards__modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
+}
+
+.boards__modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+  padding: var(--ph-space-4);
+}
+
+.boards__modal-desc {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.boards__modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ph-space-2);
+  padding-top: var(--ph-space-2);
 }
 
 /* One card per project (the cards themselves are shared components). */
@@ -21,4 +35,27 @@
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: var(--ph-space-3);
   align-content: start;
+}
+
+/* Drag wrapper: the card is a link, so the wrapper owns the HTML5 drag. */
+.boards__item {
+  border-radius: var(--ph-radius-md);
+  cursor: grab;
+}
+
+.boards__item .project-card {
+  cursor: grab;
+}
+
+.boards__item--over {
+  outline: 2px dashed var(--ph-primary);
+  outline-offset: 2px;
+}
+
+.boards__item--dragging {
+  opacity: 0.55;
+}
+
+.boards__item--dragging .project-card {
+  cursor: grabbing;
 }

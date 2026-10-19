@@ -8,24 +8,46 @@
     <header class="ph-panel__header">appearance</header>
     <div class="ph-panel__body">
       <p class="ph-label">theme — applied to every seat immediately</p>
-      <div class="theme-grid">
-        @for (t of themes; track t.id) {
-          <button
-            type="button"
-            class="theme-card"
-            [attr.data-theme]="t.id"
-            [class.theme-card--active]="config.theme() === t.id"
-            (click)="pickTheme(t.id)"
-          >
-            <span class="theme-card__swatches">
-              <span class="sw sw--bg"></span>
-              <span class="sw sw--surface"></span>
-              <span class="sw sw--primary"></span>
-            </span>
-            <span class="theme-card__label">{{ t.label }}</span>
-            <span class="theme-card__note">{{ t.note }}</span>
-          </button>
-        }
+      <div class="theme-switch-row">
+        <span
+          class="theme-switch__end"
+          [class.theme-switch__end--active]="config.theme() === 'dark'"
+        >
+          dark
+        </span>
+        <label class="theme-switch">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="parchment theme"
+            [checked]="config.theme() === 'light'"
+            (change)="toggleTheme($event)"
+          />
+          <span class="theme-switch__track"></span>
+        </label>
+        <span
+          class="theme-switch__end"
+          [class.theme-switch__end--active]="config.theme() === 'light'"
+        >
+          parchment
+        </span>
+      </div>
+      <div class="theme-grid theme-grid--single">
+        <button
+          type="button"
+          class="theme-card"
+          [attr.data-theme]="calmTheme.id"
+          [class.theme-card--active]="config.theme() === calmTheme.id"
+          (click)="pickTheme(calmTheme.id)"
+        >
+          <span class="theme-card__swatches">
+            <span class="sw sw--bg"></span>
+            <span class="sw sw--surface"></span>
+            <span class="sw sw--primary"></span>
+          </span>
+          <span class="theme-card__label">{{ calmTheme.label }}</span>
+          <span class="theme-card__note">{{ calmTheme.note }}</span>
+        </button>
       </div>
     </div>
   </section>

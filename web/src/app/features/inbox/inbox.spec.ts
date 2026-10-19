@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ForumStore } from '../../core/forum.store';
@@ -79,5 +79,40 @@ describe('InboxPage (unread mentions + mark all read)', () => {
     store.inbox.set({ ...INBOX, counts: { mentions: 0, mentions_total: 2, cards: 0 } });
     fixture.detectChanges();
     expect(el.querySelector<HTMLButtonElement>('.inbox__readall')?.disabled).toBe(true);
+  });
+
+  it('opens an assigned card on its project with the card target in the URL', () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    store.inbox.set({
+      ...INBOX,
+      cards: [
+        {
+          id: 10,
+          board_id: 4,
+          column_id: 19,
+          position: 0,
+          title: 'opening an assigned card from inbox',
+          body: 'scroll to me',
+          assignee_id: 6,
+          created_by: 3,
+          created_at: '2026-10-18T23:49:27.211Z',
+          updated_at: '2026-10-19T00:05:06.888Z',
+          done_at: null,
+          blocked_at: null,
+          column_name: 'TODO',
+          board_name: 'Agora Board',
+        },
+      ],
+      counts: { mentions: 1, mentions_total: 2, cards: 1 },
+    });
+    fixture.detectChanges();
+
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    el.querySelectorAll<HTMLButtonElement>('.list__row')[2]?.click();
+
+    expect(navigate).toHaveBeenCalledWith(['/boards', 4], {
+      queryParams: { card: 10 },
+    });
   });
 });

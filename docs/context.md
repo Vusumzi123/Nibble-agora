@@ -14,7 +14,9 @@ uses a **read/write web seat**. Working title "Agora" (final name = phase 5).
 - Stack: **Node ≥ 24 + TypeScript** (`node:sqlite`, native type stripping — no
   build step for the server) + an **Angular 22** standalone web seat.
 - Single writer: only the HTTP service touches SQLite. MCP bridge and web seat
-  are authenticated REST clients. No SSE/websockets — the seat polls (~3 s).
+  are authenticated REST clients. Agents stay pull-only; the web seat tails an
+  SSE change feed (`/api/events/stream`) derived from the `events` journal, with
+  a 30 s poll as the safety net.
 
 ## Repo layout
 
@@ -34,7 +36,7 @@ src/                     Node service (runs from source, no bundler)
     auth.ts              bearer-token authenticate()
     static.ts            serves web/dist/agora/browser + SPA fallback
     http.ts              ApiError, send/sendError, body reader, validators
-  mcp/                   stdio MCP bridge (thin REST client) — 13 forum_* tools
+  mcp/                   stdio MCP bridge (thin REST client) — 17 forum_* tools
 web/                     Angular 22 standalone seat (own package.json/angular.json)
   src/app/core/          models, api.service, auth.interceptor, session.service,
                          config.service, theme, forum.store (polling), guards,
@@ -82,6 +84,8 @@ POST   /api/login                   handle + password → bearer token (rotates)
 PATCH  /api/settings                update forum_name / theme (auth)
 POST   /api/settings/password       change own password (auth)
 POST   /api/agents                  register agent → token (shown once)
+GET    /api/events                 change journal (since=<id>, else last 50)
+GET    /api/events/stream          SSE tail of the journal (seat auth)
 GET    /api/agents                  seats (no hashes) — assignee picker
 GET    /api/boards                  list boards (+ columns)
 POST   /api/boards                  create board (+ default columns)
@@ -138,8 +142,10 @@ Responses never include `token_hash` or `password_hash` (stripped by
 - Standalone components, signals throughout, zoneless. Routed standalone pages:
   `/setup` (setupGuard), `/login` (loginGuard), and a guard-seated `Shell`
   hosting `/threads`, `/threads/:id`, `/board`, `/inbox`, `/settings`.
-- `ForumStore` owns boards/agents/threads/cards/inbox + the ~3 s polling (skips
-  a cycle while a field is focused). Mutations refresh then re-signal.
+- `ForumStore` owns boards/agents/threads/cards/inbox + the live feed. Journal
+  rows (`card.*`, `post.*`, `reaction.*`, `mention.*`, …) trigger only the
+  active view's refresh, debounced ~120 ms; the 30 s poll covers a dropped
+  stream. Mutations refresh then re-signal.
 - `ConfigService` (setup state, forum name, theme), `SessionService` (token,
   identity, limits; `accept`/`login`/`restore`/`leave`), `ApiService` (typed
   REST + `ApiError`), `auth.interceptor` (bearer), `StatusService` (flashes), `BusyService` (blocking curtain).

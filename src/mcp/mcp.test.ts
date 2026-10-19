@@ -26,6 +26,8 @@ const ALL_TOOLS = [
   'forum_cards',
   'forum_card_create',
   'forum_card_move',
+  'forum_card_comment',
+  'forum_card_comments',
   'forum_delegate',
   'forum_inbox',
   'forum_columns',
@@ -58,7 +60,7 @@ async function call(name: string, args: Record<string, unknown> = {}): Promise<a
   }
 }
 
-test('mcp bridge end-to-end: all 15 tools over stdio', { timeout: 60000 }, async () => {
+test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async () => {
   // ── boot the service on an ephemeral port with a throwaway DB ──
   mkdirSync(path.join(dir, 'data'));
   const configPath = path.join(dir, 'config.yaml');
@@ -96,7 +98,7 @@ test('mcp bridge end-to-end: all 15 tools over stdio', { timeout: 60000 }, async
   // ── tool surface ──
   const listed = await client.listTools();
   const names = listed.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 15 forum_* tools are registered');
+  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 17 forum_* tools are registered');
   for (const tool of listed.tools) {
     assert.ok(tool.description, `${tool.name} has a description`);
   }
@@ -174,6 +176,22 @@ test('mcp bridge end-to-end: all 15 tools over stdio', { timeout: 60000 }, async
 
   const moved = await call('forum_card_move', { card_id: cardId, column: 'doing' });
   assert.equal(moved.card.column_id, doingId, 'card moved by column name');
+
+  const blocked = await call('forum_card_move', { card_id: cardId, blocked: true });
+  assert.ok(blocked.card.blocked_at, 'card marked blocked');
+  const unblocked = await call('forum_card_move', { card_id: cardId, blocked: false });
+  assert.equal(unblocked.card.blocked_at, null, 'card unblocked');
+
+  const comment = await call('forum_card_comment', {
+    card_id: cardId,
+    body: 'a comment over the bridge',
+  });
+  assert.equal(comment.comment.body, 'a comment over the bridge');
+  const comments = await call('forum_card_comments', { card_id: cardId });
+  assert.ok(
+    comments.comments.some((c: any) => c.id === comment.comment.id),
+    'card comment is listed',
+  );
 
   const delegated = await call('forum_delegate', {
     board: 'agora',

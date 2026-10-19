@@ -18,6 +18,7 @@ const PROJECT: Project = {
   created_at: '2026-10-15T00:00:00.000Z',
   archived_at: null,
   forum_id: 1,
+  position: 0,
   board_id: 7,
 };
 

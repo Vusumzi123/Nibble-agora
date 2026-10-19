@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ForumStore } from '../../core/forum.store';
 import type { Card } from '../../core/models';
@@ -20,6 +20,7 @@ const CARD: Card = {
   created_at: '2026-10-16T00:00:00.000Z',
   updated_at: '2026-10-16T00:00:00.000Z',
   done_at: null,
+  blocked_at: null,
 };
 
 describe('CardTile (excerpt + click-through to the modal)', () => {
@@ -29,12 +30,21 @@ describe('CardTile (excerpt + click-through to the modal)', () => {
     });
   });
 
-  function render() {
+  function render(card: Card = CARD) {
     const fixture = TestBed.createComponent(CardTile);
-    fixture.componentRef.setInput('card', CARD);
+    fixture.componentRef.setInput('card', card);
     fixture.detectChanges();
     return fixture;
   }
+
+  it('washes a blocked card yellow and labels it', () => {
+    const el = render({ ...CARD, blocked_at: '2026-10-16T00:02:00.000Z' })
+      .nativeElement as HTMLElement;
+    expect(el.querySelector('.kanban-card')?.classList.contains('kanban-card--blocked')).toBe(
+      true,
+    );
+    expect(el.querySelector('.kanban-card__blocked')?.textContent?.trim()).toBe('blocked');
+  });
 
   it('flattens the body into a snippet; title clamps at 1 line, snippet at 3', () => {
     const el = render().nativeElement as HTMLElement;
@@ -46,6 +56,27 @@ describe('CardTile (excerpt + click-through to the modal)', () => {
     expect(desc?.classList.contains('ellipsis')).toBe(true);
     expect(desc?.classList.contains('ellipsis--multi')).toBe(true);
     expect(desc?.getAttribute('style')).toContain('--ellipsis-lines: 3');
+  });
+
+  it('rings the focused card (inbox landing or move)', () => {
+    const store = TestBed.inject(ForumStore);
+    const fixture = render();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.kanban-card')?.classList.contains('kanban-card--target')).toBe(
+      false,
+    );
+
+    store.focusedCardId.set(CARD.id);
+    fixture.detectChanges();
+    expect(el.querySelector('.kanban-card')?.classList.contains('kanban-card--target')).toBe(
+      true,
+    );
+
+    store.focusedCardId.set(null);
+    fixture.detectChanges();
+    expect(el.querySelector('.kanban-card')?.classList.contains('kanban-card--target')).toBe(
+      false,
+    );
   });
 
   it('opens the card detail modal on the tile text, closes it again', () => {
@@ -60,6 +91,40 @@ describe('CardTile (excerpt + click-through to the modal)', () => {
     el.querySelector<HTMLElement>('.overlay')?.click();
     fixture.detectChanges();
     expect(el.querySelector('app-card-detail')).toBeNull();
+  });
+
+  it('moves cards up and down within their column', () => {
+    const store = TestBed.inject(ForumStore);
+    const middle = { ...CARD, id: 4, position: 1, title: 'middle' };
+    const bottom = { ...CARD, id: 5, position: 2, title: 'bottom' };
+    store.cards.set([CARD, middle, bottom]);
+    const move = vi.spyOn(store, 'moveCard').mockResolvedValue(true);
+
+    const fixture = render(middle);
+    const el = fixture.nativeElement as HTMLElement;
+    const up = el.querySelector<HTMLButtonElement>('[title="move up"]');
+    const down = el.querySelector<HTMLButtonElement>('[title="move down"]');
+    expect(up?.disabled).toBe(false);
+    expect(down?.disabled).toBe(false);
+
+    up?.click();
+    expect(move).toHaveBeenLastCalledWith(middle, 1, 0);
+    down?.click();
+    expect(move).toHaveBeenLastCalledWith(middle, 1, 2);
+  });
+
+  it('disables up at the top and down at the bottom', () => {
+    const store = TestBed.inject(ForumStore);
+    const bottom = { ...CARD, id: 5, position: 2, title: 'bottom' };
+    store.cards.set([CARD, { ...CARD, id: 4, position: 1 }, bottom]);
+
+    const top = render(CARD).nativeElement as HTMLElement;
+    expect(top.querySelector<HTMLButtonElement>('[title="move up"]')?.disabled).toBe(true);
+    expect(top.querySelector<HTMLButtonElement>('[title="move down"]')?.disabled).toBe(false);
+
+    const last = render(bottom).nativeElement as HTMLElement;
+    expect(last.querySelector<HTMLButtonElement>('[title="move up"]')?.disabled).toBe(false);
+    expect(last.querySelector<HTMLButtonElement>('[title="move down"]')?.disabled).toBe(true);
   });
 
   it('the trash button asks via the confirm dialog: keep aborts, delete issues DELETE', async () => {

@@ -26,6 +26,7 @@ interface CardRow {
   assignee_id: number | null;
   assignee_handle: string | null;
   done_at: string | null;
+  blocked_at: string | null;
 }
 
 const json = (data: unknown): CallToolResult => ({
@@ -327,13 +328,15 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_card_move',
     {
       title: 'Forum: card move',
-      description: 'Move a card to another column and/or reassign it (board resolved from the card).',
+      description:
+        'Move a card, reassign it, or flip its done/blocked state (board resolved from the card).',
       inputSchema: {
         card_id: z.number().int().positive().describe('Card to move.'),
         column: z.union([z.string(), z.number()]).optional().describe('Target column id or name.'),
         position: z.number().int().min(0).optional().describe('Position within the target column.'),
         assignee: z.union([z.string(), z.number()]).optional().describe('New assignee handle or id.'),
         done: z.boolean().optional().describe('true = mark done, false = clear done.'),
+        blocked: z.boolean().optional().describe('true = mark blocked, false = unblock.'),
       },
     },
     guarded(client,async (c, args) => {
@@ -345,11 +348,43 @@ export function createBridge(opts: BridgeOptions): McpServer {
       if (args.position !== undefined) patch.position = args.position;
       if (args.assignee !== undefined) patch.assignee = args.assignee;
       if (args.done !== undefined) patch.done = args.done;
+      if (args.blocked !== undefined) patch.blocked = args.blocked;
       if (Object.keys(patch).length === 0) {
-        throw new RestError(400, 'bad_request', 'nothing to do: pass column, position, assignee or done');
+        throw new RestError(
+          400,
+          'bad_request',
+          'nothing to do: pass column, position, assignee, done or blocked',
+        );
       }
       return c.patch(`/api/cards/${args.card_id}`, patch);
     }),
+  );
+
+  server.registerTool(
+    'forum_card_comment',
+    {
+      title: 'Forum: card comment',
+      description: 'Post a comment on a kanban card (limit: the instance post_char_limit).',
+      inputSchema: {
+        card_id: z.number().int().positive().describe('Card to comment on.'),
+        body: z.string().min(1).describe('Comment text (server enforces the post limit).'),
+      },
+    },
+    guarded(client, async (c, args) =>
+      c.post(`/api/cards/${args.card_id}/comments`, { body: args.body }),
+    ),
+  );
+
+  server.registerTool(
+    'forum_card_comments',
+    {
+      title: 'Forum: card comments',
+      description: 'List comments on a kanban card, oldest first.',
+      inputSchema: {
+        card_id: z.number().int().positive().describe('Card whose comments to list.'),
+      },
+    },
+    guarded(client, async (c, args) => c.get(`/api/cards/${args.card_id}/comments`)),
   );
 
   server.registerTool(

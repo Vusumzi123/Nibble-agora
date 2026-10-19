@@ -2,7 +2,14 @@ import { createServer, type Server } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, type Config } from '../config.ts';
-import { isConfigured, openDb, seedDefaults, type Db } from '../db/index.ts';
+import {
+  eventHead,
+  isConfigured,
+  listEventsSince,
+  openDb,
+  seedDefaults,
+  type Db,
+} from '../db/index.ts';
 import { authenticate } from './auth.ts';
 import { readJsonBody, send, sendError } from './http.ts';
 import { ROUTES } from './routes.ts';
@@ -33,6 +40,15 @@ export function createApp(cfg: Config): App {
 
       if (pathname === '/healthz') {
         send(res, 200, { ...HEALTHY, db: cfg.dbPath });
+        return;
+      }
+
+      // Live change feed: one long-lived SSE response per seat. Every
+      // mutation already lands in the `events` journal, so the stream is a
+      // tail of that table — no extra write path to keep in sync.
+      if (method === 'GET' && pathname === '/api/events/stream') {
+        streamEvents(req, res, db, target.searchParams);
+        logLine(method, pathname, 200, started, undefined);
         return;
       }
 
@@ -73,6 +89,86 @@ export function createApp(cfg: Config): App {
   });
 
   return { server, db, cfg, url };
+}
+
+/** SSE tail of the append-only events journal. `?since=<id>` resumes after a
+    reconnect; without it the stream starts at the head (history is not
+    replayed — the client's first poll carries the current state anyway). */
+function streamEvents(
+  req: IncomingMessage,
+  res: ServerResponse,
+  db: Db,
+  query: URLSearchParams,
+): void {
+  try {
+    authenticate(db, req);
+  } catch (err) {
+    sendError(res, err);
+    return;
+  }
+
+  const sinceRaw = query.get('since');
+  let cursor: number;
+  if (sinceRaw === null) {
+    cursor = eventHead(db);
+  } else {
+    const n = Number(sinceRaw);
+    if (!Number.isInteger(n) || n < 0) {
+      send(res, 400, {
+        error: { code: 'bad_request', message: 'since must be a non-negative integer' },
+      });
+      return;
+    }
+    cursor = n;
+  }
+
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-store',
+    connection: 'keep-alive',
+    'x-accel-buffering': 'no',
+  });
+  res.write(': connected\n\n');
+
+  let closed = false;
+  let pump: ReturnType<typeof setTimeout> | null = null;
+  const stop = () => {
+    if (closed) return;
+    closed = true;
+    if (pump !== null) clearTimeout(pump);
+    clearInterval(beat);
+    res.end();
+  };
+  const beat = setInterval(() => {
+    if (!closed) res.write(': tick\n\n');
+  }, 15_000);
+  // The response (not the request) owns the lifetime: a GET request stream is
+  // already complete when the handler runs, so req 'close' would fire at once.
+  res.on('close', stop);
+  res.on('error', stop);
+
+  const drain = () => {
+    if (closed) return;
+    try {
+      const rows = listEventsSince(db, cursor);
+      for (const row of rows) {
+        cursor = row.id;
+        const frame = {
+          id: row.id,
+          ts: row.ts,
+          actor_id: row.actor_id,
+          action: row.action,
+          target: row.target,
+          payload: row.payload_json,
+        };
+        res.write(`id: ${row.id}\nevent: change\ndata: ${JSON.stringify(frame)}\n\n`);
+      }
+    } catch {
+      /* a transient read failure must not tear the stream down */
+    }
+    pump = setTimeout(drain, 400);
+  };
+  drain();
 }
 
 function logLine(

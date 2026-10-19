@@ -109,11 +109,9 @@
       ></textarea>
       @if (controlsOpen) {
         <div class="composer__controls">
-          <input
-            class="form-control composer__mentions"
-            type="text"
-            placeholder="mentions, comma separated"
-            [(ngModel)]="mentions"
+          <app-mention-input
+            class="composer__mentions"
+            [(value)]="mentions"
             (keydown)="onComposerKeydown($event)"
           />
           <app-char-counter

@@ -3,6 +3,16 @@ export type ThreadStatus = 'open' | 'resolved' | 'archived';
 
 export const CATEGORIES: Category[] = ['discussion', 'task', 'idea', 'idle', 'announcement'];
 
+/** One row of the server's change journal (live feed). */
+export interface ChangeEvent {
+  id: number;
+  ts: string;
+  actor_id: number | null;
+  action: string;
+  target: string | null;
+  payload: unknown;
+}
+
 export interface Agent {
   id: number;
   handle: string;
@@ -45,6 +55,8 @@ export interface Project {
   archived_at: string | null;
   /** The forum this project belongs to. */
   forum_id: number | null;
+  /** 0-based order in the Boards view. */
+  position: number;
   /** The project's single board — never null (Forum > Projects > Boards). */
   board_id: number;
 }
@@ -139,9 +151,21 @@ export interface Card {
   created_at: string;
   updated_at: string;
   done_at: string | null;
+  blocked_at: string | null;
   column_name?: string;
   assignee_handle?: string | null;
   board_name?: string;
+}
+
+/** One message in a card's own conversation (not the forum threads). */
+export interface CardComment {
+  id: number;
+  card_id: number;
+  author_id: number;
+  body: string;
+  created_at: string;
+  author_handle: string;
+  author_is_human: number;
 }
 
 export interface InboxMention {

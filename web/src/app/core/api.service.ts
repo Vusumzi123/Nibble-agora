@@ -7,6 +7,8 @@ import type {
   AppConfig,
   Board,
   Card,
+  CardComment,
+  ChangeEvent,
   Column,
   Forum,
   ForumOverview,
@@ -66,6 +68,58 @@ export class ApiService {
     ).catch((err: unknown) => {
       throw err instanceof HttpErrorResponse ? describe(err) : err;
     });
+  }
+
+  /**
+   * Tail the server's change journal (SSE). `EventSource` cannot carry the
+   * bearer header, so this is a fetch stream: frames are parsed here and the
+   * call resolves when the server closes or `signal` aborts.
+   */
+  async streamChanges(
+    token: string,
+    since: number | null,
+    signal: AbortSignal,
+    onEvent: (event: ChangeEvent) => void,
+  ): Promise<void> {
+    const query = since === null ? '' : `?since=${since}`;
+    const res = await fetch(`/api/events/stream${query}`, {
+      headers: { authorization: `Bearer ${token}`, accept: 'text/event-stream' },
+      signal,
+      cache: 'no-store',
+    });
+    if (!res.ok || !res.body) {
+      throw new ApiError(`live feed unavailable (${res.status})`, res.status);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        buffer += decoder.decode(value, { stream: true });
+        let split = buffer.indexOf('\n\n');
+        while (split >= 0) {
+          const frame = buffer.slice(0, split);
+          buffer = buffer.slice(split + 2);
+          const data = frame
+            .split('\n')
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n');
+          if (data) {
+            try {
+              onEvent(JSON.parse(data) as ChangeEvent);
+            } catch {
+              /* malformed frame — the next one still counts */
+            }
+          }
+          split = buffer.indexOf('\n\n');
+        }
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+    }
   }
 
   identify(): Promise<Me> {
@@ -133,6 +187,13 @@ export class ApiService {
     forum_id?: number;
   }): Promise<{ project: Project; board: Board; columns: Column[] }> {
     return this.request('POST', '/api/projects', input);
+  }
+
+  /** Reorder one project in the Boards view. */
+  updateProject(projectId: number, patch: { position: number }): Promise<Project> {
+    return this.request<{ project: Project }>('PATCH', `/api/projects/${projectId}`, patch).then(
+      (r) => r.project,
+    );
   }
 
   /** Forum home: counts + recently active threads for one forum. */
@@ -233,11 +294,25 @@ export class ApiService {
       position?: number;
       assignee?: number | null;
       done?: boolean;
+      blocked?: boolean;
       title?: string;
       body?: string;
     },
   ): Promise<Card> {
     return this.request<{ card: Card }>('PATCH', `/api/cards/${cardId}`, patch).then((r) => r.card);
+  }
+
+  listCardComments(cardId: number): Promise<CardComment[]> {
+    return this.request<{ comments: CardComment[] }>(
+      'GET',
+      `/api/cards/${cardId}/comments`,
+    ).then((r) => r.comments);
+  }
+
+  addCardComment(cardId: number, body: string): Promise<CardComment> {
+    return this.request<{ comment: CardComment }>('POST', `/api/cards/${cardId}/comments`, {
+      body,
+    }).then((r) => r.comment);
   }
 
   addColumn(boardId: number, name: string): Promise<Column> {
@@ -248,7 +323,12 @@ export class ApiService {
 
   createCard(
     boardId: number,
-    patch: { column_id?: number; title: string; body?: string },
+    patch: {
+      column_id?: number;
+      title: string;
+      body?: string;
+      assignee?: number | null;
+    },
   ): Promise<Card> {
     return this.request<{ card: Card }>('POST', '/api/cards', {
       board_id: boardId,

@@ -13,6 +13,15 @@ export { hashPassword, verifyPassword, randomPassword } from './passwords.ts';
 
 /** Default columns seeded for every new board (plan §Data model). */
 export const DEFAULT_COLUMNS = ['inbox', 'todo', 'doing', 'done', 'dropped'] as const;
+/** Default pipeline for a newly created project. */
+export const PROJECT_COLUMNS = [
+  'INBOX',
+  'TODO',
+  'IN-PROGRESS',
+  'TESTING',
+  'DONE',
+  'DROPPED',
+] as const;
 
 export function openDb(dbPath: string): Db {
   mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -46,6 +55,28 @@ export function listEvents(db: Db, limit = 100): (EventRow & { payload_json: unk
     ...r,
     payload_json: r.payload ? safeParse(r.payload) : null,
   }));
+}
+
+/** Ascending slice of the journal after `since` — the live-stream feed. */
+export function listEventsSince(
+  db: Db,
+  since: number,
+  limit = 200,
+): (EventRow & { payload_json: unknown })[] {
+  const rows = db.all<EventRow>(
+    'SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?',
+    Math.max(0, since),
+    limit,
+  );
+  return rows.map((r) => ({
+    ...r,
+    payload_json: r.payload ? safeParse(r.payload) : null,
+  }));
+}
+
+/** Current journal head (0 when nothing has happened yet). */
+export function eventHead(db: Db): number {
+  return db.get<{ id: number }>('SELECT COALESCE(MAX(id), 0) AS id FROM events')?.id ?? 0;
 }
 
 function safeParse(text: string): unknown {
@@ -111,7 +142,7 @@ export function seedDefaults(db: Db, cfg: SeedConfig): SeedResult {
     created = true;
     board = db.tx(() => {
       db.run(
-        'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, NULL, ?, ?)',
+        'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id, position) VALUES (?, ?, ?, NULL, ?, ?, 0)',
         cfg.defaultBoardName,
         cfg.defaultBoard,
         cfg.defaultBoardDescription || null,
@@ -148,7 +179,7 @@ export function seedDefaults(db: Db, cfg: SeedConfig): SeedResult {
   // Defensive repair: a board from before 0004 without its project link.
   if (board.project_id === null) {
     db.run(
-      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO projects (name, slug, description, created_by, created_at, forum_id, position) VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM projects))',
       board.name,
       board.slug,
       board.description,

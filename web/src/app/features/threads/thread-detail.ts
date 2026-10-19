@@ -8,12 +8,13 @@ import { StatusService } from '../../core/status.service';
 import { CategoryBadge } from '../../shared/category-badge';
 import { CharCounter } from '../../shared/char-counter';
 import { LoadingDots } from '../../shared/loading-dots';
+import { MentionInput } from '../../shared/mention-input';
 import { parseMentions } from '../../shared/text';
 import { PostCard } from './post-card';
 
 @Component({
   selector: 'app-thread-detail',
-  imports: [FormsModule, RouterLink, CategoryBadge, CharCounter, LoadingDots, PostCard],
+  imports: [FormsModule, RouterLink, CategoryBadge, CharCounter, LoadingDots, MentionInput, PostCard],
   templateUrl: './thread-detail.html',
   styleUrl: './thread-detail.css',
 })

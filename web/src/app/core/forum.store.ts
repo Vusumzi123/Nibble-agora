@@ -6,6 +6,8 @@ import type {
   Agent,
   Board,
   Card,
+  CardComment,
+  ChangeEvent,
   Column,
   Forum,
   ForumOverview,
@@ -20,7 +22,10 @@ import { StatusService } from './status.service';
 export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox' | 'settings';
 export type ThreadSort = 'updated' | 'created' | 'votes' | 'views';
 
-const POLL_MS = 3000;
+/** Safety net when the live feed is down; the feed itself is event-driven. */
+const FALLBACK_POLL_MS = 30_000;
+/** Coalesce bursts (a move rewrites several cards) into one refresh. */
+const LIVE_DEBOUNCE_MS = 120;
 
 /** Threads fetched per batch; the list grows by one batch per sentinel hit. */
 export const THREAD_PAGE_SIZE = 20;
@@ -70,6 +75,14 @@ export class ForumStore {
     () => this.repliesOffset() > 0 && !this.repliesLoading(),
   );
   readonly cards = signal<Card[]>([]);
+  /** Card wearing the landing highlight — inbox jumps and card moves share it. */
+  readonly focusedCardId = signal<number | null>(null);
+  /** Card currently being dragged; lanes hide it and show a landing gap. */
+  readonly draggingCardId = signal<number | null>(null);
+  /** True while the board list (and its columns) loads for the first time. */
+  readonly boardsLoading = signal(false);
+  /** True while a board's cards load for the first time after a switch. */
+  readonly cardsLoading = signal(false);
   readonly inbox = signal<Inbox | null>(null);
   /** Empty = all categories; multiple selections narrow the list (OR). */
   readonly categories = signal<string[]>([]);
@@ -96,25 +109,152 @@ export class ForumStore {
 
   private openThreadId: number | null = null;
   private busy = false;
+  /** Board whose cards are already in the store (drives the first-load skeleton). */
+  private cardsLoadedBoard: number | null = null;
+  private focusTimer: ReturnType<typeof setTimeout> | null = null;
   /** Overridable so tests (and future tuning) need not wait out the beat. */
   minOlderLoadMs = MIN_OLDER_LOAD_MS;
   private lastSig = '';
   private timer: ReturnType<typeof setInterval> | null = null;
   private forumsLoad: Promise<void> | null = null;
+  private live: AbortController | null = null;
+  private liveLastId: number | null = null;
+  private liveFlush: ReturnType<typeof setTimeout> | null = null;
+  private liveDirty = emptyDirty();
 
   // ---- lifecycle -----------------------------------------------------------
 
+  /** Start the live feed: one catch-up tick, then server-pushed changes.
+      The slow interval only covers a dropped stream or a missed frame. */
   startPolling(): void {
     this.stopPolling();
-    // one cycle now, so a reload never waits out the first interval.
     void this.tick();
-    this.timer = setInterval(() => void this.tick(), POLL_MS);
+    this.timer = setInterval(() => void this.tick(), FALLBACK_POLL_MS);
+    void this.runLive();
   }
 
   stopPolling(): void {
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.liveFlush !== null) {
+      clearTimeout(this.liveFlush);
+      this.liveFlush = null;
+    }
+    this.live?.abort();
+    this.live = null;
+  }
+
+  private async runLive(): Promise<void> {
+    const controller = new AbortController();
+    this.live = controller;
+    while (!controller.signal.aborted) {
+      if (!this.session.connected()) {
+        // the seat may connect after the shell mounts; retry cheaply
+        await sleep(1000);
+        continue;
+      }
+      try {
+        await this.api.streamChanges(
+          this.session.token(),
+          this.liveLastId,
+          controller.signal,
+          (event) => this.onChange(event),
+        );
+      } catch {
+        if (controller.signal.aborted) return;
+        // feed down — the safety poll still runs; retry with a beat
+        await sleep(2000);
+      }
+    }
+  }
+
+  /** Map a journal row to the smallest refresh the active view can use. */
+  private onChange(event: ChangeEvent): void {
+    this.liveLastId = event.id;
+    if (event.action === 'thread.view') return; // a view count, not a change
+    const entity = event.action.split('.')[0];
+    const dirty = this.liveDirty;
+    switch (entity) {
+      case 'card':
+        dirty.cards = true;
+        dirty.inbox = true;
+        break;
+      case 'post':
+      case 'reaction':
+      case 'thread':
+      case 'mention':
+        dirty.threads = true;
+        if (entity === 'mention') dirty.inbox = true;
+        break;
+      case 'agent':
+        dirty.agents = true;
+        break;
+      case 'project':
+        dirty.projects = true;
+        dirty.boards = true;
+        break;
+      case 'board':
+      case 'column':
+        dirty.boards = true;
+        dirty.cards = true;
+        break;
+      case 'forum':
+        dirty.boards = true;
+        dirty.projects = true;
+        dirty.threads = true;
+        break;
+      default:
+        return; // settings/instance metadata: next poll picks it up
+    }
+    this.scheduleLiveFlush();
+  }
+
+  private scheduleLiveFlush(): void {
+    if (this.liveFlush !== null) return;
+    this.liveFlush = setTimeout(() => {
+      this.liveFlush = null;
+      void this.flushLive();
+    }, LIVE_DEBOUNCE_MS);
+  }
+
+  /** Apply queued changes to the visible view only — cards refresh in place
+      even while a text field has focus, which polling never did. */
+  private async flushLive(): Promise<void> {
+    if (this.busy || !this.session.connected()) {
+      this.scheduleLiveFlush();
+      return;
+    }
+    const dirty = this.liveDirty;
+    this.liveDirty = emptyDirty();
+    this.busy = true;
+    try {
+      if (dirty.boards) await this.refreshBoards();
+      const jobs: Promise<void>[] = [];
+      if (dirty.inbox) jobs.push(this.refreshInbox());
+      if (dirty.agents) jobs.push(this.refreshAgents());
+      if (dirty.projects) jobs.push(this.refreshProjects());
+      switch (this.view()) {
+        case 'threads':
+          if (dirty.threads) {
+            if (this.openThreadId !== null) jobs.push(this.loadThread(this.openThreadId));
+            else jobs.push(this.refreshThreads());
+          }
+          break;
+        case 'board':
+          if (dirty.cards) jobs.push(this.refreshCards());
+          break;
+        case 'boards':
+        case 'forum':
+          break;
+      }
+      await Promise.all(jobs);
+      this.lastSig = this.signature();
+    } catch (err) {
+      this.fail(err);
+    } finally {
+      this.busy = false;
     }
   }
 
@@ -167,14 +307,19 @@ export class ForumStore {
 
   async refreshBoards(): Promise<void> {
     if (this.forumId() === null) await this.ensureForum();
-    const boards = await this.api.listBoards(this.forumId() ?? undefined);
-    this.boards.set(boards);
-    if (!this.currentBoard()) {
-      // restore the last board this seat used, else fall back to the first.
-      const remembered = this.session.boardId();
-      const pick = boards.find((b) => b.id === remembered)?.id ?? boards[0]?.id ?? null;
-      this.boardId.set(pick);
-      if (pick !== null) this.session.rememberBoard(pick);
+    this.boardsLoading.set(true);
+    try {
+      const boards = await this.api.listBoards(this.forumId() ?? undefined);
+      this.boards.set(boards);
+      if (!this.currentBoard()) {
+        // restore the last board this seat used, else fall back to the first.
+        const remembered = this.session.boardId();
+        const pick = boards.find((b) => b.id === remembered)?.id ?? boards[0]?.id ?? null;
+        this.boardId.set(pick);
+        if (pick !== null) this.session.rememberBoard(pick);
+      }
+    } finally {
+      this.boardsLoading.set(false);
     }
   }
 
@@ -258,7 +403,19 @@ export class ForumStore {
     // legacy `/board` has no id in the URL — learn the picked board first.
     if (this.boardId() === null) await this.refreshBoards().catch(() => {});
     const board = this.boardId();
-    this.cards.set(board === null ? [] : await this.api.listCards(board));
+    if (board === null) {
+      this.cards.set([]);
+      this.cardsLoading.set(false);
+      return;
+    }
+    const firstLoad = this.cardsLoadedBoard !== board;
+    if (firstLoad) this.cardsLoading.set(true);
+    try {
+      this.cards.set(await this.api.listCards(board));
+      this.cardsLoadedBoard = board;
+    } finally {
+      if (firstLoad) this.cardsLoading.set(false);
+    }
   }
 
   async refreshInbox(): Promise<void> {
@@ -446,6 +603,11 @@ export class ForumStore {
     this.resetPaging();
     this.boardId.set(id);
     this.session.rememberBoard(id);
+    if (this.cardsLoadedBoard !== id) {
+      this.cards.set([]);
+      this.cardsLoadedBoard = null;
+      this.cardsLoading.set(true);
+    }
     await this.mutate(async () => undefined);
   }
 
@@ -565,16 +727,21 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.addColumn(board, name);
       this.status.flash(`column "${name}" added`);
-    });
+    }, 'creating column');
   }
 
-  async addCard(columnId: number, title: string): Promise<boolean> {
+  async addCard(
+    columnId: number,
+    title: string,
+    body = '',
+    assignee: number | null = null,
+  ): Promise<boolean> {
     const board = this.boardId();
     if (board === null) return false;
     return this.mutate(async () => {
-      await this.api.createCard(board, { column_id: columnId, title });
+      await this.api.createCard(board, { column_id: columnId, title, body, assignee });
       this.status.flash('card added');
-    });
+    }, 'creating card');
   }
 
   /** Delete a column; the server cascades its cards and re-denses positions. */
@@ -583,7 +750,7 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.deleteColumn(columnId);
       this.status.flash('column deleted');
-    });
+    }, 'deleting column');
   }
 
   /** Rename / re-describe the open project (server moves both rows). */
@@ -593,7 +760,7 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.updateBoard(board, { name, description });
       this.status.flash('project updated');
-    });
+    }, 'saving project');
   }
 
   /** Delete a project (and everything hanging off its board). */
@@ -601,7 +768,26 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.deleteBoard(boardId);
       this.status.flash('project deleted');
-    });
+    }, 'deleting project');
+  }
+
+  /** Drag-reorder the live project cards; positions are written dense. */
+  async reorderProject(projectId: number, from: number, delta: number): Promise<boolean> {
+    const order = this.projects()
+      .filter((p) => !p.archived_at)
+      .slice();
+    const [moved] = order.splice(from, 1);
+    if (!moved) return false;
+    order.splice(from + delta, 0, moved);
+    return this.mutate(async () => {
+      for (let i = 0; i < order.length; i++) {
+        const project = order[i];
+        if (project && project.position !== i) {
+          await this.api.updateProject(project.id, { position: i });
+        }
+      }
+      this.status.flash('projects reordered');
+    }, 'moving project');
   }
 
   async renameColumn(columnId: number, name: string): Promise<boolean> {
@@ -626,7 +812,7 @@ export class ForumStore {
         if (col && col.position !== i) await this.api.updateColumn(board, col.id, { position: i });
       }
       this.status.flash('columns reordered');
-    });
+    }, 'moving column');
   }
 
   cardsIn(columnId: number): Card[] {
@@ -636,16 +822,41 @@ export class ForumStore {
   }
 
   async moveCard(card: Card, targetColumnId: number, targetIndex: number): Promise<boolean> {
+    const sourceColumnId = card.column_id;
     const members = this.cardsIn(targetColumnId).filter((c) => c.id !== card.id);
     const index = Math.max(0, Math.min(targetIndex, members.length));
     const desired = [...members.slice(0, index), card, ...members.slice(index)];
-    return this.mutate(async () => {
+    const moved = await this.mutate(async () => {
       await this.api.patchCard(card.id, { column_id: targetColumnId, position: index });
+      // Priority is the tile's index in its column — dense positions, top first.
+      // The moved card is already at `index`; don't PATCH it twice.
       for (let i = 0; i < desired.length; i++) {
         const item = desired[i];
-        if (item && item.position !== i) await this.api.patchCard(item.id, { position: i });
+        if (item && item.id !== card.id && item.position !== i) {
+          await this.api.patchCard(item.id, { position: i });
+        }
       }
-    });
+      // Leaving a column can leave a gap behind it; close that too.
+      if (sourceColumnId !== targetColumnId) {
+        const left = this.cardsIn(sourceColumnId).filter((c) => c.id !== card.id);
+        for (let i = 0; i < left.length; i++) {
+          const item = left[i];
+          if (item && item.position !== i) await this.api.patchCard(item.id, { position: i });
+        }
+      }
+    }, 'moving card');
+    if (moved) this.focusCard(card.id);
+    return moved;
+  }
+
+  /** One-shot ring on the tile that just landed (inbox jump or move). */
+  focusCard(cardId: number): void {
+    if (this.focusTimer !== null) clearTimeout(this.focusTimer);
+    this.focusedCardId.set(cardId);
+    this.focusTimer = setTimeout(() => {
+      this.focusedCardId.set(null);
+      this.focusTimer = null;
+    }, 1600);
   }
 
   async setAssignee(cardId: number, assigneeId: number | null): Promise<boolean> {
@@ -658,15 +869,50 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.deleteCard(card.id);
       this.status.flash('card deleted');
-    });
+    }, 'deleting card');
   }
 
-  /** Card detail modal save — rewrite title/body (either may be omitted). */
-  async updateCard(cardId: number, patch: { title?: string; body?: string }): Promise<boolean> {
-    return this.mutate(async () => {
+  /** Card detail save — rewrite title/body/owner and post any pending comment. */
+  async saveCard(
+    cardId: number,
+    patch: { title?: string; body?: string; assignee?: number | null },
+    comment = '',
+  ): Promise<{ ok: boolean; comment: CardComment | null }> {
+    let created: CardComment | null = null;
+    const ok = await this.mutate(async () => {
       await this.api.patchCard(cardId, patch);
-      this.status.flash('card updated');
+      const text = comment.trim();
+      if (text) created = await this.api.addCardComment(cardId, text);
+      this.status.flash(text ? 'card and comment saved' : 'card updated');
+    }, 'saving card');
+    return { ok, comment: created };
+  }
+
+  /** The card's conversation — read on open, never cached in the board state. */
+  async cardComments(cardId: number): Promise<CardComment[]> {
+    try {
+      return await this.api.listCardComments(cardId);
+    } catch (err) {
+      this.fail(err);
+      return [];
+    }
+  }
+
+  async addCardComment(cardId: number, body: string): Promise<CardComment | null> {
+    let created: CardComment | null = null;
+    const ok = await this.mutate(async () => {
+      created = await this.api.addCardComment(cardId, body);
+      this.status.flash('comment added');
     });
+    return ok ? created : null;
+  }
+
+  /** Mark/unmark a card as blocked — an immediate toggle, not part of the draft. */
+  async setBlocked(cardId: number, blocked: boolean): Promise<boolean> {
+    return this.mutate(async () => {
+      await this.api.patchCard(cardId, { blocked });
+      this.status.flash(blocked ? 'card blocked' : 'card unblocked');
+    }, blocked ? 'blocking card' : 'unblocking card');
   }
 
   // ---- internals -----------------------------------------------------------
@@ -715,6 +961,26 @@ export class ForumStore {
     ]);
   }
 }
+
+interface LiveDirty {
+  threads: boolean;
+  cards: boolean;
+  boards: boolean;
+  projects: boolean;
+  inbox: boolean;
+  agents: boolean;
+}
+
+const emptyDirty = (): LiveDirty => ({
+  threads: false,
+  cards: false,
+  boards: false,
+  projects: false,
+  inbox: false,
+  agents: false,
+});
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 function isEditing(): boolean {
   const node = document.activeElement as HTMLElement | null;

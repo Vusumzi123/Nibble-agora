@@ -1,29 +1,346 @@
-/* Wider than the board settings card — this one shows real content. */
+/* Wider than the board settings card — this one shows real content. Full
+   height so the body owns the viewport while the header and actions stay put. */
 .card-detail {
-  width: min(42rem, 100%);
+  display: flex;
+  flex-direction: column;
+  width: min(44rem, 100%);
+  height: 82vh;
+  max-height: 82vh;
+  overflow: hidden;
+}
+
+/* A blocked card keeps its shape but wears a caution wash, so the state is
+   obvious before the header label is read. */
+.card-detail--blocked {
+  border-color: color-mix(in srgb, var(--ph-warning) 45%, var(--ph-border));
+  background: color-mix(in srgb, var(--ph-warning) 9%, var(--ph-surface));
+}
+
+.card-detail--blocked .card-detail__header {
+  background: color-mix(in srgb, var(--ph-warning) 13%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ph-warning) 28%, transparent);
+}
+
+/* The header is the card's name, not chrome: same wash, but readable type
+   and a double-click target. */
+.card-detail__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 3.25rem;
+}
+
+.card-detail__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--ph-font-sans);
+  font-size: var(--ph-text-lg);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ph-leading-tight);
+  cursor: text;
+}
+
+.card-detail__title--empty {
+  color: var(--ph-text-muted);
+}
+
+.card-detail__blocked {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: var(--ph-space-2);
+  padding: 0.15rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--ph-warning) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ph-warning) 18%, transparent);
+  color: var(--ph-text);
+  font-size: var(--ph-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.card-detail__blocked::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--ph-warning);
+}
+
+.card-detail__title-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ph-font-sans);
+  font-size: var(--ph-text-lg);
+  font-weight: 600;
+}
+
+/* The header's X — a quiet square control at the far edge of the title bar. */
+.card-detail__close {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: var(--ph-space-2);
+  padding: 0;
+}
+
+.card-detail__close svg {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .card-detail__form {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--ph-space-2);
+  min-height: 0;
   padding: var(--ph-space-4);
 }
 
-.card-detail__bodyhead {
+.card-detail__remote {
+  flex: none;
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: var(--ph-space-2);
+  padding: var(--ph-space-2) var(--ph-space-3);
+  border: 1px solid var(--ph-warning);
+  border-radius: var(--ph-radius-md);
+  background: color-mix(in srgb, var(--ph-warning) 12%, transparent);
+  color: var(--ph-text);
+  font-size: var(--ph-text-sm);
+}
+
+.card-detail__remote .btn {
+  margin-left: auto;
+  flex: none;
+}
+
+.card-detail__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+}
+
+.card-detail__mode-end {
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+  user-select: none;
+  transition: color var(--ph-transition-fast);
+}
+
+.card-detail__mode-end--active {
+  color: var(--ph-text);
+  font-weight: 600;
+}
+
+.card-detail__switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 2.5rem;
+  height: 1.25rem;
+  margin: 0;
+}
+
+.card-detail__switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.card-detail__switch-track {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--ph-border);
+  border-radius: 999px;
+  background: var(--ph-surface-raised);
+  transition:
+    background var(--ph-transition-fast),
+    border-color var(--ph-transition-fast);
+  pointer-events: none;
+}
+
+.card-detail__switch-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--ph-text-muted);
+  transform: translateY(-50%);
+  transition:
+    transform var(--ph-transition-fast),
+    background var(--ph-transition-fast);
+}
+
+.card-detail__switch input:checked + .card-detail__switch-track {
+  border-color: var(--ph-primary);
+  background: var(--ph-primary);
+}
+
+.card-detail__switch input:checked + .card-detail__switch-track::before {
+  background: var(--ph-bg);
+  transform: translate(1.25rem, -50%);
+}
+
+.card-detail__switch input:focus-visible + .card-detail__switch-track {
+  outline: 2px solid var(--ph-primary);
+  outline-offset: 2px;
+}
+
+.card-detail__bodyhead {
+  flex: none;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--ph-space-2);
 }
 
+.card-detail__bodybar {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+}
+
+.card-detail__preview {
+  flex: 0 1 auto;
+  min-height: 5rem;
+  max-height: 28vh;
+  overflow-y: auto;
+  padding: var(--ph-space-3);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-bg);
+  overflow-wrap: anywhere;
+}
+
+.card-detail__preview--empty {
+  cursor: text;
+  margin: 0;
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+}
+
 .card-detail__body {
-  resize: vertical;
+  flex: 0 1 auto;
+  min-height: 5rem;
+  max-height: 28vh;
+  resize: none;
+  overflow-y: auto;
+}
+
+/* The card's own conversation: list scrolls, composer stays docked below it. */
+.card-detail__conversation {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+  min-height: 0;
+  padding-top: var(--ph-space-2);
+  border-top: 1px solid var(--ph-border);
+}
+
+.card-detail__conversation-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
+}
+
+.card-detail__comment-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ph-space-2);
+  min-height: 3rem;
+  overflow-y: auto;
+  padding-right: var(--ph-space-1);
+}
+
+.card-detail__comment-empty {
+  margin: 0;
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+}
+
+.card-comment {
+  padding: var(--ph-space-2) var(--ph-space-3);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-bg);
+}
+
+.card-comment__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
+  margin-bottom: var(--ph-space-1);
+}
+
+.card-comment__author {
+  font-size: var(--ph-text-sm);
+  font-weight: 600;
+}
+
+.card-comment__time {
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-xs);
+}
+
+.card-comment__body {
+  font-size: var(--ph-text-sm);
+}
+
+.card-detail__composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--ph-space-1);
+}
+
+.card-detail__comment-input {
+  min-height: 3.25rem;
+  resize: none;
+}
+
+.card-detail__comment-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
 }
 
 .card-detail__actions {
+  flex: none;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--ph-space-2);
   padding-top: var(--ph-space-2);
+}
+
+.card-detail > .ph-label,
+.card-detail select {
+  flex: none;
+}
+
+.card-detail__buttons {
+  display: flex;
+  gap: var(--ph-space-2);
+  margin-left: auto;
 }

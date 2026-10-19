@@ -112,12 +112,7 @@
               ></textarea>
               <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
             </div>
-            <input
-              class="form-control"
-              type="text"
-              placeholder="mentions, comma separated"
-              [(ngModel)]="mentions"
-            />
+            <app-mention-input [(value)]="mentions" />
             <div class="composer__actions">
               <button
                 class="btn btn-outline-secondary me-2"

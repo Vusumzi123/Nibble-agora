@@ -1,5 +1,7 @@
 <div
   class="card kanban-card"
+  [class.kanban-card--blocked]="card().blocked_at"
+  [class.kanban-card--target]="store.focusedCardId() === card().id"
   draggable="true"
   [attr.data-id]="card().id"
   (dragstart)="onDragStart($event)"
@@ -7,6 +9,9 @@
   <div class="card-body">
     <!-- the text area is the card's click target for the detail modal -->
     <div class="kanban-card__open" (click)="open = true">
+      @if (card().blocked_at) {
+        <span class="kanban-card__blocked" role="status">blocked</span>
+      }
       <div class="kanban-card__title" appEllipsis>{{ card().title }}</div>
       @if (card().body) {
         <div class="kanban-card__desc ph-label" [appEllipsis]="3">{{ excerpt() }}</div>
@@ -28,20 +33,20 @@
         <button
           class="btn btn-sm btn-outline-secondary"
           type="button"
-          title="move left"
-          [disabled]="!canLeft()"
+          title="move up"
+          [disabled]="!canUp()"
           (click)="move(-1)"
         >
-          ‹
+          ↑
         </button>
         <button
           class="btn btn-sm btn-outline-secondary"
           type="button"
-          title="move right"
-          [disabled]="!canRight()"
+          title="move down"
+          [disabled]="!canDown()"
           (click)="move(1)"
         >
-          ›
+          ↓
         </button>
         <button
           class="btn btn-sm btn-outline-danger btn-icon"
