@@ -46,6 +46,14 @@ body {
   padding: 2px var(--ph-space-2);
 }
 
+/* Panels must never shrink inside the seat's flex-column views: the radius
+   clip (overflow: hidden) zeroes their automatic min size, so flex silently
+   clips panel contents — and because the clip hides the overflow, the view
+   never even scrolls. Keep natural height; the view scrolls instead. */
+.ph-panel {
+  flex-shrink: 0;
+}
+
 .ph-panel__body {
   padding: var(--ph-space-4);
 }
@@ -797,7 +805,9 @@ body {
   align-items: start;
 }
 
-/* Shared form + theme-picker primitives (setup wizard, settings page). */
+/* Shared form + appearance primitives (setup wizard, settings page): the
+   mode switch and the accent picker. Component CSS is view-scoped, so both
+   live here the way .overlay does. */
 .field-stack {
   display: flex;
   flex-direction: column;
@@ -811,73 +821,132 @@ body {
   gap: var(--ph-space-3);
 }
 
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* Dark ⇄ light mode switch (checked = light). */
+.theme-switch-row {
+  display: flex;
+  align-items: center;
   gap: var(--ph-space-3);
-  margin-top: var(--ph-space-2);
+  margin: var(--ph-space-3) 0 var(--ph-space-4);
 }
 
-.theme-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ph-space-2);
-  padding: var(--ph-space-3);
-  text-align: left;
-  cursor: pointer;
-  border: 1px solid var(--ph-border);
-  border-radius: var(--ph-radius-md);
-  background: var(--ph-surface-raised);
+.theme-switch__end {
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+  transition: color var(--ph-transition-fast);
+}
+
+.theme-switch__end--active {
   color: var(--ph-text);
-  font: inherit;
-  transition:
-    border-color var(--ph-transition-fast),
-    box-shadow var(--ph-transition-fast),
-    transform var(--ph-transition-fast);
-}
-
-.theme-card:hover {
-  border-color: var(--ph-primary);
-  transform: translateY(-1px);
-}
-
-.theme-card--active {
-  border-color: var(--ph-primary);
-  box-shadow: 0 0 0 2px var(--ph-primary);
-}
-
-.theme-card__swatches {
-  display: flex;
-  gap: var(--ph-space-1);
-}
-
-.sw {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: var(--ph-radius-sm);
-  border: 1px solid var(--ph-border);
-}
-
-.sw--bg {
-  background: var(--ph-bg);
-}
-
-.sw--surface {
-  background: var(--ph-surface);
-}
-
-.sw--primary {
-  background: var(--ph-primary);
-}
-
-.theme-card__label {
   font-weight: 600;
 }
 
-.theme-card__note {
-  font-size: var(--ph-text-xs);
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 3.5rem;
+  height: 1.75rem;
+}
+
+.theme-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.theme-switch__track {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--ph-border);
+  border-radius: 999px;
+  background: var(--ph-surface-raised);
+  transition:
+    background var(--ph-transition-fast),
+    border-color var(--ph-transition-fast);
+  pointer-events: none;
+}
+
+.theme-switch__track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.125rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--ph-text-muted);
+  transform: translateY(-50%);
+  transition:
+    transform var(--ph-transition-fast),
+    background var(--ph-transition-fast);
+}
+
+.theme-switch input:checked + .theme-switch__track {
+  border-color: var(--ph-primary);
+  background: var(--ph-primary);
+}
+
+.theme-switch input:checked + .theme-switch__track::before {
+  background: var(--ph-bg);
+  transform: translate(1.75rem, -50%);
+}
+
+.theme-switch input:focus-visible + .theme-switch__track {
+  outline: 2px solid var(--ph-primary);
+  outline-offset: 2px;
+}
+
+/* Accent picker — one pill per accent, dot in the accent's own colour.
+   Same pill language the thread list's category tags speak. */
+.accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ph-space-2);
+  margin-top: var(--ph-space-2);
+}
+
+.accent-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  padding: 2px var(--ph-space-2);
+  border: 1px solid var(--ph-border);
+  border-radius: 999px;
+  background: var(--ph-surface);
   color: var(--ph-text-muted);
-  line-height: var(--ph-leading-tight);
+  font: inherit;
+  font-family: var(--ph-font-mono);
+  font-size: var(--ph-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition:
+    border-color var(--ph-transition-fast),
+    color var(--ph-transition-fast),
+    background var(--ph-transition-fast);
+}
+
+.accent-swatch__dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--ph-border);
+}
+
+.accent-swatch:hover {
+  border-color: var(--ph-primary);
+  color: var(--ph-text);
+}
+
+.accent-swatch--active {
+  border-color: var(--ph-primary);
+  color: var(--ph-primary);
+  background: color-mix(in srgb, var(--ph-primary) 12%, transparent);
+  font-weight: 600;
 }
 
 @media (max-width: 60rem) {
@@ -924,8 +993,7 @@ body {
     padding-inline: var(--ph-space-3);
   }
 
-  .field-row,
-  .theme-grid {
+  .field-row {
     grid-template-columns: 1fr;
   }
 

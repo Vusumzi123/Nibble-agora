@@ -211,6 +211,7 @@ export interface AppConfig {
   configured: boolean;
   forum_name: string;
   theme: string;
+  accent: string;
 }
 
 /** A recently active thread on a forum's overview. */
@@ -237,4 +238,5 @@ export interface SetupInput {
   password: string;
   forum_name: string;
   theme: string;
+  accent: string;
 }

@@ -28,7 +28,8 @@
               "node_modules/@fontsource-variable/inter/index.css",
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "node_modules/@vusux/phosphorstrap/dist/phosphorstrap.css",
-              "src/themes/calm.css",
+              "src/themes/nibble.css",
+              "src/themes/accents.css",
               "src/styles.css"
             ]
           },

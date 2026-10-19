@@ -2,11 +2,16 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { ApiService } from './api.service';
 import type { AppConfig } from './models';
-import { DEFAULT_THEME, applyTheme } from './theme';
+import { DEFAULT_ACCENT, DEFAULT_THEME, applyAccent, applyTheme, normalizeTheme } from './theme';
 
-const DEFAULT_CONFIG: AppConfig = { configured: false, forum_name: 'Agora', theme: DEFAULT_THEME };
+const DEFAULT_CONFIG: AppConfig = {
+  configured: false,
+  forum_name: 'Agora',
+  theme: DEFAULT_THEME,
+  accent: DEFAULT_ACCENT,
+};
 
-/** Global instance configuration: setup state, forum name, and active theme. */
+/** Global instance configuration: setup state, forum name, theme mode, accent. */
 @Injectable({ providedIn: 'root' })
 export class ConfigService {
   private readonly api = inject(ApiService);
@@ -14,9 +19,10 @@ export class ConfigService {
   readonly config = signal<AppConfig>(DEFAULT_CONFIG);
   readonly forumName = computed(() => this.config().forum_name);
   readonly theme = computed(() => this.config().theme);
+  readonly accent = computed(() => this.config().accent);
   readonly configured = computed(() => this.config().configured);
 
-  /** Load the public config and apply the theme. Safe to call before routing. */
+  /** Load the public config and apply the theme + accent. Safe before routing. */
   async load(): Promise<void> {
     try {
       this.apply(await this.api.getConfig());
@@ -30,14 +36,26 @@ export class ConfigService {
     applyTheme(theme);
   }
 
-  /** Persist a config change (forum name and/or theme). */
-  async save(patch: { forum_name?: string; theme?: string }): Promise<void> {
+  /** Apply an accent locally (live preview) without persisting. */
+  previewAccent(accent: string): void {
+    applyAccent(accent);
+  }
+
+  /** Persist a config change (forum name and/or theme and/or accent). */
+  async save(patch: { forum_name?: string; theme?: string; accent?: string }): Promise<void> {
     this.apply(await this.api.updateSettings(patch));
   }
 
   /** Adopt a full config (e.g. the response from `/api/setup`). */
   apply(config: AppConfig): void {
-    this.config.set(config);
-    applyTheme(config.theme);
+    // normalize + accent fallback guard a pre-nibble server's payload.
+    const next: AppConfig = {
+      ...config,
+      theme: normalizeTheme(config.theme),
+      accent: config.accent ?? DEFAULT_ACCENT,
+    };
+    this.config.set(next);
+    applyTheme(next.theme);
+    applyAccent(next.accent);
   }
 }

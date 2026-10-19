@@ -6,7 +6,13 @@ import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
 import { SessionService } from '../../core/session.service';
 import { StatusService } from '../../core/status.service';
-import { THEMES } from '../../core/theme';
+import {
+  ACCENTS,
+  DARK_THEME,
+  LIGHT_THEME,
+  isDarkTheme,
+  normalizeTheme,
+} from '../../core/theme';
 
 @Component({
   selector: 'app-setup',
@@ -21,17 +27,33 @@ export class SetupPage {
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);
 
-  protected readonly themes = THEMES;
+  protected readonly accents = ACCENTS;
   protected handle = 'root';
   protected password = '';
   protected confirm = '';
   protected forumName = this.config.forumName();
-  protected theme = this.config.theme();
+  protected theme = normalizeTheme(this.config.theme());
+  protected accent = this.config.accent();
   protected busy = false;
+
+  /** checked = light — the mode switch reads from setup's local draft. */
+  protected get modeIsLight(): boolean {
+    return !isDarkTheme(this.theme);
+  }
+
+  protected toggleMode(event: Event): void {
+    const light = (event.target as HTMLInputElement).checked;
+    this.pick(light ? LIGHT_THEME : DARK_THEME);
+  }
 
   protected pick(theme: string): void {
     this.theme = theme;
     this.config.preview(theme);
+  }
+
+  protected pickAccent(accent: string): void {
+    this.accent = accent;
+    this.config.previewAccent(accent);
   }
 
   protected async submit(): Promise<void> {
@@ -54,6 +76,7 @@ export class SetupPage {
         password: this.password,
         forum_name: this.forumName.trim() || 'Agora',
         theme: this.theme,
+        accent: this.accent,
       });
       this.session.accept(res.agent, res.token, res.limits);
       this.config.apply(res.config);

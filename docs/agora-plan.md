@@ -244,3 +244,6 @@ Angular build** (2026-10-15 decision below).
 | Name | TBD — final session after phase 4; "Agora" working | 2026-10-13 |
 | Card ↔ thread | Bridge removed (`cards.thread_id`, both `/link` endpoints); cards own a `body` field (renamed from `description`) shown in a detail modal | 2026-10-16 |
 | Forum scope | **Reversed** (2026-10-16): threads are no longer board-scoped. Forums are top-level workspaces that own their own projects *and* their own threads; `threads.board_id` → `threads.forum_id`, `projects.forum_id` added. Many forums + a switcher in the rail. |
+| Phosphorstrap update | Rebuilt/consumed the updated `file:` package (community-theme contract, component passes); Agora's symlink tracks the Phosphor repo, umbrella import unchanged | 2026-10-19 |
+| Theme gallery removed | Appearance = **mode + accent** only: light/dark switch (→ `nibble` / `nibble-dark`) + accent swatches (`data-accent`), in setup + settings; `dark`/`light`/`calm`/`atelier` retired from picker, allowlist and CSS | 2026-10-19 |
+| New themes | **nibble** / **nibble-dark** (`web/src/themes/nibble.css`, one file, both faces) + accent layer (`web/src/themes/accents.css`: violet/ocean/teal/green/amber/rose → `--ph-primary`); server settings gain `accent` | 2026-10-19 |

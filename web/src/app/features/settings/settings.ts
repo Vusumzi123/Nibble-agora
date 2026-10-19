@@ -5,13 +5,12 @@ import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
 import { StatusService } from '../../core/status.service';
-import { THEMES } from '../../core/theme';
+import { ACCENTS, DARK_THEME, LIGHT_THEME, isDarkTheme } from '../../core/theme';
 
 @Component({
   selector: 'app-settings',
   imports: [FormsModule],
   templateUrl: './settings.html',
-  styleUrl: './settings.css',
 })
 export class SettingsPage implements OnInit {
   protected readonly config = inject(ConfigService);
@@ -19,14 +18,19 @@ export class SettingsPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly status = inject(StatusService);
 
-  /** The switch owns dark ↔ parchment; calm stays a one-card choice. */
-  protected readonly calmTheme = THEMES.find((theme) => theme.id === 'calm')!;
+  /** Appearance is mode + accent only — there is no theme gallery. */
+  protected readonly accents = ACCENTS;
   protected forumName = '';
   protected current = '';
   protected next = '';
   protected confirm = '';
   protected savingName = false;
   protected savingPassword = false;
+
+  /** checked = light. */
+  protected get modeIsLight(): boolean {
+    return !isDarkTheme(this.config.theme());
+  }
 
   ngOnInit(): void {
     // this view renders no store data — mark it so the poll stops refreshing
@@ -35,18 +39,29 @@ export class SettingsPage implements OnInit {
     this.forumName = this.config.forumName();
   }
 
-  protected toggleTheme(event: Event): void {
+  protected toggleMode(event: Event): void {
     const light = (event.target as HTMLInputElement).checked;
-    void this.pickTheme(light ? 'light' : 'dark');
+    void this.pickTheme(light ? LIGHT_THEME : DARK_THEME);
   }
 
   protected async pickTheme(theme: string): Promise<void> {
     this.config.preview(theme);
     try {
       await this.config.save({ theme });
-      this.status.flash(`theme set to ${theme}`);
+      this.status.flash(`switched to ${isDarkTheme(theme) ? 'dark' : 'light'} mode`);
     } catch (err) {
       this.config.preview(this.config.theme());
+      this.status.flash(err instanceof Error ? err.message : String(err), true);
+    }
+  }
+
+  protected async pickAccent(accent: string): Promise<void> {
+    this.config.previewAccent(accent);
+    try {
+      await this.config.save({ accent });
+      this.status.flash(`accent set to ${accent}`);
+    } catch (err) {
+      this.config.previewAccent(this.config.accent());
       this.status.flash(err instanceof Error ? err.message : String(err), true);
     }
   }

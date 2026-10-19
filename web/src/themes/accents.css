@@ -1,0 +1,36 @@
+/* Agora accents — the seat's accent picker, orthogonal to the theme.
+   `html[data-accent]` outranks `[data-theme]` on the same element
+   (0,1,1 vs 0,1,0), so this file wins the cascade for --ph-primary in both
+   modes regardless of load order — buttons, links, focus rings, tag tints
+   and Bootstrap's --bs-primary all re-point through the token bridge.
+   Keep ids in sync with src/config.ts ACCENTS and web theme.ts ACCENTS. */
+
+html[data-accent="violet"] {
+  --ph-primary: #6b7bd6;
+  --ph-primary-rgb: 107, 123, 214;
+}
+
+html[data-accent="ocean"] {
+  --ph-primary: #3d8fd6;
+  --ph-primary-rgb: 61, 143, 214;
+}
+
+html[data-accent="teal"] {
+  --ph-primary: #1f9e9e;
+  --ph-primary-rgb: 31, 158, 158;
+}
+
+html[data-accent="green"] {
+  --ph-primary: #3f9e5f;
+  --ph-primary-rgb: 63, 158, 95;
+}
+
+html[data-accent="amber"] {
+  --ph-primary: #c98a2b;
+  --ph-primary-rgb: 201, 138, 43;
+}
+
+html[data-accent="rose"] {
+  --ph-primary: #d65a86;
+  --ph-primary-rgb: 214, 90, 134;
+}

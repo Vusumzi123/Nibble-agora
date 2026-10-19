@@ -14,6 +14,7 @@ export interface Config {
   rootHandle: string;
   rootPassword: string;
   defaultTheme: string;
+  defaultAccent: string;
   postCharLimit: number;
   cardBodyCharLimit: number;
   maxBodyBytes: number;
@@ -22,11 +23,17 @@ export interface Config {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 
-/** Themes the seat ships with (one CSS file each, keyed by `data-theme`). */
-export const THEMES = ['dark', 'light', 'calm'] as const;
+/** Themes the seat ships with — light mode + its dark face (data-theme). */
+export const THEMES = ['nibble', 'nibble-dark'] as const;
 export type ThemeId = (typeof THEMES)[number];
 export const isTheme = (value: unknown): value is ThemeId =>
   typeof value === 'string' && (THEMES as readonly string[]).includes(value);
+
+/** Accent choices — re-points --ph-primary via data-accent (see web/src/themes/accents.css). */
+export const ACCENTS = ['violet', 'ocean', 'teal', 'green', 'amber', 'rose'] as const;
+export type AccentId = (typeof ACCENTS)[number];
+export const isAccent = (value: unknown): value is AccentId =>
+  typeof value === 'string' && (ACCENTS as readonly string[]).includes(value);
 
 const DEFAULTS: Record<string, string> = {
   bind: '127.0.0.1',
@@ -38,7 +45,8 @@ const DEFAULTS: Record<string, string> = {
   default_board_description: '',
   root_handle: 'root',
   root_password: '',
-  theme: 'dark',
+  theme: 'nibble',
+  accent: 'violet',
   post_char_limit: '512',
   card_body_char_limit: '4000',
   max_body_bytes: '65536',
@@ -109,7 +117,8 @@ export function loadConfig(opts: LoadOptions = {}): Config {
     defaultBoardDescription: raw.default_board_description,
     rootHandle: env.AGORA_ROOT_HANDLE ?? raw.root_handle,
     rootPassword: env.AGORA_ROOT_PASSWORD ?? raw.root_password,
-    defaultTheme: isTheme(raw.theme) ? raw.theme : 'dark',
+    defaultTheme: isTheme(raw.theme) ? raw.theme : 'nibble',
+    defaultAccent: isAccent(raw.accent) ? raw.accent : 'violet',
     postCharLimit: int(raw.post_char_limit, 512, 'post_char_limit'),
     cardBodyCharLimit: int(raw.card_body_char_limit, 4000, 'card_body_char_limit'),
     maxBodyBytes: int(raw.max_body_bytes, 65536, 'max_body_bytes'),

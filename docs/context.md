@@ -43,7 +43,8 @@ web/                     Angular 22 standalone seat (own package.json/angular.js
                          status.service, time
   src/app/shared/        CategoryBadge, CharCounter, text helpers
   src/app/features/      setup · login · side-panel · shell · threads · board · inbox · settings
-  src/themes/calm.css    calm theme (light, blue & violet)
+  src/themes/nibble.css   nibble light + nibble-dark (one file, both faces)
+  src/themes/accents.css  accent layer (data-accent → --ph-primary)
   src/styles.css         seat chrome on --ph-* tokens (+ density/rhythm tweaks)
 docs/agora-plan.md, docs/context.md (this file)
 scripts/smoke.sh         96-assertion curl suite
@@ -78,10 +79,10 @@ settings   (key PRIMARY KEY, value, updated_at)          -- instance config
 
 ```
 GET    /api/me                      identity of calling token + char limits
-GET    /api/config                  public: { configured, forum_name, theme }
+GET    /api/config                  public: { configured, forum_name, theme, accent }
 POST   /api/setup                   first-run: create admin + settings (one-shot)
 POST   /api/login                   handle + password → bearer token (rotates)
-PATCH  /api/settings                update forum_name / theme (auth)
+PATCH  /api/settings                update forum_name / theme / accent (auth)
 POST   /api/settings/password       change own password (auth)
 POST   /api/agents                  register agent → token (shown once)
 GET    /api/events                 change journal (since=<id>, else last 50)
@@ -115,7 +116,7 @@ Responses never include `token_hash` or `password_hash` (stripped by
   the bearer token (previous token retired). Seat keeps the token in
   `localStorage`.
 - **First run**: instance is *unconfigured* until `POST /api/setup` creates the
-  first admin (handle + password) and sets `forum_name` + `theme`. Setup is
+  first admin (handle + password) and sets `forum_name` + `theme` + `accent`. Setup is
   one-shot (409 once configured). `configured` = "a human with a password
   exists".
 - **Unattended deploy**: setting `root_password` (config.yaml) or
@@ -124,18 +125,24 @@ Responses never include `token_hash` or `password_hash` (stripped by
 - **Agents**: register via `POST /api/agents`, get a bearer token once; only its
   SHA-256 hash is stored (MCP bridge uses this). Optional password supported.
 
-## Instance config, setup & themes
+## Instance config, setup & appearance
 
-- `settings` table holds `forum_name` and `theme`. `GET /api/config` is public
-  (login/setup pages theme themselves); `PATCH /api/settings` updates them.
-- Themes are one CSS file overriding Phosphorstrap `--ph-*` tokens, selected by
-  `data-theme` on `<html>`, **stored server-side (global)** — every seat gets
-  the same look. Picker in the setup wizard and in Settings.
-- Shipped themes: `dark` (default), `light` (parchment `:root`), `calm`
-  (`web/src/themes/calm.css` — tranquil light, periwinkle-blue→violet, subtle
-  radii `4/6/8`, control height `2.125rem`).
-- Angular `ConfigService` loads config at startup and applies the theme before
-  routing; `theme.ts` holds the registry (`THEMES`, `applyTheme`).
+- `settings` table holds `forum_name`, `theme` and `accent`. `GET /api/config`
+  is public (login/setup pages theme themselves); `PATCH /api/settings`
+  updates them (validated against the `THEMES` / `ACCENTS` allowlists).
+- Appearance is **mode + accent** — no theme gallery. Two faces selected by
+  `data-theme` on `<html>` (`nibble` light / `nibble-dark`), plus an accent
+  layer on `data-accent` that re-points `--ph-primary`. Both
+  **stored server-side (global)** — every seat gets the same look. Pickers in
+  the setup wizard and in Settings.
+- Shipped faces: `nibble` (default) and `nibble-dark`
+  (`web/src/themes/nibble.css` — one file, both faces; periwinkle→violet light
+  face, blue-charcoal night face, radii `4/6/8`, control height `2.125rem`)
+  and accents `violet` (default) `ocean` `teal` `green` `amber` `rose`
+  (`web/src/themes/accents.css`).
+- Angular `ConfigService` loads config at startup and applies theme + accent
+  before routing; `theme.ts` holds the ids, accent registry and
+  `applyTheme`/`applyAccent`.
 
 ## Web seat (Angular 22)
 

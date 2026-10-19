@@ -7,47 +7,41 @@
   <section class="ph-panel">
     <header class="ph-panel__header">appearance</header>
     <div class="ph-panel__body">
-      <p class="ph-label">theme — applied to every seat immediately</p>
+      <p class="ph-label">mode — applied to every seat immediately</p>
       <div class="theme-switch-row">
-        <span
-          class="theme-switch__end"
-          [class.theme-switch__end--active]="config.theme() === 'dark'"
-        >
+        <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">
           dark
         </span>
         <label class="theme-switch">
           <input
             type="checkbox"
             role="switch"
-            aria-label="parchment theme"
-            [checked]="config.theme() === 'light'"
-            (change)="toggleTheme($event)"
+            aria-label="light mode"
+            [checked]="modeIsLight"
+            (change)="toggleMode($event)"
           />
           <span class="theme-switch__track"></span>
         </label>
-        <span
-          class="theme-switch__end"
-          [class.theme-switch__end--active]="config.theme() === 'light'"
-        >
-          parchment
+        <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">
+          light
         </span>
       </div>
-      <div class="theme-grid theme-grid--single">
-        <button
-          type="button"
-          class="theme-card"
-          [attr.data-theme]="calmTheme.id"
-          [class.theme-card--active]="config.theme() === calmTheme.id"
-          (click)="pickTheme(calmTheme.id)"
-        >
-          <span class="theme-card__swatches">
-            <span class="sw sw--bg"></span>
-            <span class="sw sw--surface"></span>
-            <span class="sw sw--primary"></span>
-          </span>
-          <span class="theme-card__label">{{ calmTheme.label }}</span>
-          <span class="theme-card__note">{{ calmTheme.note }}</span>
-        </button>
+      <p class="ph-label">accent — applied to every seat immediately</p>
+      <div class="accent-row">
+        @for (a of accents; track a.id) {
+          <button
+            type="button"
+            class="accent-swatch"
+            [attr.data-accent]="a.id"
+            [class.accent-swatch--active]="config.accent() === a.id"
+            [attr.aria-pressed]="config.accent() === a.id"
+            [attr.title]="a.label"
+            (click)="pickAccent(a.id)"
+          >
+            <span class="accent-swatch__dot" [style.backgroundColor]="a.hex"></span>
+            {{ a.label }}
+          </button>
+        }
       </div>
     </div>
   </section>

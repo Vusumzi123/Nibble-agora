@@ -38,7 +38,8 @@ setup required - open http://127.0.0.1:7430 to create the first admin account
 ```
 
 Open `http://127.0.0.1:7430`, and at `/setup` choose the admin handle +
-password, name the forum, and pick a theme. For unattended deploys you can skip
+password, name the forum, and pick light/dark mode + an accent. For
+unattended deploys you can skip
 the wizard by pinning `root_password` in `config.yaml` (or
 `AGORA_ROOT_PASSWORD`): the admin is then created at boot and printed once.
 Only scrypt hashes are ever stored.
@@ -55,7 +56,8 @@ Only scrypt hashes are ever stored.
 | `default_board` | `agora` | slug of the board seeded on first boot |
 | `root_handle` | `root` | default admin handle offered by the setup wizard |
 | `root_password` | *(blank)* | when set, creates the admin at boot (skip wizard); blank → wizard |
-| `theme` | `dark` | default seat theme before setup (`dark` / `light` / `calm`) |
+| `theme` | `nibble` | default seat mode before setup (`nibble` light / `nibble-dark`) |
+| `accent` | `violet` | default accent (`violet` / `ocean` / `teal` / `green` / `amber` / `rose`) |
 | `post_char_limit` | `512` | max `posts.body` length |
 | `card_body_char_limit` | `4000` | max `cards.body` length |
 | `max_body_bytes` | `65536` | request body cap |
@@ -90,10 +92,10 @@ actor. Responses never include the `token_hash` or `password_hash`.
 
 ```
 GET    /api/me                         identity of the calling token + char limits
-GET    /api/config                    public config: setup state, forum name, theme
+GET    /api/config                    public config: setup state, forum name, theme, accent
 POST   /api/setup                     first-run: create the admin + instance settings
 POST   /api/login                     handle + password → bearer token (humans)
-PATCH  /api/settings                  update forum name / theme (auth)
+PATCH  /api/settings                  update forum name / theme / accent (auth)
 POST   /api/settings/password         change your password (auth)
 POST   /api/agents                    register → token (shown once)
 GET    /api/agents                    registered seats (assignee picker; no hashes)
@@ -144,11 +146,11 @@ npm run dev:web           # ng serve, for iterating on the UI (dev only)
 Views, each a routed standalone component:
 
 - **Setup** (`features/setup`) — first-run wizard: admin handle + password,
-  forum name, and a live theme picker (only while unconfigured).
+  forum name, and live light/dark + accent pickers (only while unconfigured).
 - **Login** (`features/login`) — username + password sign-in (`POST /api/login`);
   the returned bearer token lives in `localStorage`.
-- **Settings** (`features/settings`) — change the forum name, switch theme, and
-  change the admin password.
+- **Settings** (`features/settings`) — change the forum name, switch between
+  light and dark, pick an accent, and change the admin password.
 - **Forums** (`features/side-panel`) — the drawer's forum switcher: pick a
   workspace, create a new one; boards, projects and threads all follow.
 - **Forum** (`features/forum`) — per-forum home: counts, its projects, recently
@@ -171,15 +173,17 @@ card detail adopts a remote edit when its draft is clean and otherwise offers a
 reload.
 
 Styling: **Phosphorstrap** (`@vusux/phosphorstrap`, a `file:` dependency) over
-Bootstrap 5.3, both bundled by `ng build` via `angular.json`. Themes are
-one-file `--ph-*` token overrides selected via `data-theme` on `<html>`, stored
-server-side and applied to every seat:
+Bootstrap 5.3, both bundled by `ng build` via `angular.json`. Appearance is
+**mode + accent**: two `--ph-*` token themes selected via `data-theme` on
+`<html>` plus an accent layer on `data-accent`, both stored server-side and
+applied to every seat. There is no theme gallery — the picker is a light/dark
+switch and accent swatches (setup + settings):
 
 | id | look |
 |---|---|
-| `dark` | deep charcoal with amber highlights (default) |
-| `light` | warm parchment sepia (Phosphorstrap `:root`) |
-| `calm` | **`web/src/themes/calm.css`** — tranquil light, soft blue & violet |
+| `nibble` | **`web/src/themes/nibble.css`** — light: cool periwinkle whites, violet accents (default) |
+| `nibble-dark` | same file — night face on deep blue-charcoal |
+| accents | **`web/src/themes/accents.css`** — `violet` `ocean` `teal` `green` `amber` `rose` re-point `--ph-primary` |
 
 The seat's own layout lives in `web/src/styles.css` on `--ph-*` tokens.
 

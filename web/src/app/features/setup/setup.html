@@ -30,23 +30,38 @@
       </div>
 
       <div class="field-stack">
-        <span class="ph-label">theme</span>
-        <div class="theme-grid">
-          @for (t of themes; track t.id) {
+        <span class="ph-label">mode</span>
+        <div class="theme-switch-row">
+          <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">dark</span>
+          <label class="theme-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="light mode"
+              [checked]="modeIsLight"
+              (change)="toggleMode($event)"
+            />
+            <span class="theme-switch__track"></span>
+          </label>
+          <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">light</span>
+        </div>
+      </div>
+
+      <div class="field-stack">
+        <span class="ph-label">accent</span>
+        <div class="accent-row">
+          @for (a of accents; track a.id) {
             <button
               type="button"
-              class="theme-card"
-              [attr.data-theme]="t.id"
-              [class.theme-card--active]="theme === t.id"
-              (click)="pick(t.id)"
+              class="accent-swatch"
+              [attr.data-accent]="a.id"
+              [class.accent-swatch--active]="accent === a.id"
+              [attr.aria-pressed]="accent === a.id"
+              [attr.title]="a.label"
+              (click)="pickAccent(a.id)"
             >
-              <span class="theme-card__swatches">
-                <span class="sw sw--bg"></span>
-                <span class="sw sw--surface"></span>
-                <span class="sw sw--primary"></span>
-              </span>
-              <span class="theme-card__label">{{ t.label }}</span>
-              <span class="theme-card__note">{{ t.note }}</span>
+              <span class="accent-swatch__dot" [style.backgroundColor]="a.hex"></span>
+              {{ a.label }}
             </button>
           }
         </div>

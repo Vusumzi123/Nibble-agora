@@ -1,5 +1,5 @@
 import type { Config } from '../config.ts';
-import { isTheme } from '../config.ts';
+import { isAccent, isTheme } from '../config.ts';
 import type { Db } from '../db/sqlite.ts';
 import {
   DEFAULT_COLUMNS,
@@ -110,11 +110,16 @@ function configOf(ctx: Ctx): {
   configured: boolean;
   forum_name: string;
   theme: string;
+  accent: string;
 } {
+  // Stored ids predate this build — coerce instead of serving dead values.
+  const storedTheme = getSetting(ctx.db, 'theme');
+  const storedAccent = getSetting(ctx.db, 'accent');
   return {
     configured: isConfigured(ctx.db),
     forum_name: getSetting(ctx.db, 'forum_name') ?? ctx.cfg.defaultBoardName,
-    theme: getSetting(ctx.db, 'theme') ?? ctx.cfg.defaultTheme,
+    theme: isTheme(storedTheme) ? storedTheme : ctx.cfg.defaultTheme,
+    accent: isAccent(storedAccent) ? storedAccent : ctx.cfg.defaultAccent,
   };
 }
 
@@ -410,6 +415,7 @@ const handlers = {
         ? body.forum_name.trim().slice(0, 64)
         : ctx.cfg.defaultBoardName;
     const theme = isTheme(body.theme) ? body.theme : ctx.cfg.defaultTheme;
+    const accent = isAccent(body.accent) ? body.accent : ctx.cfg.defaultAccent;
     const token = newToken();
 
     const agentId = ctx.db.tx(() => {
@@ -424,12 +430,13 @@ const handlers = {
       );
       setSetting(ctx.db, 'forum_name', forumName);
       setSetting(ctx.db, 'theme', theme);
+      setSetting(ctx.db, 'accent', accent);
       renameDefaultForum(ctx, forumName);
       logEvent(ctx.db, {
         actorId: r.lastInsertRowid,
         action: 'instance.setup',
         target: `agent:${r.lastInsertRowid}`,
-        payload: { handle, forum_name: forumName, theme },
+        payload: { handle, forum_name: forumName, theme, accent },
       });
       return r.lastInsertRowid;
     });
@@ -461,11 +468,20 @@ const handlers = {
       }
       setSetting(ctx.db, 'theme', body.theme);
     }
+    if (body.accent !== undefined) {
+      if (!isAccent(body.accent)) {
+        throw badRequest('unknown accent', {
+          field: 'accent',
+          value: body.accent,
+        });
+      }
+      setSetting(ctx.db, 'accent', body.accent);
+    }
     logEvent(ctx.db, {
       actorId: agent.id,
       action: 'settings.update',
       target: 'settings',
-      payload: { forum_name: body.forum_name, theme: body.theme },
+      payload: { forum_name: body.forum_name, theme: body.theme, accent: body.accent },
     });
     return { status: 200, body: configOf(ctx) };
   },

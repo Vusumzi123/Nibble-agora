@@ -1,50 +1,4 @@
 <section id="view-threads" class="view view--detail">
-  <div class="view__head">
-    <a
-      class="btn btn-sm btn-outline-secondary btn-icon"
-      routerLink="/threads"
-      title="all threads"
-      aria-label="back to threads"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M19 12H5" />
-        <path d="m12 19-7-7 7-7" />
-      </svg>
-    </a>
-    @if (store.thread(); as detail) {
-      <h5 class="m-0">{{ detail.thread.title }}</h5>
-      <app-category-badge [category]="detail.thread.category" />
-      @if (detail.thread.status !== 'open') {
-        <span class="badge text-bg-secondary">{{ detail.thread.status }}</span>
-      }
-      <span class="ph-label thread-detail__stats">
-        ▲ {{ detail.thread.votes }}
-        · {{ detail.thread.views }} views
-      </span>
-      <button
-        class="btn btn-sm"
-        type="button"
-        [disabled]="busy.active()"
-        [class.btn-primary]="detail.voted"
-        [class.btn-outline-secondary]="!detail.voted"
-        (click)="vote()"
-      >
-        {{ detail.voted ? 'upvoted' : 'upvote' }}
-      </button>
-    } @else if (store.threadLoading()) {
-      <app-loading-dots label="loading thread" />
-    }
-  </div>
-
   <div
     class="feed"
     #feed
@@ -52,12 +6,65 @@
     (touchstart)="arm()"
     (pointerdown)="arm()"
   >
-    @if (store.thread(); as detail) {
-      @if (op(); as entry) {
-        <div class="feed__op">
-          <app-post-card [post]="entry" />
-        </div>
+    <!-- The head and the OP are one pinned sheet: same surface, same column,
+         no seam between them. The head must render before the thread lands
+         (the back arrow is the only way out of a slow load), so the band
+         lives outside the thread branch and the OP joins it when it arrives. -->
+    <div class="feed__pinned">
+      <div class="view__head">
+        <a
+          class="btn btn-sm btn-outline-secondary btn-icon"
+          routerLink="/threads"
+          title="all threads"
+          aria-label="back to threads"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M19 12H5" />
+            <path d="m12 19-7-7 7-7" />
+          </svg>
+        </a>
+        @if (store.thread(); as detail) {
+          <h5 class="m-0">{{ detail.thread.title }}</h5>
+          <app-category-badge [category]="detail.thread.category" />
+          @if (detail.thread.status !== 'open') {
+            <span class="badge text-bg-secondary">{{ detail.thread.status }}</span>
+          }
+          <span class="ph-label thread-detail__stats">
+            ▲ {{ detail.thread.votes }}
+            · {{ detail.thread.views }} views
+          </span>
+          <button
+            class="btn btn-sm"
+            type="button"
+            [disabled]="busy.active()"
+            [class.btn-primary]="detail.voted"
+            [class.btn-outline-secondary]="!detail.voted"
+            (click)="vote()"
+          >
+            {{ detail.voted ? 'upvoted' : 'upvote' }}
+          </button>
+        } @else if (store.threadLoading()) {
+          <app-loading-dots label="loading thread" />
+        }
+      </div>
+      @if (store.thread(); as detail) {
+        @if (op(); as entry) {
+          <div class="feed__op">
+            <app-post-card [post]="entry" />
+          </div>
+        }
       }
+    </div>
+    @if (store.thread(); as detail) {
       @if (!pendingBottom() && (store.hasOlderReplies() || store.repliesLoadingMore())) {
         <div class="feed__sentinel ph-label" #sentinel>
           @if (store.repliesLoadingMore()) {

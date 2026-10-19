@@ -1,4 +1,14 @@
-import { Component, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -50,6 +60,7 @@ export class ThreadDetailPage {
       open glide passes through the top and would otherwise fire a page. */
   protected readonly armed = signal(false);
 
+  private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly feedEl = viewChild<ElementRef<HTMLElement>>('feed');
   private readonly sentinelEl = viewChild<ElementRef<HTMLElement>>('sentinel');
   private readonly composerEl = viewChild<ElementRef<HTMLElement>>('composer');
@@ -143,6 +154,25 @@ export class ThreadDetailPage {
       };
       raf = requestAnimationFrame(step);
       onCleanup(() => cancelAnimationFrame(raf));
+    });
+
+    // The composer is docked outside the scroller, but the posts' column is
+    // the feed's content box — which its scrollbar eats into. Publish the
+    // width it took as --sb-w so the reply bar can sit on that column whether
+    // or not the thread overflows. The content box moves exactly when the
+    // scrollbar does, so observing it catches every arrival and departure.
+    effect((onCleanup) => {
+      const feed = this.feedEl()?.nativeElement;
+      if (!feed) return;
+      const sync = (): void => {
+        const gutter = feed.offsetWidth - feed.clientWidth;
+        this.hostEl.nativeElement.style.setProperty('--sb-w', `${gutter}px`);
+      };
+      sync();
+      if (typeof ResizeObserver === 'undefined') return; // jsdom
+      const watch = new ResizeObserver(sync);
+      watch.observe(feed, { box: 'content-box' });
+      onCleanup(() => watch.disconnect());
     });
   }
 

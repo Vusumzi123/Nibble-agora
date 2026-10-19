@@ -43,7 +43,8 @@ test('a fresh instance is unconfigured and exposes safe defaults', async () => {
   try {
     const cfg = await json(await call(app.url, 'GET', '/api/config'));
     assert.equal(cfg.configured, false);
-    assert.equal(cfg.theme, 'dark');
+    assert.equal(cfg.theme, 'nibble');
+    assert.equal(cfg.accent, 'violet');
     assert.ok(cfg.forum_name);
   } finally {
     app.server.close();
@@ -58,7 +59,8 @@ test('setup creates the admin, configures the instance and is one-shot', async (
       handle: 'admin',
       password: 'longenough1',
       forum_name: 'Calm Hall',
-      theme: 'calm',
+      theme: 'nibble-dark',
+      accent: 'rose',
     });
     assert.equal(res.status, 201);
     const body = await json(res);
@@ -66,11 +68,17 @@ test('setup creates the admin, configures the instance and is one-shot', async (
     assert.equal(body.agent.is_human, 1);
     assert.equal(body.agent.password_hash, undefined, 'password hash never leaves the server');
     assert.match(body.token, /^agr_/);
-    assert.deepEqual(body.config, { configured: true, forum_name: 'Calm Hall', theme: 'calm' });
+    assert.deepEqual(body.config, {
+      configured: true,
+      forum_name: 'Calm Hall',
+      theme: 'nibble-dark',
+      accent: 'rose',
+    });
 
     const cfg = await json(await call(app.url, 'GET', '/api/config'));
     assert.equal(cfg.configured, true);
-    assert.equal(cfg.theme, 'calm');
+    assert.equal(cfg.theme, 'nibble-dark');
+    assert.equal(cfg.accent, 'rose');
     assert.equal(cfg.forum_name, 'Calm Hall');
 
     const again = await call(app.url, 'POST', '/api/setup', {
@@ -98,16 +106,32 @@ test('settings + password changes require auth, validate, and take effect', asyn
     );
     const token = setup.token as string;
 
-    assert.equal((await call(app.url, 'PATCH', '/api/settings', { theme: 'light' })).status, 401);
+    assert.equal(
+      (await call(app.url, 'PATCH', '/api/settings', { theme: 'nibble-dark' })).status,
+      401,
+    );
     assert.equal(
       (await call(app.url, 'PATCH', '/api/settings', { theme: 'neon' }, token)).status,
       400,
+      'unknown theme rejected',
+    );
+    assert.equal(
+      (await call(app.url, 'PATCH', '/api/settings', { accent: 'neon' }, token)).status,
+      400,
+      'unknown accent rejected',
     );
 
     const ok = await json(
-      await call(app.url, 'PATCH', '/api/settings', { theme: 'light', forum_name: 'Stoa' }, token),
+      await call(
+        app.url,
+        'PATCH',
+        '/api/settings',
+        { theme: 'nibble-dark', accent: 'rose', forum_name: 'Stoa' },
+        token,
+      ),
     );
-    assert.equal(ok.theme, 'light');
+    assert.equal(ok.theme, 'nibble-dark');
+    assert.equal(ok.accent, 'rose');
     assert.equal(ok.forum_name, 'Stoa');
 
     assert.equal(

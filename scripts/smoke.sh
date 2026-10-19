@@ -141,8 +141,9 @@ FORUM_ID=$(echo "$RESP" | get forums.0.id)
 req_once GET /api/config
 check "fresh instance starts unconfigured" "$(echo "$RESP" | get configured)" "false"
 check "config exposes a default theme" "$(nonempty "$(echo "$RESP" | get theme)")" "true"
+check "config exposes a default accent" "$(nonempty "$(echo "$RESP" | get accent)")" "true"
 
-TOKEN="" req_once POST /api/setup '{"handle":"root","password":"smoke-root-pw","forum_name":"Agora","theme":"calm"}'
+TOKEN="" req_once POST /api/setup '{"handle":"root","password":"smoke-root-pw","forum_name":"Agora","theme":"nibble-dark","accent":"teal"}'
 check "setup creates the admin" "$LAST_STATUS" "201"
 check "setup returns a bearer token" "$(nonempty "$(echo "$RESP" | get token)")" "true"
 check "setup stores a scrypt password hash, not the password" \
@@ -150,7 +151,8 @@ check "setup stores a scrypt password hash, not the password" \
 
 req_once GET /api/config
 check "config is now configured" "$(echo "$RESP" | get configured)" "true"
-check "config reflects the chosen theme" "$(echo "$RESP" | get theme)" "calm"
+check "config reflects the chosen theme" "$(echo "$RESP" | get theme)" "nibble-dark"
+check "config reflects the chosen accent" "$(echo "$RESP" | get accent)" "teal"
 check "human seat is registered" "$(sql "SELECT handle FROM agents WHERE is_human = 1")" "root"
 
 TOKEN="" req_once POST /api/setup '{"handle":"late","password":"another-pw-1"}'
@@ -163,11 +165,15 @@ check "login token uses the agr_ prefix" "$(echo "$RESP" | get token | cut -c1-4
 check "login never returns the password hash" "$(echo "$RESP" | get agent.password_hash)" ""
 ROOT_TOKEN=$(echo "$RESP" | get token)
 
-TOKEN="$ROOT_TOKEN" req_once PATCH /api/settings '{"theme":"light"}'
+TOKEN="$ROOT_TOKEN" req_once PATCH /api/settings '{"theme":"nibble"}'
 check "authenticated settings update works" "$LAST_STATUS" "200"
-check "theme update is reflected" "$(echo "$RESP" | get theme)" "light"
+check "theme update is reflected" "$(echo "$RESP" | get theme)" "nibble"
 TOKEN="$ROOT_TOKEN" req_once PATCH /api/settings '{"theme":"neon"}'
 check "unknown theme is rejected" "$LAST_STATUS" "400"
+TOKEN="$ROOT_TOKEN" req_once PATCH /api/settings '{"accent":"rose"}'
+check "accent update is reflected" "$(echo "$RESP" | get accent)" "rose"
+TOKEN="$ROOT_TOKEN" req_once PATCH /api/settings '{"accent":"neon"}'
+check "unknown accent is rejected" "$LAST_STATUS" "400"
 
 TOKEN="" req_once POST /api/login '{"handle":"root","password":"definitely-wrong"}'
 check "wrong password is rejected with 401" "$LAST_STATUS" "401"
@@ -189,7 +195,7 @@ check "legacy board creation also made its project" \
   "$(echo "$RESP" | get projects | count '' 'a.filter(p=>p.name=="Smoke Board").length')" "1"
 req_once POST /api/projects '{"name":"Smoke Project","description":"from smoke"}'
 check "create project returns 201" "$LAST_STATUS" "201"
-check "project creation seeds default columns" "$(echo "$RESP" | get columns | count '' 'a.length')" "5"
+check "project creation seeds default columns" "$(echo "$RESP" | get columns | count '' 'a.length')" "6"
 check "project and board share the name" "$(echo "$RESP" | get board.name)" "Smoke Project"
 req_once POST /api/projects '{"name":"Smoke Project"}'
 check "duplicate project rejected with 409" "$LAST_STATUS" "409"

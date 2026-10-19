@@ -16,13 +16,17 @@
   padding-inline: 0;
 }
 
-/* The reading column — head and composer sit exactly on the list column of
-   the threads page (44rem, gutter outside the box, auto margins centering).
-   min() keeps the gutter at narrow widths. */
-.view--detail > .view__head,
+/* The reading column — the composer sits on the list column of the threads
+   page (44rem, gutter outside the box, auto margins centering). min() keeps
+   the gutter at narrow widths. The head used to ride this rule too, from
+   outside the scroller; it now sits inside the pinned band below.
+   --sb-w is the width the feed's scrollbar took (published by the page): the
+   column the posts ride is the feed's content box, which the scrollbar eats
+   into, and the composer is docked below the scroller — so it reserves the
+   same strip to stay on that column whether or not the thread overflows. */
 .view--detail > .composer {
-  width: min(100% - 2 * var(--detail-gutter), var(--threads-col));
-  margin-inline: auto;
+  width: min(100% - 2 * var(--detail-gutter) - var(--sb-w, 0px), var(--threads-col));
+  margin-inline: max(var(--detail-gutter), (100% - var(--sb-w, 0px) - var(--threads-col)) / 2);
 }
 
 .view--detail .feed {
@@ -30,9 +34,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Reserve the scrollbar on both edges so the post column stays centered on
-     the same axis as the head and composer above it. */
-  scrollbar-gutter: stable both-edges;
 }
 
 /* Posts, replies and the sentinel ride the same centered column. flex: none
@@ -46,10 +47,16 @@
   margin-inline: auto;
 }
 
-/* The pinned entry — the OP band spans the feed edge to edge so its
-   highlight covers the container horizontally, while the entry inside keeps
-   the same centered column as the responses scrolling beneath it. */
-.view--detail .feed .feed__op {
+/* The pinned sheet — head and OP share one sticky band: the same surface,
+   the same reading column, no seam between them. They used to be two
+   pieces (a transparent head outside the scroller, a sticky OP inside)
+   that only lined up because .feed reserved a scrollbar gutter on both
+   edges — which also left a page-coloured strip down the left of the feed.
+   One band needs no gutter trick. */
+/* Anchored through .feed on purpose: the band must out-rank
+   `.feed > *`, which otherwise pins every feed child to the reading column
+   and squeezes this full-bleed sheet down with it. */
+.view--detail .feed > .feed__pinned {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -61,13 +68,26 @@
   box-shadow: var(--ph-shadow-2);
 }
 
-.view--detail .feed .feed__op > app-post-card {
-  /* Custom elements are inline by default — without this the width/margin
-     below are ignored and the entry shrinks to its text, so the OP never
-     lines up with the replies column. */
-  display: block;
+/* Both halves sit on the centered column the replies scroll under — the rule
+   every other .feed child gets, applied one level deeper. */
+.view--detail .feed__pinned > * {
   width: min(100% - 2 * var(--detail-gutter), var(--threads-col));
   margin-inline: auto;
+}
+
+/* The band is the head's frame now: it no longer floats on the page with a
+   top margin, and it pads with the same 16px the post body pads with so the
+   two halves share one rhythm. */
+.view--detail .feed__pinned > .view__head {
+  margin-top: 0;
+  padding-block: var(--ph-space-4);
+}
+
+/* Custom elements are inline by default — without this the card shrinks to
+   its text and the OP never fills the column. */
+.view--detail .feed__pinned .feed__op > app-post-card {
+  display: block;
+  width: 100%;
 }
 
 /* New reply — the row we just posted eases in from above its slot. */
