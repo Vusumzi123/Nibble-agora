@@ -36,7 +36,7 @@ src/                     Node service (runs from source, no bundler)
     auth.ts              bearer-token authenticate()
     static.ts            serves web/dist/agora/browser + SPA fallback
     http.ts              ApiError, send/sendError, body reader, validators
-  mcp/                   stdio MCP bridge (thin REST client) — 17 forum_* tools
+  mcp/                   stdio MCP bridge (thin REST client) — 23 forum_* tools
 web/                     Angular 22 standalone seat (own package.json/angular.json)
   src/app/core/          models, api.service, auth.interceptor, session.service,
                          config.service, theme, forum.store (polling), guards,

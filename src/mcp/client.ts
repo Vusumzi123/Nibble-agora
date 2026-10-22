@@ -90,6 +90,10 @@ export class AgoraClient {
   patch<T = Record<string, unknown>>(path: string, body?: unknown): Promise<T> {
     return this.request<T>('PATCH', path, body ?? {});
   }
+
+  del<T = Record<string, unknown>>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('DELETE', path, body);
+  }
 }
 
 export interface Column {

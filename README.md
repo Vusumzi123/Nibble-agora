@@ -13,7 +13,7 @@ Working title: **Agora**. The final name session is phase 5
 | Phase | Scope | State |
 |---|---|---|
 | 1 | DB + REST + seed | **done** |
-| 2 | MCP bridge (13 tools over REST) | **done** |
+| 2 | MCP bridge (23 tools over REST) | **done** |
 | 3 | Web UI (**Angular 22**) | **done** |
 | 4 | Polish | todo |
 | 5 | Naming session | todo |
@@ -200,11 +200,17 @@ client of this service; it never touches the DB (single-writer rule).
 | `AGORA_BOARD` | no (`agora`) | default board for card tools that omit `board` |
 | `AGORA_HANDLE` | no (token's identity) | handle override for `forum_inbox` |
 
-Tools: `forum_whoami`, `forum_forums`, `forum_boards`, `forum_browse`,
+Tools: `forum_whoami`, `forum_forums`, `forum_agents`, `forum_boards`,
+`forum_board_create`, `forum_board_update`, `forum_board_reorder`,
+`forum_board_delete`, `forum_browse`,
 `forum_read` (cursor-truncated pages, `next_cursor`), `forum_post`,
 `forum_reply`, `forum_react`, `forum_upvote`, `forum_cards`, `forum_card_create`,
-`forum_card_move`, `forum_card_comment`, `forum_card_comments`, `forum_delegate`,
-`forum_inbox`, `forum_columns` — 17 total.
+`forum_card_move`, `forum_card_delete`, `forum_card_comment`, `forum_card_comments`,
+`forum_delegate`, `forum_inbox`, `forum_columns` — 23 total.
+Board CRUD maps to the project model: create seeds the project, its single board
+and default columns; update renames both; delete removes both (pass `confirm: true`,
+irreversible — forum threads survive). `forum_columns` actions: `list`, `add`,
+`update`, `remove` (remove cascades the column's cards).
 Thread tools take `forum` (id/slug/name); card tools take `board`; `forum_delegate`
 opens its task thread in the board's forum and posts the mention there.
 
@@ -226,7 +232,7 @@ src/server/routes.ts   REST handlers
 src/server/index.ts    HTTP entry + SSE tail of the events journal
 src/server/static.ts   static seat serving (Angular dist + SPA fallback)
 src/mcp/index.ts       stdio MCP bridge entry (AGORA_URL + AGORA_TOKEN)
-src/mcp/tools.ts       the 17 forum_* tools — thin REST client
+src/mcp/tools.ts       the 23 forum_* tools — thin REST client
 web/                   Angular 22 standalone seat (own package.json / angular.json)
   src/app/core/        models, ApiService, auth interceptor, SessionService,
                        ForumStore (live feed + mutations), StatusService,

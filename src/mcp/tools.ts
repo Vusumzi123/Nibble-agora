@@ -110,6 +110,20 @@ export function createBridge(opts: BridgeOptions): McpServer {
   );
 
   server.registerTool(
+    'forum_agents',
+    {
+      title: 'Forum: agents',
+      description:
+        'List agents (id, handle, display name, human flag) — resolve handles/ids for assignment and @mentions.',
+      inputSchema: {},
+    },
+    guarded(client, async (c) => {
+      const { agents } = await c.get<{ agents: Record<string, unknown>[] }>('/api/agents');
+      return { agents };
+    }),
+  );
+
+  server.registerTool(
     'forum_boards',
     {
       title: 'Forum: boards',
@@ -122,6 +136,96 @@ export function createBridge(opts: BridgeOptions): McpServer {
         args.forum === undefined ? undefined : { forum: (await resolveForum(c, args.forum)).id };
       const { boards } = await c.get<{ boards: Board[] }>('/api/boards', query);
       return { boards };
+    }),
+  );
+
+  server.registerTool(
+    'forum_board_create',
+    {
+      title: 'Forum: board create',
+      description:
+        'Create a project and its single kanban board (Forum > Projects > Boards) with default columns; one REST call seeds both.',
+      inputSchema: {
+        name: z.string().min(1).max(64).describe('Board/project name (also the slug).'),
+        description: z.string().optional().describe('Board/project description.'),
+        forum: FORUM,
+        columns: z
+          .array(z.string().min(1).max(64))
+          .optional()
+          .describe(
+            'Column names in order (default: INBOX, TODO, IN-PROGRESS, TESTING, DONE, DROPPED).',
+          ),
+      },
+    },
+    guarded(client, async (c, args) => {
+      const forum = await resolveForum(c, args.forum);
+      return c.post('/api/projects', {
+        name: args.name,
+        description: args.description,
+        forum_id: forum.id,
+        columns: args.columns,
+      });
+    }),
+  );
+
+  server.registerTool(
+    'forum_board_update',
+    {
+      title: 'Forum: board update',
+      description:
+        'Rename or re-describe a project board. The project and its board rows move together (name, description).',
+      inputSchema: {
+        board: BOARD,
+        name: z.string().min(1).max(64).optional().describe('New board/project name.'),
+        description: z.string().nullable().optional().describe('New description (null clears it).'),
+      },
+    },
+    guarded(client, async (c, args) => {
+      if (args.name === undefined && args.description === undefined) {
+        throw new RestError(400, 'bad_request', 'nothing to do: pass name or description');
+      }
+      const board = await resolveBoard(c, args.board);
+      const patch: Record<string, unknown> = {};
+      if (args.name !== undefined) patch.name = args.name;
+      if (args.description !== undefined) patch.description = args.description;
+      return c.patch(`/api/boards/${board.id}`, patch);
+    }),
+  );
+
+  server.registerTool(
+    'forum_board_delete',
+    {
+      title: 'Forum: board delete',
+      description:
+        'Delete a project board and its project, columns and cards (irreversible; confirm: true required). Threads belong to the forum and survive.',
+      inputSchema: {
+        board: BOARD,
+        confirm: z.literal(true).describe('Must be true — deletion is irreversible.'),
+      },
+    },
+    guarded(client, async (c, args) => {
+      const board = await resolveBoard(c, args.board);
+      return c.del(`/api/boards/${board.id}`);
+    }),
+  );
+
+  server.registerTool(
+    'forum_board_reorder',
+    {
+      title: 'Forum: board reorder',
+      description:
+        'Set a project board’s position in the Boards view (positions are densified by the server/app).',
+      inputSchema: {
+        board: BOARD,
+        position: z.number().int().min(0).describe('Zero-based position among projects.'),
+      },
+    },
+    guarded(client, async (c, args) => {
+      const board = await resolveBoard(c, args.board);
+      if (board.project_id === null) {
+        throw new RestError(400, 'bad_request', `board "${board.slug}" has no project to reorder`);
+      }
+      return c.patch(`/api/projects/${board.project_id}`, { position: args.position });
     }),
   );
 
@@ -361,6 +465,20 @@ export function createBridge(opts: BridgeOptions): McpServer {
   );
 
   server.registerTool(
+    'forum_card_delete',
+    {
+      title: 'Forum: card delete',
+      description:
+        'Delete a card outright (irreversible; confirm: true required). The column closes the gap; reactions go first.',
+      inputSchema: {
+        card_id: z.number().int().positive().describe('Card to delete.'),
+        confirm: z.literal(true).describe('Must be true — deletion is irreversible.'),
+      },
+    },
+    guarded(client, async (c, args) => c.del(`/api/cards/${args.card_id}`)),
+  );
+
+  server.registerTool(
     'forum_card_comment',
     {
       title: 'Forum: card comment',
@@ -471,12 +589,16 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_columns',
     {
       title: 'Forum: columns',
-      description: "List or manage a board's kanban columns (add, rename, reorder, wip_limit).",
+      description:
+        "List or manage a board's kanban columns (add, rename, reorder, wip_limit, remove — remove cascades its cards).",
       inputSchema: {
         board: BOARD,
-        action: z.enum(['list', 'add', 'update']).optional().describe('Default: list.'),
+        action: z
+          .enum(['list', 'add', 'update', 'remove'])
+          .optional()
+          .describe('Default: list.'),
         name: z.string().min(1).max(64).optional().describe('Column name (add; or new name on update).'),
-        column_id: z.number().int().positive().optional().describe('Column id (update only).'),
+        column_id: z.number().int().positive().optional().describe('Column id (update/remove only).'),
         position: z.number().int().min(0).optional().describe('Position (add: insert here; update: reorder).'),
         wip_limit: z.number().int().min(1).nullable().optional().describe('WIP limit (update only).'),
       },
@@ -490,8 +612,9 @@ export function createBridge(opts: BridgeOptions): McpServer {
         return c.post(`/api/boards/${board.id}/columns`, { name: args.name, position: args.position });
       }
       if (args.column_id === undefined) {
-        throw new RestError(400, 'bad_request', 'column_id is required for update');
+        throw new RestError(400, 'bad_request', `column_id is required for ${action}`);
       }
+      if (action === 'remove') return c.del(`/api/columns/${args.column_id}`);
       const body: Record<string, unknown> = { id: args.column_id };
       if (args.name !== undefined) body.name = args.name;
       if (args.position !== undefined) body.position = args.position;

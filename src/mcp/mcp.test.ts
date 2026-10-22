@@ -16,7 +16,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const ALL_TOOLS = [
   'forum_whoami',
   'forum_forums',
+  'forum_agents',
   'forum_boards',
+  'forum_board_create',
+  'forum_board_update',
+  'forum_board_reorder',
+  'forum_board_delete',
   'forum_browse',
   'forum_read',
   'forum_post',
@@ -26,6 +31,7 @@ const ALL_TOOLS = [
   'forum_cards',
   'forum_card_create',
   'forum_card_move',
+  'forum_card_delete',
   'forum_card_comment',
   'forum_card_comments',
   'forum_delegate',
@@ -60,7 +66,7 @@ async function call(name: string, args: Record<string, unknown> = {}): Promise<a
   }
 }
 
-test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async () => {
+test('mcp bridge end-to-end: all 23 tools over stdio', { timeout: 60000 }, async () => {
   // ── boot the service on an ephemeral port with a throwaway DB ──
   mkdirSync(path.join(dir, 'data'));
   const configPath = path.join(dir, 'config.yaml');
@@ -98,7 +104,7 @@ test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async
   // ── tool surface ──
   const listed = await client.listTools();
   const names = listed.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 17 forum_* tools are registered');
+  assert.deepEqual(names, [...ALL_TOOLS].sort(), 'all 23 forum_* tools are registered');
   for (const tool of listed.tools) {
     assert.ok(tool.description, `${tool.name} has a description`);
   }
@@ -117,6 +123,37 @@ test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async
     forums.forums.some((f: any) => f.slug === 'forum'),
     'seeded forum is listed',
   );
+
+  const agents = await call('forum_agents');
+  assert.ok(
+    agents.agents.some((a: any) => a.handle === 'nemu-test'),
+    'agent directory lists the caller',
+  );
+
+  // board CRUD: create seeds project + board + columns, update mirrors both rows
+  const madeBoard = await call('forum_board_create', {
+    name: 'bridge-board',
+    description: 'made over the bridge',
+    forum: 'forum',
+  });
+  assert.equal(madeBoard.project.name, 'bridge-board');
+  assert.equal(madeBoard.board.name, 'bridge-board', 'project and board mirror each other');
+  assert.ok(
+    madeBoard.columns.some((c: any) => c.name === 'INBOX'),
+    'project default columns are seeded',
+  );
+  const newBoardId = madeBoard.board.id;
+
+  const reordered = await call('forum_board_reorder', { board: newBoardId, position: 0 });
+  assert.equal(reordered.project.position, 0, 'project position updated');
+
+  const renamedBoard = await call('forum_board_update', {
+    board: newBoardId,
+    name: 'bridge-board-2',
+    description: 'renamed over the bridge',
+  });
+  assert.equal(renamedBoard.board.name, 'bridge-board-2');
+  assert.equal(renamedBoard.project.name, 'bridge-board-2', 'project follows the board rename');
 
   const posted = await call('forum_post', {
     forum: 'forum',
@@ -193,6 +230,14 @@ test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async
     'card comment is listed',
   );
 
+  const doomed = await call('forum_card_create', {
+    board: 'agora',
+    title: 'delete me',
+    column: 'inbox',
+  });
+  const deletedCard = await call('forum_card_delete', { card_id: doomed.card.id, confirm: true });
+  assert.equal(deletedCard.ok, true, 'card deleted');
+
   const delegated = await call('forum_delegate', {
     board: 'agora',
     title: 'delegated work',
@@ -239,6 +284,21 @@ test('mcp bridge end-to-end: all 17 tools over stdio', { timeout: 60000 }, async
   assert.equal(updated.column.name, 'reviewed');
   const listedCols = await call('forum_columns', { board: 'agora' });
   assert.equal(listedCols.columns.length, baseCount + 1, 'new column persists');
+
+  const scratch = await call('forum_columns', {
+    board: newBoardId,
+    action: 'add',
+    name: 'scratch',
+  });
+  const removedColumn = await call('forum_columns', {
+    board: newBoardId,
+    action: 'remove',
+    column_id: scratch.column.id,
+  });
+  assert.equal(removedColumn.ok, true, 'column removed');
+
+  const deletedBoard = await call('forum_board_delete', { board: newBoardId, confirm: true });
+  assert.equal(deletedBoard.ok, true, 'board + project deleted');
 
   // ── cursor truncation on long threads (plan §MCP tools) ──
   for (let i = 0; i < READ_PAGE + 2; i++) {
