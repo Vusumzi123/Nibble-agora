@@ -4,71 +4,43 @@
   </div>
 
   @if (createOpen) {
-    <div class="overlay" (click)="closeCreate()">
-      <section
-        class="overlay__card boards__modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-project-title"
-        (click)="$event.stopPropagation()"
-        (keydown.escape)="closeCreate()"
-      >
-        <header class="ph-panel__header boards__modal-head">
-          <span id="new-project-title">{{ i18n.t('boards.newProject') }}</span>
-          <button
-            class="btn btn-sm btn-outline-secondary btn-icon"
-            type="button"
-            [title]="i18n.t('shell.close')"
-            [attr.aria-label]="i18n.t('shell.close')"
-            (click)="closeCreate()"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+    <app-modal
+      [title]="i18n.t('boards.newProject')"
+      headingId="new-project-title"
+      panelClass="boards__modal"
+      (closed)="closeCreate()"
+    >
+      <form class="boards__modal-form" (ngSubmit)="create()">
+        <label class="ph-label" for="project-name">{{ i18n.t('boards.nameLabel') }}</label>
+        <input
+          #nameInput
+          id="project-name"
+          class="form-control"
+          type="text"
+          [placeholder]="i18n.t('boards.projectName')"
+          name="name"
+          maxlength="64"
+          [(ngModel)]="name"
+        />
+        <label class="ph-label" for="project-description">{{ i18n.t('boards.description') }}</label>
+        <textarea
+          id="project-description"
+          class="form-control boards__modal-desc"
+          rows="3"
+          [placeholder]="i18n.t('boards.descriptionPlaceholder')"
+          name="description"
+          [(ngModel)]="description"
+        ></textarea>
+        <div class="boards__modal-actions">
+          <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">
+            {{ i18n.t('shell.cancel') }}
           </button>
-        </header>
-        <form class="boards__modal-form" (ngSubmit)="create()">
-          <label class="ph-label" for="project-name">{{ i18n.t('boards.nameLabel') }}</label>
-          <input
-            #nameInput
-            id="project-name"
-            class="form-control"
-            type="text"
-            [placeholder]="i18n.t('boards.projectName')"
-            name="name"
-            maxlength="64"
-            [(ngModel)]="name"
-          />
-          <label class="ph-label" for="project-description">{{ i18n.t('boards.description') }}</label>
-          <textarea
-            id="project-description"
-            class="form-control boards__modal-desc"
-            rows="3"
-            [placeholder]="i18n.t('boards.descriptionPlaceholder')"
-            name="description"
-            [(ngModel)]="description"
-          ></textarea>
-          <div class="boards__modal-actions">
-            <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">
-              {{ i18n.t('shell.cancel') }}
-            </button>
-            <button class="btn btn-primary" type="submit" [disabled]="busy.active()">
-              {{ i18n.t('shell.create') }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+          <button class="btn btn-primary" type="submit" [disabled]="busy.active()">
+            {{ i18n.t('shell.create') }}
+          </button>
+        </div>
+      </form>
+    </app-modal>
   }
 
   <div class="boards__grid">

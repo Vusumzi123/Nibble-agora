@@ -41,7 +41,9 @@
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+          />
         </svg>
       </button>
     </div>
@@ -72,7 +74,9 @@
           (keydown.enter)="addColumn()"
           (keydown.escape)="closeAddColumn()"
         />
-        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">{{ i18n.t('board.add') }}</button>
+        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">
+          {{ i18n.t('board.add') }}
+        </button>
       </div>
     }
     <button
@@ -98,71 +102,76 @@
     </button>
 
     @if (settingsOpen) {
-      <div class="overlay" (click)="closeSettings()">
-        <section
-          class="overlay__card board__settings"
-          (click)="$event.stopPropagation()"
-          (keydown.escape)="closeSettings()"
-        >
-          <header class="ph-panel__header">{{ i18n.t('board.settings') }}</header>
-
-          <form class="board__settings-form" (ngSubmit)="saveSettings()">
-            <label class="ph-label" for="board-settings-name">{{ i18n.t('board.name') }}</label>
-            <input
-              #nameInput
-              id="board-settings-name"
-              class="form-control"
-              type="text"
-              name="name"
-              maxlength="64"
-              [(ngModel)]="editName"
-              (keydown.escape)="closeSettings()"
-            />
-            <label class="ph-label" for="board-settings-desc">{{ i18n.t('board.description') }}</label>
-            <textarea
-              id="board-settings-desc"
-              class="form-control"
-              name="description"
-              rows="3"
-              [(ngModel)]="editDesc"
-              (keydown.escape)="closeSettings()"
-            ></textarea>
-            <div class="board__settings-actions">
-              <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closeSettings()">
-                {{ i18n.t('shell.cancel') }}
-              </button>
-              <button class="btn btn-sm btn-primary" type="submit">{{ i18n.t('shell.save') }}</button>
-            </div>
-          </form>
-
-          <div class="board__danger">
-            <span class="ph-label">{{ i18n.t('board.deleteProject') }}</span>
-            @if (!confirmDelete) {
-              <button class="btn btn-sm btn-outline-danger" type="button" (click)="confirmDelete = true">
-                {{ i18n.t('board.deleteProjectAction') }}
-              </button>
-            } @else {
-              <div class="board__danger-confirm">
-                <span class="ph-label">
-                  {{ i18n.t('board.deleteProjectWarning') }}
-                </span>
-                <div class="board__danger-confirm__actions">
-                  <button
-                    class="btn btn-sm btn-outline-secondary"
-                    type="button"
-                    (click)="confirmDelete = false"
-                  >
-                    {{ i18n.t('shell.keep') }}
-                  </button>
-                  <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
-                    {{ i18n.t('board.yesDelete') }}
-                  </button>
-                </div>
-              </div>
-            }
+      <app-modal
+        [title]="i18n.t('board.settings')"
+        [showClose]="false"
+        panelClass="board__settings"
+        (closed)="closeSettings()"
+      >
+        <form class="board__settings-form" (ngSubmit)="saveSettings()">
+          <label class="ph-label" for="board-settings-name">{{ i18n.t('board.name') }}</label>
+          <input
+            #nameInput
+            id="board-settings-name"
+            class="form-control"
+            type="text"
+            name="name"
+            maxlength="64"
+            [(ngModel)]="editName"
+          />
+          <label class="ph-label" for="board-settings-desc">{{
+            i18n.t('board.description')
+          }}</label>
+          <textarea
+            id="board-settings-desc"
+            class="form-control"
+            name="description"
+            rows="3"
+            [(ngModel)]="editDesc"
+          ></textarea>
+          <div class="board__settings-actions">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              type="button"
+              (click)="closeSettings()"
+            >
+              {{ i18n.t('shell.cancel') }}
+            </button>
+            <button class="btn btn-sm btn-primary" type="submit">{{ i18n.t('shell.save') }}</button>
           </div>
-        </section>
-      </div>
+        </form>
+
+        <div class="board__danger">
+          <span class="ph-label">{{ i18n.t('board.deleteProject') }}</span>
+          @if (!confirmDelete) {
+            <button
+              class="btn btn-sm btn-outline-danger"
+              type="button"
+              (click)="confirmDelete = true"
+            >
+              {{ i18n.t('board.deleteProjectAction') }}
+            </button>
+          } @else {
+            <div class="board__danger-confirm">
+              <span class="ph-label">
+                {{ i18n.t('board.deleteProjectWarning') }}
+              </span>
+              <div class="board__danger-confirm__actions">
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  type="button"
+                  (click)="confirmDelete = false"
+                >
+                  {{ i18n.t('shell.keep') }}
+                </button>
+                <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
+                  {{ i18n.t('board.yesDelete') }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </app-modal>
     }
   } @else if (loadingBoard()) {
     <div class="view__head">

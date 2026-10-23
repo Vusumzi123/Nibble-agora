@@ -39,11 +39,8 @@
   width: 12rem;
 }
 
-/* Settings modal — a compact card, not the wide composer. */
-.board__settings {
-  width: min(24rem, 100%);
-}
-
+/* Settings modal — a compact card, not the wide composer. The panel width
+   lives with the modal shell in the global styles. */
 .board__settings-form {
   display: flex;
   flex-direction: column;

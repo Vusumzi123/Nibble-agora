@@ -1,6 +1,7 @@
 import { Component, ElementRef, ViewChild, inject, input, output } from '@angular/core';
 
 import { TranslateService } from '../core/i18n';
+import { Modal } from './modal';
 
 /**
  * Centered overlay confirm for the board's destructive actions (delete card,
@@ -10,38 +11,33 @@ import { TranslateService } from '../core/i18n';
  */
 @Component({
   selector: 'app-confirm-dialog',
+  imports: [Modal],
   template: `
-    <div class="overlay" (click)="cancelled.emit()">
-      <section
-        class="overlay__card confirm"
-        (click)="$event.stopPropagation()"
-        (keydown.escape)="cancelled.emit()"
-      >
-        <header class="ph-panel__header">{{ title() ?? i18n.t('shell.confirm') }}</header>
-        <div class="confirm__body">
-          <p class="confirm__msg">{{ message() }}</p>
-          <div class="confirm__actions">
-            <button
-              #cancel
-              class="btn btn-sm btn-outline-secondary"
-              type="button"
-              (click)="cancelled.emit()"
-            >
-              {{ cancelLabel() ?? i18n.t('shell.keep') }}
-            </button>
-            <button class="btn btn-sm btn-danger" type="button" (click)="confirmed.emit()">
-              {{ confirmLabel() ?? i18n.t('shell.delete') }}
-            </button>
-          </div>
+    <app-modal
+      [title]="title() ?? i18n.t('shell.confirm')"
+      [showClose]="false"
+      panelClass="confirm"
+      (closed)="cancelled.emit()"
+    >
+      <div class="confirm__body">
+        <p class="confirm__msg">{{ message() }}</p>
+        <div class="confirm__actions">
+          <button
+            #cancel
+            class="btn btn-sm btn-outline-secondary"
+            type="button"
+            (click)="cancelled.emit()"
+          >
+            {{ cancelLabel() ?? i18n.t('shell.keep') }}
+          </button>
+          <button class="btn btn-sm btn-danger" type="button" (click)="confirmed.emit()">
+            {{ confirmLabel() ?? i18n.t('shell.delete') }}
+          </button>
         </div>
-      </section>
-    </div>
+      </div>
+    </app-modal>
   `,
   styles: `
-    .confirm {
-      width: min(24rem, 100%);
-    }
-
     .confirm__body {
       display: flex;
       flex-direction: column;

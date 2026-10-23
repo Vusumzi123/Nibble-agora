@@ -1,25 +1,5 @@
-/* Wider than the board settings card — this one shows real content. Full
-   height so the body owns the viewport while the header and actions stay put. */
-.card-detail {
-  display: flex;
-  flex-direction: column;
-  width: min(44rem, 100%);
-  height: 82vh;
-  max-height: 82vh;
-  overflow: hidden;
-}
-
-/* A blocked card keeps its shape but wears a caution wash, so the state is
-   obvious before the header label is read. */
-.card-detail--blocked {
-  border-color: color-mix(in srgb, var(--ph-warning) 45%, var(--ph-border));
-  background: color-mix(in srgb, var(--ph-warning) 9%, var(--ph-surface));
-}
-
-.card-detail--blocked .card-detail__header {
-  background: color-mix(in srgb, var(--ph-warning) 13%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--ph-warning) 28%, transparent);
-}
+/* Wider than the board settings card — this one shows real content. The panel
+   box and the blocked wash live with the modal shell in the global styles. */
 
 /* The header is the card's name, not chrome: same wash, but readable type
    and a double-click target. */

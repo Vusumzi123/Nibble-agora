@@ -1,8 +1,7 @@
 # Agora — shared modal component
 
-Implementation plan. Status: planned (not started). Authored 2026-10-23 on
-top of `12ca8cd` ("i18n service with locale config, and inbox mention
-dismissal").
+Implementation plan. Status: implemented 2026-10-23 on top of `12ca8cd`
+("i18n service with locale config, and inbox mention dismissal").
 
 ## Why
 
@@ -52,9 +51,10 @@ Inputs:
 | `showClose` | `boolean` (default `true`) | Adds the default header `×` that emits `closed` |
 | `variant` | `'card' \| 'menu'` (default `'card'`) | Adds `overlay__card--menu` |
 | `panelClass` | `string` | Feature class/width (e.g. `boards__modal`, `card-detail`, `ph-panel composer`) |
-| `panelActive` | `boolean` | Adds a state class to the panel (e.g. `card-detail--blocked`) |
+| `activeClass` | `string` | State class applied to the panel (e.g. `card-detail--blocked`) |
 | `labelledBy` | `string` | Id of a projected heading, for custom headers |
 | `ariaLabel` | `string` | Fallback accessible name when no heading is projected |
+| `headingId` | `string` | Stable id for the default header title (generated when omitted) |
 
 Output: `closed` — emitted by the scrim guard, the default `×`, and Escape.
 
@@ -127,7 +127,8 @@ Keep every existing class name so current selectors and specs stay valid
 
 1. **boards** — `features/boards/boards.html`: replace the wrapper and header
    with `<app-modal [title]="i18n.t('boards.newProject')"
-   panelClass="boards__modal" (closed)="closeCreate()">`; keep the form and
+   headingId="new-project-title" panelClass="boards__modal"
+   (closed)="closeCreate()">`; keep the form and
    `boards__modal-actions`; keep the existing `setTimeout` focus on
    `#nameInput`.
 2. **threads composer** — `<app-modal [title]="i18n.t('threads.newThread')"
@@ -143,12 +144,14 @@ Keep every existing class name so current selectors and specs stay valid
    (closed)="closeSettings()">`; drop the three `(keydown.escape)` bindings
    inside the form.
 5. **card detail** — replace the root `<div class="overlay">` with
-   `<app-modal panelClass="card-detail" [panelActive]="blocked()"
-   [showClose]="false" labelledBy="card-detail-heading"
-   (closed)="closed.emit()">`; project the existing header as
+   `<app-modal panelClass="card-detail"
+   [activeClass]="blocked() ? 'card-detail--blocked' : ''"
+   [showClose]="false" [labelledBy]="…" (closed)="closed.emit()">`; project
+   the existing header as
    `<header modal-header class="ph-panel__header card-detail__header">`;
-   give both the read-mode `h2` and the edit-mode title input the id
-   `card-detail-heading` (only one is in the DOM at a time).
+   give the read-mode `h2` the id `card-detail-heading` and keep
+   `card-detail-title` on the edit-mode input; `labelledBy` switches between
+   them.
 6. **confirm dialog** — `shared/confirm-dialog.ts` renders
    `<app-modal [title]="title() ?? i18n.t('shell.confirm')" [showClose]="false"
    panelClass="confirm" (closed)="cancelled.emit()">`; keep the cancel-button
@@ -184,6 +187,20 @@ npm run typecheck
 cd web && npx ng test --watch=false   # 25 files / 106 tests at plan time
 npx ng build
 ```
+
+## Implementation notes (as built)
+
+- Panel-level rules that used to live in feature stylesheets had to move to
+  `web/src/styles.css`: the panel element is rendered by `app-modal`, so
+  emulated encapsulation no longer matches `.boards__modal`,
+  `.board__settings`, `.confirm`, `.card-detail` or `.card-detail--blocked`.
+  Everything projected keeps its feature-scoped styles.
+- `headingId` exists so the existing `#new-project-title` contract (and its
+  spec) survives the extraction.
+- Threads now opens the sort menu and the composer exclusively, which replaces
+  the old "Escape closes both" handler.
+- Scrim-close keeps a synthetic-click fallback (`!sawPointer`) for jsdom and
+  assistive clicks; real gestures must start and end on the scrim.
 
 ## Risks and non-goals
 

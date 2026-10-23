@@ -1,12 +1,4 @@
-import {
-  Component,
-  ElementRef,
-  HostListener,
-  OnInit,
-  effect,
-  inject,
-  viewChild,
-} from '@angular/core';
+import { Component, ElementRef, OnInit, effect, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -18,12 +10,13 @@ import { WhenPipe } from '../../core/time';
 import { CharCounter } from '../../shared/char-counter';
 import { LoadingDots } from '../../shared/loading-dots';
 import { MentionInput } from '../../shared/mention-input';
+import { Modal } from '../../shared/modal';
 import { parseMentions } from '../../shared/text';
 import { StatusService } from '../../core/status.service';
 
 @Component({
   selector: 'app-threads',
-  imports: [FormsModule, RouterLink, WhenPipe, CharCounter, LoadingDots, MentionInput],
+  imports: [FormsModule, RouterLink, WhenPipe, CharCounter, LoadingDots, MentionInput, Modal],
   templateUrl: './threads.html',
   styleUrl: './threads.css',
 })
@@ -82,14 +75,14 @@ export class ThreadsPage implements OnInit {
     void this.store.reloadThreads();
   }
 
-  @HostListener('document:keydown.escape')
-  protected onEscape(): void {
-    this.closeComposer();
+  protected openComposer(): void {
     this.closeSort();
+    this.composerOpen = true;
   }
 
-  protected openComposer(): void {
-    this.composerOpen = true;
+  protected openSort(): void {
+    this.closeComposer();
+    this.sortOpen = true;
   }
 
   protected closeComposer(): void {

@@ -409,6 +409,39 @@ body {
   border-radius: var(--ph-radius-lg) var(--ph-radius-lg) 0 0;
 }
 
+/* Panel-level widths and states for the shared modal shell. The panel lives
+   inside app-modal, so feature-scoped styles cannot reach it. */
+.overlay__card.boards__modal {
+  width: min(28rem, 100%);
+}
+
+.overlay__card.board__settings {
+  width: min(24rem, 100%);
+}
+
+.overlay__card.confirm {
+  width: min(24rem, 100%);
+}
+
+.card-detail {
+  display: flex;
+  flex-direction: column;
+  width: min(44rem, 100%);
+  height: 82vh;
+  max-height: 82vh;
+  overflow: hidden;
+}
+
+.card-detail--blocked {
+  border-color: color-mix(in srgb, var(--ph-warning) 45%, var(--ph-border));
+  background: color-mix(in srgb, var(--ph-warning) 9%, var(--ph-surface));
+}
+
+.card-detail--blocked .card-detail__header {
+  background: color-mix(in srgb, var(--ph-warning) 13%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ph-warning) 28%, transparent);
+}
+
 /* Floating action button — the one "create" affordance per view, parked in
    the bottom-right corner. */
 .fab {

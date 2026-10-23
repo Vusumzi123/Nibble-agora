@@ -1,15 +1,5 @@
-/* New-project modal — title + description on the shared overlay chrome. */
-.boards__modal {
-  width: min(28rem, 100%);
-}
-
-.boards__modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ph-space-2);
-}
-
+/* New-project modal — title + description on the shared overlay chrome. The
+   panel width lives with the modal shell in the global styles. */
 .boards__modal-form {
   display: flex;
   flex-direction: column;

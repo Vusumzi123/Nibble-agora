@@ -17,6 +17,7 @@ import type { Card, CardComment } from '../../core/models';
 import { CharCounter } from '../../shared/char-counter';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { renderMarkdown } from '../../shared/markdown';
+import { Modal } from '../../shared/modal';
 
 /**
  * The card's full text: opened by clicking a card tile, or blank when the
@@ -27,7 +28,7 @@ import { renderMarkdown } from '../../shared/markdown';
  */
 @Component({
   selector: 'app-card-detail',
-  imports: [FormsModule, CharCounter, ConfirmDialog],
+  imports: [FormsModule, CharCounter, ConfirmDialog, Modal],
   templateUrl: './card-detail.html',
   styleUrl: './card-detail.css',
 })
@@ -236,12 +237,7 @@ export class CardDetail {
         }
         return;
       }
-      const ok = await this.store.addCard(
-        this.columnId()!,
-        title,
-        this.body(),
-        this.assignee(),
-      );
+      const ok = await this.store.addCard(this.columnId()!, title, this.body(), this.assignee());
       // A freshly created card has no modal identity yet — close to the board.
       if (ok) this.closed.emit();
     } finally {

@@ -1,225 +1,220 @@
-<div class="overlay" (click)="closed.emit()">
-  <section
-    class="overlay__card card-detail"
-    [class.card-detail--blocked]="blocked()"
-    (click)="$event.stopPropagation()"
-    (keydown.escape)="closed.emit()"
-  >
-    <header class="ph-panel__header card-detail__header">
-      @if (creating() || editingTitle()) {
-        <input
-          #titleInput
-          id="card-detail-title"
-          class="form-control card-detail__title-input"
-          type="text"
-          name="title"
-          maxlength="200"
-          [attr.aria-label]="i18n.t('board.cardTitlePlaceholder')"
-          [placeholder]="creating() ? i18n.t('board.cardTitlePlaceholder') : ''"
-          [ngModel]="title()"
-          (ngModelChange)="title.set($event)"
-          (blur)="commitTitle()"
-          (keydown.enter)="$event.preventDefault(); commitTitle()"
-          (keydown.escape)="$event.stopPropagation(); cancelTitle()"
-        />
-      } @else {
-        <h2
-          class="card-detail__title"
-          [class.card-detail__title--empty]="!title().trim()"
-          [title]="i18n.t('board.renameHint')"
-          (dblclick)="startTitleEdit()"
-        >
-          {{ title().trim() || i18n.t('board.untitled') }}
-        </h2>
-      }
-      @if (blocked()) {
-        <span class="card-detail__blocked" role="status">{{ i18n.t('board.blocked') }}</span>
-      }
-      <button
-        class="btn btn-sm btn-outline-secondary card-detail__close"
-        type="button"
-        [title]="i18n.t('board.closeCard')"
-        [attr.aria-label]="i18n.t('board.closeCard')"
-        (click)="closed.emit()"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
-      </button>
-    </header>
-
-    <form class="card-detail__form" (ngSubmit)="save()">
-      @if (remoteChanged()) {
-        <div class="card-detail__remote" role="status">
-          <span>{{ i18n.t('board.remoteChanged') }}</span>
-          <button class="btn btn-sm btn-outline-secondary" type="button" (click)="reload()">
-            {{ i18n.t('board.reload') }}
-          </button>
-        </div>
-      }
-
-      <div class="card-detail__bodyhead">
-        <span class="ph-label">{{ i18n.t('board.bodyMarkdown') }}</span>
-        <div class="card-detail__bodybar">
-          @if (editing()) {
-            <app-char-counter [value]="body()" [limit]="limit" />
-          }
-          <div class="card-detail__mode" role="group" [attr.aria-label]="i18n.t('board.bodyMode')">
-            <span
-              class="card-detail__mode-end"
-              [class.card-detail__mode-end--active]="!editing()"
-              >{{ i18n.t('board.view') }}</span
-            >
-            <label class="card-detail__switch" [title]="i18n.t('board.toggleViewEdit')">
-              <input
-                type="checkbox"
-                role="switch"
-                [attr.aria-label]="i18n.t('board.editMarkdown')"
-                [checked]="editing()"
-                (change)="editing.set(!editing())"
-              />
-              <span class="card-detail__switch-track"></span>
-            </label>
-            <span
-              class="card-detail__mode-end"
-              [class.card-detail__mode-end--active]="editing()"
-              >{{ i18n.t('board.edit') }}</span
-            >
-          </div>
-        </div>
-      </div>
-      @if (editing()) {
-        <textarea
-          #bodyInput
-          id="card-detail-body"
-          class="form-control card-detail__body"
-          name="body"
-          rows="10"
-          [attr.aria-label]="i18n.t('board.bodyMarkdown')"
-          [ngModel]="body()"
-          (ngModelChange)="body.set($event)"
-        ></textarea>
-      } @else if (body().trim()) {
-        <div
-          class="markdown card-detail__preview"
-          [title]="i18n.t('board.dblclickEdit')"
-          [innerHTML]="rendered()"
-          (dblclick)="startBodyEdit()"
-        ></div>
-      } @else {
-        <p
-          class="card-detail__preview card-detail__preview--empty"
-          [title]="i18n.t('board.dblclickEdit')"
-          (dblclick)="startBodyEdit()"
-        >
-          {{ i18n.t('board.noBody') }}
-        </p>
-      }
-
-      <label class="ph-label" for="card-detail-assignee">{{ i18n.t('board.owner') }}</label>
-      <select
-        id="card-detail-assignee"
-        class="form-select"
-        name="assignee"
-        (change)="onAssignee($event)"
-      >
-        <option value="" [selected]="assignee() === null">{{ i18n.t('board.unassigned') }}</option>
-        @for (agent of store.agents(); track agent.id) {
-          <option [value]="agent.id" [selected]="assignee() === agent.id">
-            @{{ agent.handle }}
-          </option>
-        }
-      </select>
-
-      @if (!creating()) {
-        <div class="card-detail__conversation">
-          <div class="card-detail__conversation-head">
-            <span class="ph-label">{{ i18n.t('board.conversation') }}</span>
-            @if (comments().length) {
-              <span class="ph-label">{{ comments().length }}</span>
-            }
-          </div>
-          <div class="card-detail__comment-list">
-            @if (commentsLoading()) {
-              <p class="card-detail__comment-empty">{{ i18n.t('board.loadingConversation') }}</p>
-            } @else if (!comments().length) {
-              <p class="card-detail__comment-empty">{{ i18n.t('board.noComments') }}</p>
-            }
-            @for (comment of comments(); track comment.id) {
-              <article class="card-comment">
-                <header class="card-comment__head">
-                  <span class="card-comment__author">@{{ comment.author_handle }}</span>
-                  <time class="card-comment__time" [attr.datetime]="comment.created_at">
-                    {{ when(comment.created_at) }}
-                  </time>
-                </header>
-                <div class="card-comment__body markdown" [innerHTML]="render(comment.body)"></div>
-              </article>
-            }
-          </div>
-          <div class="card-detail__composer">
-            <textarea
-              class="form-control card-detail__comment-input"
-              name="comment"
-              rows="2"
-              [placeholder]="i18n.t('board.addComment')"
-              [ngModel]="commentDraft()"
-              (ngModelChange)="commentDraft.set($event)"
-            ></textarea>
-            <div class="card-detail__comment-bar">
-              <app-char-counter [value]="commentDraft()" [limit]="commentLimit" />
-            </div>
-          </div>
-        </div>
-      }
-
-      <div class="card-detail__actions">
-        @if (!creating()) {
-          <button
-            class="btn btn-sm"
-            type="button"
-            [class.btn-outline-warning]="!blocked()"
-            [class.btn-warning]="blocked()"
-            [disabled]="blocking()"
-            (click)="toggleBlocked()"
-          >
-            {{ blocked() ? i18n.t('board.unblock') : i18n.t('board.markBlocked') }}
-          </button>
-          <button
-            class="btn btn-sm btn-outline-danger"
-            type="button"
-            (click)="confirmingDelete.set(true)"
-          >
-            {{ i18n.t('shell.delete') }}
-          </button>
-        }
-        <div class="card-detail__buttons">
-          <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
-            {{ i18n.t('shell.cancel') }}
-          </button>
-          <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">{{ i18n.t('shell.save') }}</button>
-        </div>
-      </div>
-    </form>
-
-    @if (confirmingDelete()) {
-      <app-confirm-dialog
-        [title]="i18n.t('board.deleteCard')"
-        [message]="i18n.t('board.deleteCardMessage')"
-        (keydown.escape)="$event.stopPropagation()"
-        (confirmed)="remove()"
-        (cancelled)="confirmingDelete.set(false)"
+<app-modal
+  panelClass="card-detail"
+  [activeClass]="blocked() ? 'card-detail--blocked' : ''"
+  [showClose]="false"
+  [labelledBy]="creating() || editingTitle() ? 'card-detail-title' : 'card-detail-heading'"
+  (closed)="closed.emit()"
+>
+  <header modal-header class="ph-panel__header card-detail__header">
+    @if (creating() || editingTitle()) {
+      <input
+        #titleInput
+        id="card-detail-title"
+        class="form-control card-detail__title-input"
+        type="text"
+        name="title"
+        maxlength="200"
+        [attr.aria-label]="i18n.t('board.cardTitlePlaceholder')"
+        [placeholder]="creating() ? i18n.t('board.cardTitlePlaceholder') : ''"
+        [ngModel]="title()"
+        (ngModelChange)="title.set($event)"
+        (blur)="commitTitle()"
+        (keydown.enter)="$event.preventDefault(); commitTitle()"
+        (keydown.escape)="$event.stopPropagation(); cancelTitle()"
       />
+    } @else {
+      <h2
+        id="card-detail-heading"
+        class="card-detail__title"
+        [class.card-detail__title--empty]="!title().trim()"
+        [title]="i18n.t('board.renameHint')"
+        (dblclick)="startTitleEdit()"
+      >
+        {{ title().trim() || i18n.t('board.untitled') }}
+      </h2>
     }
-  </section>
-</div>
+    @if (blocked()) {
+      <span class="card-detail__blocked" role="status">{{ i18n.t('board.blocked') }}</span>
+    }
+    <button
+      class="btn btn-sm btn-outline-secondary card-detail__close"
+      type="button"
+      [title]="i18n.t('board.closeCard')"
+      [attr.aria-label]="i18n.t('board.closeCard')"
+      (click)="closed.emit()"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+  </header>
+
+  <form class="card-detail__form" (ngSubmit)="save()">
+    @if (remoteChanged()) {
+      <div class="card-detail__remote" role="status">
+        <span>{{ i18n.t('board.remoteChanged') }}</span>
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="reload()">
+          {{ i18n.t('board.reload') }}
+        </button>
+      </div>
+    }
+
+    <div class="card-detail__bodyhead">
+      <span class="ph-label">{{ i18n.t('board.bodyMarkdown') }}</span>
+      <div class="card-detail__bodybar">
+        @if (editing()) {
+          <app-char-counter [value]="body()" [limit]="limit" />
+        }
+        <div class="card-detail__mode" role="group" [attr.aria-label]="i18n.t('board.bodyMode')">
+          <span class="card-detail__mode-end" [class.card-detail__mode-end--active]="!editing()">{{
+            i18n.t('board.view')
+          }}</span>
+          <label class="card-detail__switch" [title]="i18n.t('board.toggleViewEdit')">
+            <input
+              type="checkbox"
+              role="switch"
+              [attr.aria-label]="i18n.t('board.editMarkdown')"
+              [checked]="editing()"
+              (change)="editing.set(!editing())"
+            />
+            <span class="card-detail__switch-track"></span>
+          </label>
+          <span class="card-detail__mode-end" [class.card-detail__mode-end--active]="editing()">{{
+            i18n.t('board.edit')
+          }}</span>
+        </div>
+      </div>
+    </div>
+    @if (editing()) {
+      <textarea
+        #bodyInput
+        id="card-detail-body"
+        class="form-control card-detail__body"
+        name="body"
+        rows="10"
+        [attr.aria-label]="i18n.t('board.bodyMarkdown')"
+        [ngModel]="body()"
+        (ngModelChange)="body.set($event)"
+      ></textarea>
+    } @else if (body().trim()) {
+      <div
+        class="markdown card-detail__preview"
+        [title]="i18n.t('board.dblclickEdit')"
+        [innerHTML]="rendered()"
+        (dblclick)="startBodyEdit()"
+      ></div>
+    } @else {
+      <p
+        class="card-detail__preview card-detail__preview--empty"
+        [title]="i18n.t('board.dblclickEdit')"
+        (dblclick)="startBodyEdit()"
+      >
+        {{ i18n.t('board.noBody') }}
+      </p>
+    }
+
+    <label class="ph-label" for="card-detail-assignee">{{ i18n.t('board.owner') }}</label>
+    <select
+      id="card-detail-assignee"
+      class="form-select"
+      name="assignee"
+      (change)="onAssignee($event)"
+    >
+      <option value="" [selected]="assignee() === null">{{ i18n.t('board.unassigned') }}</option>
+      @for (agent of store.agents(); track agent.id) {
+        <option [value]="agent.id" [selected]="assignee() === agent.id">@{{ agent.handle }}</option>
+      }
+    </select>
+
+    @if (!creating()) {
+      <div class="card-detail__conversation">
+        <div class="card-detail__conversation-head">
+          <span class="ph-label">{{ i18n.t('board.conversation') }}</span>
+          @if (comments().length) {
+            <span class="ph-label">{{ comments().length }}</span>
+          }
+        </div>
+        <div class="card-detail__comment-list">
+          @if (commentsLoading()) {
+            <p class="card-detail__comment-empty">{{ i18n.t('board.loadingConversation') }}</p>
+          } @else if (!comments().length) {
+            <p class="card-detail__comment-empty">{{ i18n.t('board.noComments') }}</p>
+          }
+          @for (comment of comments(); track comment.id) {
+            <article class="card-comment">
+              <header class="card-comment__head">
+                <span class="card-comment__author">@{{ comment.author_handle }}</span>
+                <time class="card-comment__time" [attr.datetime]="comment.created_at">
+                  {{ when(comment.created_at) }}
+                </time>
+              </header>
+              <div class="card-comment__body markdown" [innerHTML]="render(comment.body)"></div>
+            </article>
+          }
+        </div>
+        <div class="card-detail__composer">
+          <textarea
+            class="form-control card-detail__comment-input"
+            name="comment"
+            rows="2"
+            [placeholder]="i18n.t('board.addComment')"
+            [ngModel]="commentDraft()"
+            (ngModelChange)="commentDraft.set($event)"
+          ></textarea>
+          <div class="card-detail__comment-bar">
+            <app-char-counter [value]="commentDraft()" [limit]="commentLimit" />
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="card-detail__actions">
+      @if (!creating()) {
+        <button
+          class="btn btn-sm"
+          type="button"
+          [class.btn-outline-warning]="!blocked()"
+          [class.btn-warning]="blocked()"
+          [disabled]="blocking()"
+          (click)="toggleBlocked()"
+        >
+          {{ blocked() ? i18n.t('board.unblock') : i18n.t('board.markBlocked') }}
+        </button>
+        <button
+          class="btn btn-sm btn-outline-danger"
+          type="button"
+          (click)="confirmingDelete.set(true)"
+        >
+          {{ i18n.t('shell.delete') }}
+        </button>
+      }
+      <div class="card-detail__buttons">
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
+          {{ i18n.t('shell.cancel') }}
+        </button>
+        <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">
+          {{ i18n.t('shell.save') }}
+        </button>
+      </div>
+    </div>
+  </form>
+
+  @if (confirmingDelete()) {
+    <app-confirm-dialog
+      [title]="i18n.t('board.deleteCard')"
+      [message]="i18n.t('board.deleteCardMessage')"
+      (confirmed)="remove()"
+      (cancelled)="confirmingDelete.set(false)"
+    />
+  }
+</app-modal>

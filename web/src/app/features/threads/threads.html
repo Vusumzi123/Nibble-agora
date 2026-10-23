@@ -31,7 +31,7 @@
           class="btn btn-sm btn-outline-secondary"
           type="button"
           aria-haspopup="dialog"
-          (click)="sortOpen = true"
+          (click)="openSort()"
         >
           {{ i18n.t('threads.sortBy') }}: {{ sortLabel() }} ▾
         </button>
@@ -50,7 +50,9 @@
             <span class="tag" [attr.data-cat]="thread.category">{{ thread.category }}</span>
             <span class="list__title">{{ thread.title }}</span>
             @if (thread.status !== 'open') {
-              <span class="list__meta ph-label">{{ i18n.t('threads.status.' + thread.status) }}</span>
+              <span class="list__meta ph-label">{{
+                i18n.t('threads.status.' + thread.status)
+              }}</span>
             }
           </span>
           @if (thread.body) {
@@ -85,78 +87,79 @@
     }
 
     @if (composerOpen) {
-      <div class="overlay" (click)="closeComposer()">
-        <section class="ph-panel composer overlay__card" (click)="$event.stopPropagation()">
-          <header class="ph-panel__header">{{ i18n.t('threads.newThread') }}</header>
-          <div class="ph-panel__body composer__grid">
-            <input
+      <app-modal
+        [title]="i18n.t('threads.newThread')"
+        [showClose]="false"
+        panelClass="ph-panel composer"
+        (closed)="closeComposer()"
+      >
+        <div class="ph-panel__body composer__grid">
+          <input
+            class="form-control"
+            type="text"
+            [placeholder]="i18n.t('threads.titlePlaceholder')"
+            maxlength="200"
+            [(ngModel)]="title"
+          />
+          <select class="form-select" [(ngModel)]="category">
+            @for (cat of categories; track cat) {
+              <option [value]="cat">{{ i18n.t('threads.cat.' + cat) }}</option>
+            }
+          </select>
+          <div class="composer__body">
+            <textarea
               class="form-control"
-              type="text"
-              [placeholder]="i18n.t('threads.titlePlaceholder')"
-              maxlength="200"
-              [(ngModel)]="title"
-            />
-            <select class="form-select" [(ngModel)]="category">
-              @for (cat of categories; track cat) {
-                <option [value]="cat">{{ i18n.t('threads.cat.' + cat) }}</option>
-              }
-            </select>
-            <div class="composer__body">
-              <textarea
-                class="form-control"
-                rows="4"
-                [placeholder]="
-                  i18n.t('threads.bodyPlaceholder', { limit: store.session.limits().post_char_limit })
-                "
-                [(ngModel)]="body"
-              ></textarea>
-              <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
-            </div>
-            <app-mention-input [(value)]="mentions" />
-            <div class="composer__actions">
-              <button
-                class="btn btn-outline-secondary me-2"
-                type="button"
-                (click)="closeComposer()"
-              >
-                {{ i18n.t('shell.cancel') }}
-              </button>
-              <button class="btn btn-primary" type="button" [disabled]="busy.active()" (click)="post()">{{ i18n.t('threads.post') }}</button>
-            </div>
+              rows="4"
+              [placeholder]="
+                i18n.t('threads.bodyPlaceholder', { limit: store.session.limits().post_char_limit })
+              "
+              [(ngModel)]="body"
+            ></textarea>
+            <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
           </div>
-        </section>
-      </div>
+          <app-mention-input [(value)]="mentions" />
+          <div class="composer__actions">
+            <button class="btn btn-outline-secondary me-2" type="button" (click)="closeComposer()">
+              {{ i18n.t('shell.cancel') }}
+            </button>
+            <button
+              class="btn btn-primary"
+              type="button"
+              [disabled]="busy.active()"
+              (click)="post()"
+            >
+              {{ i18n.t('threads.post') }}
+            </button>
+          </div>
+        </div>
+      </app-modal>
     }
 
     @if (sortOpen) {
-      <div
-        class="overlay"
-        role="dialog"
-        aria-modal="true"
-        [attr.aria-label]="i18n.t('threads.sortBy')"
-        (click)="closeSort()"
+      <app-modal
+        [title]="i18n.t('threads.sortBy')"
+        variant="menu"
+        [showClose]="false"
+        (closed)="closeSort()"
       >
-        <section class="overlay__card overlay__card--menu" (click)="$event.stopPropagation()">
-          <header class="ph-panel__header">{{ i18n.t('threads.sortBy') }}</header>
-          <div class="sort-menu">
-            @for (opt of sortOptions; track opt.value) {
-              <button
-                class="sort-menu__item"
-                type="button"
-                [class.sort-menu__item--active]="store.sort() === opt.value"
-                [attr.aria-checked]="store.sort() === opt.value"
-                role="menuitemradio"
-                (click)="applySort(opt.value)"
-              >
-                <span>{{ i18n.t(opt.labelKey) }}</span>
-                @if (store.sort() === opt.value) {
-                  <span class="sort-menu__check" aria-hidden="true">✓</span>
-                }
-              </button>
-            }
-          </div>
-        </section>
-      </div>
+        <div class="sort-menu">
+          @for (opt of sortOptions; track opt.value) {
+            <button
+              class="sort-menu__item"
+              type="button"
+              [class.sort-menu__item--active]="store.sort() === opt.value"
+              [attr.aria-checked]="store.sort() === opt.value"
+              role="menuitemradio"
+              (click)="applySort(opt.value)"
+            >
+              <span>{{ i18n.t(opt.labelKey) }}</span>
+              @if (store.sort() === opt.value) {
+                <span class="sort-menu__check" aria-hidden="true">✓</span>
+              }
+            </button>
+          }
+        </div>
+      </app-modal>
     }
   }
 

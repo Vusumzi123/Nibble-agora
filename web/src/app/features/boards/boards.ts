@@ -8,11 +8,12 @@ import { TranslateService } from '../../core/i18n';
 import type { Board, Project } from '../../core/models';
 import { StatusService } from '../../core/status.service';
 import { PROJECT_DRAG_TYPE, acceptsDrag, dropIndex, startDrag } from '../../shared/drag-reorder';
+import { Modal } from '../../shared/modal';
 import { ProjectCard } from '../../shared/project-card';
 
 @Component({
   selector: 'app-boards',
-  imports: [FormsModule, ProjectCard],
+  imports: [FormsModule, Modal, ProjectCard],
   templateUrl: './boards.html',
   styleUrl: './boards.css',
 })

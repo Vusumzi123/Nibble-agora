@@ -17,11 +17,12 @@ import { ForumStore } from '../../core/forum.store';
 import { TranslateService } from '../../core/i18n';
 import { StatusService } from '../../core/status.service';
 import { dragScroll, stopDragScroll } from '../../shared/drag-reorder';
+import { Modal } from '../../shared/modal';
 import { Lane } from './lane';
 
 @Component({
   selector: 'app-board',
-  imports: [FormsModule, RouterLink, Lane],
+  imports: [FormsModule, RouterLink, Lane, Modal],
   templateUrl: './board.html',
   styleUrl: './board.css',
 })
