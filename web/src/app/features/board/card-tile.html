@@ -10,7 +10,7 @@
     <!-- the text area is the card's click target for the detail modal -->
     <div class="kanban-card__open" (click)="open = true">
       @if (card().blocked_at) {
-        <span class="kanban-card__blocked" role="status">blocked</span>
+        <span class="kanban-card__blocked" role="status">{{ i18n.t('board.blocked') }}</span>
       }
       <div class="kanban-card__title" appEllipsis>{{ card().title }}</div>
       @if (card().body) {
@@ -20,11 +20,11 @@
     <div class="kanban-card__foot">
       <select
         class="form-select form-select-sm kanban-card__assignee"
-        title="assignee"
+        [title]="i18n.t('board.assignee')"
         [ngModel]="card().assignee_id"
         (ngModelChange)="setAssignee($event)"
       >
-        <option [ngValue]="null">unassigned</option>
+        <option [ngValue]="null">{{ i18n.t('board.unassigned') }}</option>
         @for (agent of store.agents(); track agent.id) {
           <option [ngValue]="agent.id">@{{ agent.handle }}</option>
         }
@@ -33,7 +33,7 @@
         <button
           class="btn btn-sm btn-outline-secondary"
           type="button"
-          title="move up"
+          [title]="i18n.t('board.moveUp')"
           [disabled]="!canUp()"
           (click)="move(-1)"
         >
@@ -42,7 +42,7 @@
         <button
           class="btn btn-sm btn-outline-secondary"
           type="button"
-          title="move down"
+          [title]="i18n.t('board.moveDown')"
           [disabled]="!canDown()"
           (click)="move(1)"
         >
@@ -51,8 +51,8 @@
         <button
           class="btn btn-sm btn-outline-danger btn-icon"
           type="button"
-          title="delete card"
-          aria-label="delete card"
+          [title]="i18n.t('board.deleteCard')"
+          [attr.aria-label]="i18n.t('board.deleteCard')"
           (click)="startDelete()"
         >
           <svg
@@ -77,8 +77,8 @@
 
 @if (confirming) {
   <app-confirm-dialog
-    title="delete card"
-    message="delete this card?"
+    [title]="i18n.t('board.deleteCard')"
+    [message]="i18n.t('board.deleteCardMessage')"
     (confirmed)="remove()"
     (cancelled)="confirming = false"
   />

@@ -2,6 +2,7 @@ import { Component, ElementRef, ViewChild, computed, inject, input, signal } fro
 import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { Card, Column } from '../../core/models';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { COLUMN_DRAG_TYPE, acceptsDrag, dropIndex, startDrag } from '../../shared/drag-reorder';
@@ -21,6 +22,7 @@ export class Lane {
   readonly loading = input(false);
 
   protected readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
   protected readonly cards = computed(() => this.store.cardsIn(this.column().id));
   protected readonly skeletons = [1, 2, 3];
 

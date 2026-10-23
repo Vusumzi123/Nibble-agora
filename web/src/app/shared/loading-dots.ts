@@ -1,9 +1,11 @@
-import { Component, input } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
+
+import { TranslateService } from '../core/i18n';
 
 /** The jumping dots shown wherever a section loads on its own. */
 @Component({
   selector: 'app-loading-dots',
-  template: `<span class="dots" role="status" [attr.aria-label]="label()">
+  template: `<span class="dots" role="status" [attr.aria-label]="label() ?? i18n.t('shell.loading')">
     <i></i><i></i><i></i>
   </span>`,
   styles: `
@@ -50,5 +52,8 @@ import { Component, input } from '@angular/core';
   `,
 })
 export class LoadingDots {
-  readonly label = input('loading');
+  protected readonly i18n = inject(TranslateService);
+
+  /** Explicit label; defaults to the translated "loading". */
+  readonly label = input<string>();
 }

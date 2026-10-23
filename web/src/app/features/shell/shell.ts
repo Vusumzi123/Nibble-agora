@@ -3,6 +3,7 @@ import { Router, RouterOutlet } from '@angular/router';
 
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import { SessionService } from '../../core/session.service';
 import { StatusService } from '../../core/status.service';
 import { SidePanel } from '../side-panel/side-panel';
@@ -18,6 +19,7 @@ export class Shell implements OnInit, OnDestroy {
   protected readonly store = inject(ForumStore);
   protected readonly config = inject(ConfigService);
   protected readonly status = inject(StatusService);
+  protected readonly i18n = inject(TranslateService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
 

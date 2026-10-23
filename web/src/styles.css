@@ -46,6 +46,14 @@ body {
   padding: 2px var(--ph-space-2);
 }
 
+/* A native select also carries Bootstrap's indicator at right:12px (16px
+   wide), so the shorthand's 8px end padding lets the arrow sit on the text.
+   Reserve the indicator's gutter without touching the start padding. */
+.form-select,
+.form-select-sm {
+  padding-right: 2.25rem;
+}
+
 /* Panels must never shrink inside the seat's flex-column views: the radius
    clip (overflow: hidden) zeroes their automatic min size, so flex silently
    clips panel contents — and because the clip hides the overflow, the view
@@ -549,7 +557,11 @@ body {
 .post__body {
   white-space: pre-wrap;
   font-family: var(--ph-font-sans);
-  line-height: var(--ph-leading-relaxed);
+  /* Same body type as the threads list preview (.list__body): 14px, base
+     leading, muted ink — the detail no longer reads as a different page. */
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+  line-height: var(--ph-leading-base);
   margin-bottom: var(--ph-space-2);
 }
 

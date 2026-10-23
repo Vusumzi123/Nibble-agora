@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
+import { LOCALES, TranslateService } from '../../core/i18n';
 import { StatusService } from '../../core/status.service';
 import { ACCENTS, DARK_THEME, LIGHT_THEME, isDarkTheme } from '../../core/theme';
 
@@ -14,12 +15,14 @@ import { ACCENTS, DARK_THEME, LIGHT_THEME, isDarkTheme } from '../../core/theme'
 })
 export class SettingsPage implements OnInit {
   protected readonly config = inject(ConfigService);
+  protected readonly i18n = inject(TranslateService);
   private readonly store = inject(ForumStore);
   private readonly api = inject(ApiService);
   private readonly status = inject(StatusService);
 
   /** Appearance is mode + accent only — there is no theme gallery. */
   protected readonly accents = ACCENTS;
+  protected readonly languages = LOCALES;
   protected forumName = '';
   protected current = '';
   protected next = '';
@@ -48,7 +51,11 @@ export class SettingsPage implements OnInit {
     this.config.preview(theme);
     try {
       await this.config.save({ theme });
-      this.status.flash(`switched to ${isDarkTheme(theme) ? 'dark' : 'light'} mode`);
+      this.status.flash(
+        this.i18n.t('settings.modeChanged', {
+          mode: isDarkTheme(theme) ? this.i18n.t('settings.dark') : this.i18n.t('settings.light'),
+        }),
+      );
     } catch (err) {
       this.config.preview(this.config.theme());
       this.status.flash(err instanceof Error ? err.message : String(err), true);
@@ -59,9 +66,22 @@ export class SettingsPage implements OnInit {
     this.config.previewAccent(accent);
     try {
       await this.config.save({ accent });
-      this.status.flash(`accent set to ${accent}`);
+      this.status.flash(this.i18n.t('settings.accentChanged', { accent }));
     } catch (err) {
       this.config.previewAccent(this.config.accent());
+      this.status.flash(err instanceof Error ? err.message : String(err), true);
+    }
+  }
+
+  protected async pickLocale(locale: string): Promise<void> {
+    try {
+      await this.config.save({ locale });
+      this.status.flash(
+        this.i18n.t('settings.languageChanged', {
+          label: this.languages.find((l) => l.id === locale)?.label ?? locale,
+        }),
+      );
+    } catch (err) {
       this.status.flash(err instanceof Error ? err.message : String(err), true);
     }
   }
@@ -70,7 +90,7 @@ export class SettingsPage implements OnInit {
     this.savingName = true;
     try {
       await this.config.save({ forum_name: this.forumName.trim() });
-      this.status.flash('forum name saved');
+      this.status.flash(this.i18n.t('settings.nameSaved'));
     } catch (err) {
       this.status.flash(err instanceof Error ? err.message : String(err), true);
     } finally {
@@ -80,18 +100,18 @@ export class SettingsPage implements OnInit {
 
   protected async savePassword(): Promise<void> {
     if (this.next.length < 8) {
-      this.status.flash('new password must be at least 8 characters', true);
+      this.status.flash(this.i18n.t('settings.passwordTooShort'), true);
       return;
     }
     if (this.next !== this.confirm) {
-      this.status.flash('passwords do not match', true);
+      this.status.flash(this.i18n.t('settings.passwordMismatch'), true);
       return;
     }
     this.savingPassword = true;
     try {
       await this.api.changePassword(this.current, this.next);
       this.current = this.next = this.confirm = '';
-      this.status.flash('password changed');
+      this.status.flash(this.i18n.t('settings.passwordChanged'));
     } catch (err) {
       this.status.flash(err instanceof Error ? err.message : String(err), true);
     } finally {

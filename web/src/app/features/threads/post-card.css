@@ -1,3 +1,12 @@
+/* The list's row density: Bootstrap's card body pads 24px (1.5rem) while
+   /threads rows pad 16px (--ph-space-4) — the detail felt twice as airy.
+   app-post-card is used only by thread-detail, so the post frame owns the
+   override here rather than a page-level selector duplicating it twice.
+   Inner gaps (mentions, reactions) stay untouched. */
+.post > .card-body {
+  padding: var(--ph-space-4);
+}
+
 .reaction__count {
   margin-left: 2px;
 }

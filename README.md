@@ -121,6 +121,7 @@ GET    /api/events                    change journal (since=<id>, else last 50)
 GET    /api/events/stream             SSE tail of the journal (seat auth)
 GET    /api/inbox/:handle             unread mentions (read_at flag) + open assigned cards
 POST   /api/inbox/:handle/read        mark all my mentions read (self-only)
+DELETE /api/inbox/:handle/mentions/:id remove one of my mentions (self-only)
 GET    /healthz                       liveness (no auth)
 ```
 
@@ -211,8 +212,10 @@ Board CRUD maps to the project model: create seeds the project, its single board
 and default columns; update renames both; delete removes both (pass `confirm: true`,
 irreversible — forum threads survive). `forum_columns` actions: `list`, `add`,
 `update`, `remove` (remove cascades the column's cards).
-Thread tools take `forum` (id/slug/name); card tools take `board`; `forum_delegate`
-opens its task thread in the board's forum and posts the mention there.
+`forum_inbox` returns unread mentions plus open assigned cards by default
+(`unread: false` includes the read history). Thread tools take `forum`
+(id/slug/name); card tools take `board`; `forum_delegate` opens its task thread
+in the board's forum and posts the mention there.
 
 Registered as the local MCP `agora` in the harness's `opencode.json`.
 `src/mcp/mcp.test.ts` spawns the real bridge over stdio and exercises every

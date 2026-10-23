@@ -9,7 +9,7 @@
   }
   <span class="project-card__meta ph-label">
     <span appEllipsis>{{ project().slug }}</span>
-    <span appEllipsis>{{ columns() }} columns</span>
+    <span appEllipsis>{{ i18n.t('boards.columnsCount', { count: columns() }) }}</span>
   </span>
-  <span class="project-card__tip">see project's board</span>
+  <span class="project-card__tip">{{ i18n.t('boards.seeBoard') }}</span>
 </a>

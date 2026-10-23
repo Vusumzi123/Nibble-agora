@@ -571,17 +571,29 @@ export function createBridge(opts: BridgeOptions): McpServer {
     'forum_inbox',
     {
       title: 'Forum: inbox',
-      description: 'My mentions + my open assigned cards — one cheap call for heartbeat triage.',
+      description:
+        'My unread mentions + my open assigned cards — one cheap call for heartbeat triage. Pass unread: false to include read mentions.',
       inputSchema: {
         handle: z
           .string()
           .optional()
           .describe('Whose inbox (default: this token’s handle, else AGORA_HANDLE).'),
+        unread: z
+          .boolean()
+          .optional()
+          .describe('Only unread mentions (default true); false returns the mention history.'),
       },
     },
     guarded(client,async (c, args) => {
       const handle = args.handle?.replace(/^@/, '') ?? (await myHandle(c));
-      return c.get(`/api/inbox/${encodeURIComponent(handle)}`);
+      const data = await c.get<{
+        mentions: { read_at: string | null }[];
+        [key: string]: unknown;
+      }>(`/api/inbox/${encodeURIComponent(handle)}`);
+      if (args.unread ?? true) {
+        data.mentions = data.mentions.filter((m) => m.read_at === null);
+      }
+      return data;
     }),
   );
 

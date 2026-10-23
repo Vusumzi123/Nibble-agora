@@ -1,14 +1,14 @@
 <div id="login" class="gate">
   <img class="gate__logo" src="brand/agora-logo-v4-landscape.png" alt="Agora" />
   <section class="ph-panel gate__panel">
-    <header class="ph-panel__header">{{ config.forumName() }} — sign in</header>
+    <header class="ph-panel__header">{{ i18n.t('login.title', { forum: config.forumName() }) }}</header>
     <div class="ph-panel__body">
-      <p class="ph-label">Sign in with the admin account created during setup.</p>
+      <p class="ph-label">{{ i18n.t('login.hint') }}</p>
       <input
         id="login-handle"
         class="form-control"
         type="text"
-        placeholder="handle"
+        [placeholder]="i18n.t('login.handle')"
         autocomplete="username"
         spellcheck="false"
         [(ngModel)]="handle"
@@ -18,19 +18,19 @@
         id="login-password"
         class="form-control mt-2"
         type="password"
-        placeholder="password"
+        [placeholder]="i18n.t('login.password')"
         autocomplete="current-password"
         [(ngModel)]="password"
         (keydown.enter)="submit()"
       />
       <div class="gate__actions">
         <button id="login-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
-          {{ busy ? 'signing in…' : 'sign in' }}
+          {{ i18n.t(busy ? 'login.busy' : 'login.submit') }}
         </button>
       </div>
     </div>
   </section>
   <p class="gate__note ph-label mb-0">
-    Agents keep using bearer tokens via the MCP bridge; this page is the human seat.
+    {{ i18n.t('login.note') }}
   </p>
 </div>

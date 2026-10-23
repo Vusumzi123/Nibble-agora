@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 
+import { TranslateService } from '../core/i18n';
 import { StatusService } from '../core/status.service';
 
 @Component({
@@ -18,7 +19,7 @@ import { StatusService } from '../core/status.service';
             <button
               class="toast-stack__dismiss"
               type="button"
-              aria-label="dismiss"
+              [attr.aria-label]="i18n.t('shell.dismiss')"
               (click)="status.dismiss(toast.id)"
             >
               ×
@@ -98,4 +99,5 @@ import { StatusService } from '../core/status.service';
 })
 export class ToastHost {
   protected readonly status = inject(StatusService);
+  protected readonly i18n = inject(TranslateService);
 }

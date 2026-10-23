@@ -260,11 +260,21 @@ test('mcp bridge end-to-end: all 23 tools over stdio', { timeout: 60000 }, async
   );
   assert.ok(inbox.mentions.length >= 1, 'mention in inbox');
   assert.ok(inbox.counts.mentions >= 1, 'mention is unread and counted');
+  assert.ok(
+    inbox.mentions.every((m: any) => m.read_at === null),
+    'inbox hides read mentions by default',
+  );
+  const inboxHistory = await call('forum_inbox', { unread: false });
+  assert.ok(
+    inboxHistory.mentions.length >= inbox.mentions.length,
+    'unread:false returns the mention history',
+  );
 
   // reading the delegate thread clears the badge (forum_read marks mentions read)
   await call('forum_read', { thread_id: delegated.mention.thread.id });
   const afterRead = await call('forum_inbox');
   assert.equal(afterRead.counts.mentions, 0, 'reading the thread clears the unread count');
+  assert.equal(afterRead.mentions.length, 0, 'read mentions leave the default inbox view');
   assert.equal(
     afterRead.counts.mentions_total,
     inbox.counts.mentions_total,

@@ -14,7 +14,9 @@ import { RouterLink } from '@angular/router';
 
 import { BusyService } from '../../core/busy.service';
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import { StatusService } from '../../core/status.service';
+import { WhenPipe } from '../../core/time';
 import { CategoryBadge } from '../../shared/category-badge';
 import { CharCounter } from '../../shared/char-counter';
 import { LoadingDots } from '../../shared/loading-dots';
@@ -24,7 +26,16 @@ import { PostCard } from './post-card';
 
 @Component({
   selector: 'app-thread-detail',
-  imports: [FormsModule, RouterLink, CategoryBadge, CharCounter, LoadingDots, MentionInput, PostCard],
+  imports: [
+    FormsModule,
+    RouterLink,
+    WhenPipe,
+    CategoryBadge,
+    CharCounter,
+    LoadingDots,
+    MentionInput,
+    PostCard,
+  ],
   templateUrl: './thread-detail.html',
   styleUrl: './thread-detail.css',
 })
@@ -34,6 +45,7 @@ export class ThreadDetailPage {
   protected readonly store = inject(ForumStore);
   private readonly status = inject(StatusService);
   protected readonly busy = inject(BusyService);
+  protected readonly i18n = inject(TranslateService);
 
   protected body = '';
   protected mentions = '';
@@ -246,7 +258,7 @@ export class ThreadDetailPage {
     const detail = this.store.thread();
     if (!detail || this.busy.active()) return;
     if (!this.body.trim()) {
-      this.status.flash('reply is empty', true);
+      this.status.flash(this.i18n.t('threads.replyEmpty'), true);
       return;
     }
     const ok = await this.store.reply(detail.thread.id, this.body, parseMentions(this.mentions));

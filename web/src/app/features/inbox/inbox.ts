@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { InboxCard } from '../../core/models';
 import { WhenPipe } from '../../core/time';
 
@@ -13,6 +14,7 @@ import { WhenPipe } from '../../core/time';
 })
 export class InboxPage implements OnInit {
   protected readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
   private readonly router = inject(Router);
 
   ngOnInit(): void {

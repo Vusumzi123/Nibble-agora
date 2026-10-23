@@ -5,8 +5,8 @@
         class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
         routerLink="/boards"
-        title="back to boards"
-        aria-label="back to boards"
+        [title]="i18n.t('board.backToBoards')"
+        [attr.aria-label]="i18n.t('board.backToBoards')"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -22,12 +22,12 @@
           <path d="m12 19-7-7 7-7" />
         </svg>
       </button>
-      <span class="ph-label">board · {{ board.name }}</span>
+      <span class="ph-label">{{ i18n.t('board.title') }} · {{ board.name }}</span>
       <button
         class="btn btn-sm btn-outline-secondary btn-icon board__settings-btn"
         type="button"
-        title="board settings"
-        aria-label="board settings"
+        [title]="i18n.t('board.settings')"
+        [attr.aria-label]="i18n.t('board.settings')"
         (click)="openSettings()"
       >
         <svg
@@ -56,7 +56,7 @@
       @for (column of store.columns(); track column.id) {
         <app-lane [column]="column" [loading]="store.cardsLoading()" />
       } @empty {
-        <p class="ph-label p-3">no columns</p>
+        <p class="ph-label p-3">{{ i18n.t('board.noColumns') }}</p>
       }
     </div>
 
@@ -66,20 +66,20 @@
           #colName
           class="form-control form-control-sm"
           type="text"
-          placeholder="column name"
+          [placeholder]="i18n.t('board.columnName')"
           maxlength="64"
           [(ngModel)]="columnName"
           (keydown.enter)="addColumn()"
           (keydown.escape)="closeAddColumn()"
         />
-        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">add</button>
+        <button class="btn btn-sm btn-primary" type="button" (click)="addColumn()">{{ i18n.t('board.add') }}</button>
       </div>
     }
     <button
       class="fab"
       type="button"
-      title="new column"
-      aria-label="new column"
+      [title]="i18n.t('board.newColumn')"
+      [attr.aria-label]="i18n.t('board.newColumn')"
       (click)="toggleAddColumn()"
     >
       <svg
@@ -104,10 +104,10 @@
           (click)="$event.stopPropagation()"
           (keydown.escape)="closeSettings()"
         >
-          <header class="ph-panel__header">board settings</header>
+          <header class="ph-panel__header">{{ i18n.t('board.settings') }}</header>
 
           <form class="board__settings-form" (ngSubmit)="saveSettings()">
-            <label class="ph-label" for="board-settings-name">name</label>
+            <label class="ph-label" for="board-settings-name">{{ i18n.t('board.name') }}</label>
             <input
               #nameInput
               id="board-settings-name"
@@ -118,7 +118,7 @@
               [(ngModel)]="editName"
               (keydown.escape)="closeSettings()"
             />
-            <label class="ph-label" for="board-settings-desc">description</label>
+            <label class="ph-label" for="board-settings-desc">{{ i18n.t('board.description') }}</label>
             <textarea
               id="board-settings-desc"
               class="form-control"
@@ -129,22 +129,22 @@
             ></textarea>
             <div class="board__settings-actions">
               <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closeSettings()">
-                cancel
+                {{ i18n.t('shell.cancel') }}
               </button>
-              <button class="btn btn-sm btn-primary" type="submit">save</button>
+              <button class="btn btn-sm btn-primary" type="submit">{{ i18n.t('shell.save') }}</button>
             </div>
           </form>
 
           <div class="board__danger">
-            <span class="ph-label">delete this project</span>
+            <span class="ph-label">{{ i18n.t('board.deleteProject') }}</span>
             @if (!confirmDelete) {
               <button class="btn btn-sm btn-outline-danger" type="button" (click)="confirmDelete = true">
-                delete project…
+                {{ i18n.t('board.deleteProjectAction') }}
               </button>
             } @else {
               <div class="board__danger-confirm">
                 <span class="ph-label">
-                  removes the project, its board, columns and cards. cannot be undone.
+                  {{ i18n.t('board.deleteProjectWarning') }}
                 </span>
                 <div class="board__danger-confirm__actions">
                   <button
@@ -152,10 +152,10 @@
                     type="button"
                     (click)="confirmDelete = false"
                   >
-                    keep
+                    {{ i18n.t('shell.keep') }}
                   </button>
                   <button class="btn btn-sm btn-danger" type="button" (click)="deleteProject()">
-                    yes, delete
+                    {{ i18n.t('board.yesDelete') }}
                   </button>
                 </div>
               </div>
@@ -170,8 +170,8 @@
         class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
         routerLink="/boards"
-        title="back to boards"
-        aria-label="back to boards"
+        [title]="i18n.t('board.backToBoards')"
+        [attr.aria-label]="i18n.t('board.backToBoards')"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -190,7 +190,7 @@
       <span class="skeleton skeleton--label"></span>
     </div>
 
-    <div class="lanes" aria-busy="true" aria-label="loading board">
+    <div class="lanes" aria-busy="true" [attr.aria-label]="i18n.t('board.loading')">
       @for (i of skeletonLanes; track i) {
         <section class="lane lane--skeleton" aria-hidden="true">
           <header class="lane__head">
@@ -217,6 +217,6 @@
       }
     </div>
   } @else {
-    <p class="ph-label">no board selected</p>
+    <p class="ph-label">{{ i18n.t('board.none') }}</p>
   }
 </section>

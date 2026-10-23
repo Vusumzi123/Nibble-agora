@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { Card } from '../../core/models';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { Ellipsis } from '../../shared/ellipsis';
@@ -16,6 +17,7 @@ export class CardTile {
   readonly card = input.required<Card>();
 
   protected readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
 
   /** true while the card detail modal is open (click the tile's text). */
   protected open = false;

@@ -1,23 +1,23 @@
 <section id="view-inbox" class="view">
   @if (store.inbox(); as inbox) {
     <div class="view__head">
-      <span class="ph-label">inbox · @{{ inbox.handle }}</span>
-      <span class="badge text-bg-secondary">{{ inbox.counts.mentions }} unread</span>
-      <span class="badge text-bg-secondary">{{ inbox.counts.mentions_total }} mentions</span>
-      <span class="badge text-bg-secondary">{{ inbox.counts.cards }} cards</span>
+      <span class="ph-label">{{ i18n.t('inbox.heading', { handle: inbox.handle }) }}</span>
+      <span class="badge text-bg-secondary">{{ i18n.t('inbox.unreadCount', { count: inbox.counts.mentions }) }}</span>
+      <span class="badge text-bg-secondary">{{ i18n.t('inbox.mentionsCount', { count: inbox.counts.mentions_total }) }}</span>
+      <span class="badge text-bg-secondary">{{ i18n.t('inbox.cardsCount', { count: inbox.counts.cards }) }}</span>
       <button
         class="btn btn-sm btn-outline-secondary inbox__readall"
         type="button"
         [disabled]="!inbox.counts.mentions"
         (click)="markAllRead()"
       >
-        mark all read
+        {{ i18n.t('inbox.markAllRead') }}
       </button>
     </div>
 
     <div class="inbox__cols">
       <section class="ph-panel">
-        <header class="ph-panel__header">mentions</header>
+        <header class="ph-panel__header">{{ i18n.t('inbox.mentions') }}</header>
         <div class="ph-panel__body p-0">
           <div class="list">
             @for (mention of inbox.mentions; track mention.mention_id) {
@@ -29,23 +29,23 @@
               >
                 <span class="list__flag">
                   @if (!mention.read_at) {
-                    <span class="badge text-bg-primary">unread</span>
+                    <span class="badge text-bg-primary">{{ i18n.t('inbox.unread') }}</span>
                   }
                 </span>
                 <span class="list__title">{{ mention.thread_title }}</span>
                 <span class="list__meta ph-label">
-                  from @{{ mention.author }} · {{ mention.created_at | when }} · {{ mention.body.slice(0, 80) }}
+                  {{ i18n.t('inbox.from', { author: mention.author }) }} · {{ mention.created_at | when }} · {{ mention.body.slice(0, 80) }}
                 </span>
               </button>
             } @empty {
-              <p class="ph-label p-3">no mentions</p>
+              <p class="ph-label p-3">{{ i18n.t('inbox.noMentions') }}</p>
             }
           </div>
         </div>
       </section>
 
       <section class="ph-panel">
-        <header class="ph-panel__header">assigned to you</header>
+        <header class="ph-panel__header">{{ i18n.t('inbox.assigned') }}</header>
         <div class="ph-panel__body p-0">
           <div class="list">
             @for (card of inbox.cards; track card.id) {
@@ -56,13 +56,13 @@
                 </span>
               </button>
             } @empty {
-              <p class="ph-label p-3">no assigned cards</p>
+              <p class="ph-label p-3">{{ i18n.t('inbox.noAssigned') }}</p>
             }
           </div>
         </div>
       </section>
     </div>
   } @else {
-    <p class="ph-label">loading…</p>
+    <p class="ph-label">{{ i18n.t('inbox.loading') }}</p>
   }
 </section>

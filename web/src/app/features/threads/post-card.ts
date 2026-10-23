@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 
 import { ForumStore } from '../../core/forum.store';
 import { REACTION_PRESETS, reactionIcon, type Post } from '../../core/models';
+import { TranslateService } from '../../core/i18n';
 import { SessionService } from '../../core/session.service';
 import { WhenPipe } from '../../core/time';
 
@@ -39,6 +40,7 @@ export class PostCard {
   readonly post = input.required<Post>();
 
   private readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
   private readonly session = inject(SessionService);
 
   private readonly handle = computed(() => this.session.me()?.handle ?? '');

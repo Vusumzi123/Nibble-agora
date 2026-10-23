@@ -4,6 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { EN } from '../../core/i18n';
+import { StatusService } from '../../core/status.service';
 import { ACCENTS } from '../../core/theme';
 import { SetupPage } from './setup';
 
@@ -24,6 +26,9 @@ describe('SetupPage (first-run wizard)', () => {
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('#setup')).toBeTruthy();
+    expect(el.querySelector('.ph-panel__header')?.textContent).toContain(EN['setup.title']);
+    expect(el.querySelector('#setup-submit')?.textContent).toContain(EN['setup.submit']);
+    expect(el.textContent ?? '').not.toMatch(/setup\.[a-zA-Z]/);
     expect(el.querySelectorAll('.theme-card').length, 'the gallery is gone').toBe(0);
     expect(el.querySelector('.theme-switch')).toBeTruthy();
 
@@ -69,5 +74,27 @@ describe('SetupPage (first-run wizard)', () => {
       config: { configured: true, forum_name: 'Night Hall', theme: 'nibble-dark', accent: 'teal' },
     });
     await fixture.whenStable();
+  });
+
+  it('keys the validation flash messages', async () => {
+    const fixture = TestBed.createComponent(SetupPage);
+    fixture.detectChanges();
+    const flash = vi.spyOn(TestBed.inject(StatusService), 'flash');
+    const page = fixture.componentInstance as unknown as Record<string, unknown>;
+    const submit = page['submit'] as () => Promise<void>;
+
+    page['handle'] = '   ';
+    await submit.call(page);
+    expect(flash).toHaveBeenLastCalledWith(EN['setup.handleRequired'], true);
+
+    page['handle'] = 'admin';
+    page['password'] = 'short';
+    await submit.call(page);
+    expect(flash).toHaveBeenLastCalledWith(EN['setup.passwordTooShort'], true);
+
+    page['password'] = 'longenough1';
+    page['confirm'] = 'different1';
+    await submit.call(page);
+    expect(flash).toHaveBeenLastCalledWith(EN['setup.passwordMismatch'], true);
   });
 });

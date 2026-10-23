@@ -15,8 +15,8 @@
         <a
           class="btn btn-sm btn-outline-secondary btn-icon"
           routerLink="/threads"
-          title="all threads"
-          aria-label="back to threads"
+          [title]="i18n.t('threads.allThreads')"
+          [attr.aria-label]="i18n.t('threads.backToThreads')"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -36,24 +36,26 @@
           <h5 class="m-0">{{ detail.thread.title }}</h5>
           <app-category-badge [category]="detail.thread.category" />
           @if (detail.thread.status !== 'open') {
-            <span class="badge text-bg-secondary">{{ detail.thread.status }}</span>
+            <span class="ph-label">{{ i18n.t('threads.status.' + detail.thread.status) }}</span>
           }
           <span class="ph-label thread-detail__stats">
-            ▲ {{ detail.thread.votes }}
-            · {{ detail.thread.views }} views
+            <span>▲ {{ detail.thread.votes }}</span>
+            <span>{{ i18n.t('threads.viewsCount', { count: detail.thread.views }) }}</span>
+            <span>{{ i18n.t('threads.repliesCount', { count: detail.replies_total ?? 0 }) }}</span>
+            <span class="thread-detail__stats-time">{{ detail.thread.updated_at | when }}</span>
           </span>
           <button
             class="btn btn-sm"
             type="button"
             [disabled]="busy.active()"
-            [class.btn-primary]="detail.voted"
             [class.btn-outline-secondary]="!detail.voted"
+            [class.thread-detail__upvote--active]="detail.voted"
             (click)="vote()"
           >
-            {{ detail.voted ? 'upvoted' : 'upvote' }}
+            {{ detail.voted ? i18n.t('threads.upvoted') : i18n.t('threads.upvote') }}
           </button>
         } @else if (store.threadLoading()) {
-          <app-loading-dots label="loading thread" />
+          <app-loading-dots [label]="i18n.t('threads.loadingThread')" />
         }
       </div>
       @if (store.thread(); as detail) {
@@ -68,15 +70,15 @@
       @if (!pendingBottom() && (store.hasOlderReplies() || store.repliesLoadingMore())) {
         <div class="feed__sentinel ph-label" #sentinel>
           @if (store.repliesLoadingMore()) {
-            <app-loading-dots label="loading older replies" />
+            <app-loading-dots [label]="i18n.t('threads.loadingOlderReplies')" />
           } @else {
-            ↑ older replies
+            ↑ {{ i18n.t('threads.olderReplies') }}
           }
         </div>
       }
       @if (store.repliesLoading()) {
         <div class="feed__loader">
-          <app-loading-dots label="loading replies" />
+          <app-loading-dots [label]="i18n.t('threads.loadingReplies')" />
         </div>
       }
       @if (replies().length) {
@@ -92,12 +94,12 @@
       }
       @if (!controlsOpen) {
         <button class="feed__join" type="button" (click)="focusComposer()">
-          ↳ join the conversation
+          ↳ {{ i18n.t('threads.joinConversation') }}
         </button>
       }
     } @else {
       <div class="feed__loader">
-        <app-loading-dots label="loading thread" />
+        <app-loading-dots [label]="i18n.t('threads.loadingThread')" />
       </div>
     }
   </div>
@@ -109,7 +111,7 @@
         class="form-control composer__input"
         #input
         rows="1"
-        placeholder="write a reply…"
+        [placeholder]="i18n.t('threads.replyPlaceholder')"
         [(ngModel)]="body"
         (focus)="controlsOpen = true"
         (keydown)="onComposerKeydown($event)"
@@ -132,7 +134,7 @@
             (mousedown)="$event.preventDefault()"
             (click)="reply()"
           >
-            reply
+            {{ i18n.t('threads.reply') }}
           </button>
         </div>
       }

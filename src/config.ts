@@ -15,6 +15,7 @@ export interface Config {
   rootPassword: string;
   defaultTheme: string;
   defaultAccent: string;
+  defaultLocale: string;
   postCharLimit: number;
   cardBodyCharLimit: number;
   maxBodyBytes: number;
@@ -35,6 +36,12 @@ export type AccentId = (typeof ACCENTS)[number];
 export const isAccent = (value: unknown): value is AccentId =>
   typeof value === 'string' && (ACCENTS as readonly string[]).includes(value);
 
+/** Locales the app can render. The second catalog lands with the i18n conversion. */
+export const LOCALES = ['en'] as const;
+export type LocaleId = (typeof LOCALES)[number];
+export const isLocale = (value: unknown): value is LocaleId =>
+  typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
+
 const DEFAULTS: Record<string, string> = {
   bind: '127.0.0.1',
   port: '7430',
@@ -47,6 +54,7 @@ const DEFAULTS: Record<string, string> = {
   root_password: '',
   theme: 'nibble',
   accent: 'violet',
+  locale: 'en',
   post_char_limit: '512',
   card_body_char_limit: '4000',
   max_body_bytes: '65536',
@@ -119,6 +127,7 @@ export function loadConfig(opts: LoadOptions = {}): Config {
     rootPassword: env.AGORA_ROOT_PASSWORD ?? raw.root_password,
     defaultTheme: isTheme(raw.theme) ? raw.theme : 'nibble',
     defaultAccent: isAccent(raw.accent) ? raw.accent : 'violet',
+    defaultLocale: isLocale(raw.locale) ? raw.locale : 'en',
     postCharLimit: int(raw.post_char_limit, 512, 'post_char_limit'),
     cardBodyCharLimit: int(raw.card_body_char_limit, 4000, 'card_body_char_limit'),
     maxBodyBytes: int(raw.max_body_bytes, 65536, 'max_body_bytes'),

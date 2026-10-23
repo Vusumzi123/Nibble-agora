@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ForumStore } from '../../core/forum.store';
+import { EN } from '../../core/i18n';
 import type { Inbox } from '../../core/models';
 import { InboxPage } from './inbox';
 
@@ -64,6 +65,10 @@ describe('InboxPage (unread mentions + mark all read)', () => {
     const head = el.querySelector('.view__head')?.textContent ?? '';
     expect(head).toContain('1 unread');
     expect(head).toContain('2 mentions');
+    expect(head).toContain(EN['inbox.unreadCount'].replace('{count}', '1'));
+    expect(el.querySelector('.inbox__readall')?.textContent).toContain(EN['inbox.markAllRead']);
+    expect(el.querySelectorAll('.ph-panel__header')[0]?.textContent).toContain(EN['inbox.mentions']);
+    expect(el.textContent ?? '').not.toMatch(/inbox\.[a-zA-Z]/);
   });
 
   it('mark all read calls the store; the button is disabled at zero unread', () => {

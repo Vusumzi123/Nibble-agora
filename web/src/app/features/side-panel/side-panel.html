@@ -1,14 +1,20 @@
-<aside class="side-panel" [class.side-panel--open]="open()" aria-label="navigation">
+<aside
+  class="side-panel"
+  [class.side-panel--open]="open()"
+  [attr.aria-label]="i18n.t('shell.navigation')"
+>
   <div class="side-panel__head">
     <div class="side-panel__brand ph-glow">
       <img class="side-panel__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
       {{ config.forumName() }}
     </div>
-    <button class="side-panel__close" type="button" (click)="close()">close</button>
+    <button class="side-panel__close" type="button" (click)="close()">
+      {{ i18n.t('shell.close') }}
+    </button>
   </div>
 
-  <nav class="side-panel__group" aria-label="views">
-    <span class="ph-label">views</span>
+  <nav class="side-panel__group" [attr.aria-label]="i18n.t('shell.views')">
+    <span class="ph-label">{{ i18n.t('shell.views') }}</span>
     <ul class="side-panel__list">
       <li>
         <a
@@ -17,7 +23,7 @@
           routerLinkActive="panel-item--active"
           (click)="close()"
         >
-          threads
+          {{ i18n.t('shell.threads') }}
         </a>
       </li>
       <li>
@@ -27,7 +33,7 @@
           routerLinkActive="panel-item--active"
           (click)="close()"
         >
-          boards
+          {{ i18n.t('shell.boards') }}
         </a>
       </li>
       <li>
@@ -37,7 +43,7 @@
           routerLinkActive="panel-item--active"
           (click)="close()"
         >
-          inbox
+          {{ i18n.t('shell.inbox') }}
           @if (store.inboxCount() > 0) {
             <span class="panel-item__badge">{{ store.inboxCount() }}</span>
           }
@@ -47,7 +53,7 @@
   </nav>
 
   <div class="side-panel__group">
-    <span class="ph-label">forums</span>
+    <span class="ph-label">{{ i18n.t('shell.forums') }}</span>
     <ul class="side-panel__list">
       @for (forum of store.forums(); track forum.id) {
         <li>
@@ -65,20 +71,22 @@
 
     @if (!createOpen) {
       <button class="panel-item panel-item--ghost" type="button" (click)="toggleCreate()">
-        + new forum
+        {{ i18n.t('shell.newForum') }}
       </button>
     } @else {
       <form class="side-panel__create" (ngSubmit)="create()">
         <input
           class="form-control form-control-sm"
           type="text"
-          placeholder="forum name"
+          [attr.placeholder]="i18n.t('shell.forumName')"
           name="name"
           maxlength="64"
           [(ngModel)]="name"
           (keydown.escape)="toggleCreate()"
         />
-        <button class="btn btn-sm btn-primary" type="submit">create</button>
+        <button class="btn btn-sm btn-primary" type="submit">
+          {{ i18n.t('shell.create') }}
+        </button>
       </form>
     }
   </div>

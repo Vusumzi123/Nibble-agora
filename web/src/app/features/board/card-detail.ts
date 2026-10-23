@@ -12,6 +12,7 @@ import {
 import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { Card, CardComment } from '../../core/models';
 import { CharCounter } from '../../shared/char-counter';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
@@ -38,6 +39,7 @@ export class CardDetail {
   readonly closed = output<void>();
 
   protected readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
   protected readonly creating = computed(() => this.card() === null);
 
   protected readonly title = signal('');

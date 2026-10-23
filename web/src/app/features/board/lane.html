@@ -28,8 +28,8 @@
       <button
         class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
-        title="add card"
-        aria-label="add card"
+        [title]="i18n.t('board.addCard')"
+        [attr.aria-label]="i18n.t('board.addCard')"
         (click)="startAddCard()"
       >
         <svg
@@ -49,8 +49,8 @@
       <button
         class="btn btn-sm btn-outline-secondary btn-icon"
         type="button"
-        title="delete column"
-        aria-label="delete column"
+        [title]="i18n.t('board.deleteColumn')"
+        [attr.aria-label]="i18n.t('board.deleteColumn')"
         (click)="startDelete()"
       >
         <svg
@@ -110,8 +110,8 @@
 
 @if (confirming) {
   <app-confirm-dialog
-    title="delete column"
-    message="delete this column and its cards?"
+    [title]="i18n.t('board.deleteColumn')"
+    [message]="i18n.t('board.deleteColumnMessage')"
     (confirmed)="deleteColumn()"
     (cancelled)="confirming = false"
   />

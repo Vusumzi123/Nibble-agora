@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 
 @Component({
   selector: 'app-side-panel',
@@ -15,6 +16,7 @@ import { ForumStore } from '../../core/forum.store';
 export class SidePanel {
   protected readonly store = inject(ForumStore);
   protected readonly config = inject(ConfigService);
+  protected readonly i18n = inject(TranslateService);
   private readonly router = inject(Router);
 
   /** Full-screen drawer visibility — owned by the shell's top bar. */

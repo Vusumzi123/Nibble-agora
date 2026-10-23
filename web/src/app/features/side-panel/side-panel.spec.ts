@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ForumStore } from '../../core/forum.store';
+import { EN } from '../../core/i18n';
 import type { Agent } from '../../core/models';
 import { SessionService } from '../../core/session.service';
 import { SidePanel } from './side-panel';
@@ -91,5 +92,30 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     fixture.detectChanges();
 
     expect(store.boardId()).toBe(7);
+  });
+
+  it('renders the shell chrome through the translation catalog', () => {
+    const fixture = TestBed.createComponent(SidePanel);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('aside')!.getAttribute('aria-label')).toBe(EN['shell.navigation']);
+    expect(root.querySelector('.side-panel__close')!.textContent).toContain(EN['shell.close']);
+    expect(root.querySelector('a[href="/threads"]')!.textContent).toContain(EN['shell.threads']);
+    expect(root.querySelector('a[href="/boards"]')!.textContent).toContain(EN['shell.boards']);
+    expect(root.querySelector('a[href="/inbox"]')!.textContent).toContain(EN['shell.inbox']);
+  });
+
+  it('re-renders labels from the catalog instead of hardcoded copy', () => {
+    const catalog = EN as Record<string, string>;
+    const previous = catalog['shell.threads'];
+    catalog['shell.threads'] = 'THREADS_X';
+    try {
+      const fixture = TestBed.createComponent(SidePanel);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('THREADS_X');
+    } finally {
+      catalog['shell.threads'] = previous;
+    }
   });
 });

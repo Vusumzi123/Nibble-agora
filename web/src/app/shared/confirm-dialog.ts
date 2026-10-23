@@ -1,4 +1,6 @@
-import { Component, ElementRef, ViewChild, input, output } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, input, output } from '@angular/core';
+
+import { TranslateService } from '../core/i18n';
 
 /**
  * Centered overlay confirm for the board's destructive actions (delete card,
@@ -15,7 +17,7 @@ import { Component, ElementRef, ViewChild, input, output } from '@angular/core';
         (click)="$event.stopPropagation()"
         (keydown.escape)="cancelled.emit()"
       >
-        <header class="ph-panel__header">{{ title() }}</header>
+        <header class="ph-panel__header">{{ title() ?? i18n.t('shell.confirm') }}</header>
         <div class="confirm__body">
           <p class="confirm__msg">{{ message() }}</p>
           <div class="confirm__actions">
@@ -25,10 +27,10 @@ import { Component, ElementRef, ViewChild, input, output } from '@angular/core';
               type="button"
               (click)="cancelled.emit()"
             >
-              {{ cancelLabel() }}
+              {{ cancelLabel() ?? i18n.t('shell.keep') }}
             </button>
             <button class="btn btn-sm btn-danger" type="button" (click)="confirmed.emit()">
-              {{ confirmLabel() }}
+              {{ confirmLabel() ?? i18n.t('shell.delete') }}
             </button>
           </div>
         </div>
@@ -63,11 +65,13 @@ import { Component, ElementRef, ViewChild, input, output } from '@angular/core';
   `,
 })
 export class ConfirmDialog {
-  /** Modal header, e.g. "delete card". */
-  readonly title = input('confirm');
+  protected readonly i18n = inject(TranslateService);
+
+  /** Modal header, e.g. "delete card"; falls back to the translated default. */
+  readonly title = input<string>();
   readonly message = input.required<string>();
-  readonly confirmLabel = input('delete');
-  readonly cancelLabel = input('keep');
+  readonly confirmLabel = input<string>();
+  readonly cancelLabel = input<string>();
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();

@@ -3,8 +3,44 @@
   --detail-gutter: var(--ph-space-5);
 }
 
+/* The list footer's vocabulary (votes · views · replies · time), same order
+   and gap, carried onto the detail head. No hairline here — the head is not
+   a row footer — but the four facts now match whichever page you came from. */
 .thread-detail__stats {
   margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ph-space-4);
+  white-space: nowrap;
+}
+
+.thread-detail__stats-time {
+  margin-left: auto;
+}
+
+/* The detail titles a thread with the list's type, not Bootstrap's h5
+   (20px/500). Same computed style as .list__title on /threads: 16px/400,
+   24px leading, normal tracking, --ph-text. Heading semantics stay on the
+   element; only the rendering aligns. */
+.view__head h5 {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  color: var(--ph-text);
+}
+
+/* Upvoted — the list's active tag language (accent border, 12% tint, accent
+   ink, 600) instead of a solid Bootstrap fill. Unvoted stays
+   .btn-outline-secondary. */
+.btn.thread-detail__upvote--active,
+.btn.thread-detail__upvote--active:hover,
+.btn.thread-detail__upvote--active:focus-visible {
+  border-color: var(--ph-primary);
+  background: color-mix(in srgb, var(--ph-primary) 12%, transparent);
+  color: var(--ph-primary);
+  font-weight: 600;
 }
 
 /* Detail view pins head + composer; only the post feed scrolls. */
@@ -48,39 +84,33 @@
 }
 
 /* The pinned sheet — head and OP share one sticky band: the same surface,
-   the same reading column, no seam between them. They used to be two
-   pieces (a transparent head outside the scroller, a sticky OP inside)
-   that only lined up because .feed reserved a scrollbar gutter on both
-   edges — which also left a page-coloured strip down the left of the feed.
-   One band needs no gutter trick. */
-/* Anchored through .feed on purpose: the band must out-rank
-   `.feed > *`, which otherwise pins every feed child to the reading column
-   and squeezes this full-bleed sheet down with it. */
+   the same reading column, no seam between them. The band rides the generic
+   `.feed > *` column below, so it reads as the same card column as /threads
+   instead of a full-bleed strip. */
 .view--detail .feed > .feed__pinned {
   position: sticky;
   top: 0;
   z-index: 2;
-  width: 100%;
-  margin-inline: 0;
   /* Same sheet as a reply row, and it stays put on hover. */
   background: var(--ph-surface);
-  border-bottom: 1px solid var(--ph-border);
-  box-shadow: var(--ph-shadow-2);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  box-shadow: none;
 }
 
-/* Both halves sit on the centered column the replies scroll under — the rule
-   every other .feed child gets, applied one level deeper. */
+/* The band IS the column now, so its halves fill it. */
 .view--detail .feed__pinned > * {
-  width: min(100% - 2 * var(--detail-gutter), var(--threads-col));
-  margin-inline: auto;
+  width: 100%;
+  margin-inline: 0;
 }
 
 /* The band is the head's frame now: it no longer floats on the page with a
-   top margin, and it pads with the same 16px the post body pads with so the
-   two halves share one rhythm. */
+   top margin, and it pads with the same 16px the list rows use so the head
+   content sits on the same inset as the OP body below it. */
 .view--detail .feed__pinned > .view__head {
   margin-top: 0;
   padding-block: var(--ph-space-4);
+  padding-inline: var(--ph-space-4);
 }
 
 /* Custom elements are inline by default — without this the card shrinks to
@@ -121,7 +151,7 @@
   padding: var(--ph-space-3);
   background: var(--ph-surface);
   border: 1px solid var(--ph-border);
-  border-radius: var(--ph-radius-lg);
+  border-radius: var(--ph-radius-md);
   box-shadow: var(--ph-shadow-2);
   transition: background var(--ph-transition-fast);
 }

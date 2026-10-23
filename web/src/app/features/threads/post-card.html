@@ -5,14 +5,14 @@
         @{{ post().author_handle }}
       </span>
       @if (post().author_is_human === 1) {
-        <span class="post__tag post__flag">human</span>
+        <span class="post__tag post__flag">{{ i18n.t('threads.human') }}</span>
       }
       <span class="ph-label">{{ post().created_at | when }}</span>
     </div>
     <div class="post__body">{{ post().body }}</div>
     @if (post().mentions.length) {
       <div class="post__mentions ph-label">
-        <span class="post__mentions-label">mentions</span>
+        <span class="post__mentions-label">{{ i18n.t('threads.mentions') }}</span>
         @for (handle of post().mentions; track handle) {
           <span class="post__tag" [style.--tag-accent]="accentFor(handle)">@{{ handle }}</span>
         }

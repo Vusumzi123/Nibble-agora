@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { ConfigService } from '../../core/config.service';
+import { TranslateService } from '../../core/i18n';
 import { SessionService } from '../../core/session.service';
 import { StatusService } from '../../core/status.service';
 
@@ -14,6 +15,7 @@ import { StatusService } from '../../core/status.service';
 })
 export class LoginPage {
   protected readonly config = inject(ConfigService);
+  protected readonly i18n = inject(TranslateService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);

@@ -73,6 +73,7 @@ test('setup creates the admin, configures the instance and is one-shot', async (
       forum_name: 'Calm Hall',
       theme: 'nibble-dark',
       accent: 'rose',
+      locale: 'en',
     });
 
     const cfg = await json(await call(app.url, 'GET', '/api/config'));
@@ -120,19 +121,25 @@ test('settings + password changes require auth, validate, and take effect', asyn
       400,
       'unknown accent rejected',
     );
+    assert.equal(
+      (await call(app.url, 'PATCH', '/api/settings', { locale: 'zz' }, token)).status,
+      400,
+      'unknown locale rejected',
+    );
 
     const ok = await json(
       await call(
         app.url,
         'PATCH',
         '/api/settings',
-        { theme: 'nibble-dark', accent: 'rose', forum_name: 'Stoa' },
+        { theme: 'nibble-dark', accent: 'rose', forum_name: 'Stoa', locale: 'en' },
         token,
       ),
     );
     assert.equal(ok.theme, 'nibble-dark');
     assert.equal(ok.accent, 'rose');
     assert.equal(ok.forum_name, 'Stoa');
+    assert.equal(ok.locale, 'en');
 
     assert.equal(
       (

@@ -1,9 +1,9 @@
 <section id="view-threads" class="view">
   @if (!store.forumId()) {
-    <p class="ph-label">no forum selected</p>
+    <p class="ph-label">{{ i18n.t('threads.noForum') }}</p>
   } @else {
     <div class="view__head">
-      <span class="ph-label">threads</span>
+      <span class="ph-label">{{ i18n.t('threads.title') }}</span>
       <div class="tags">
         <button
           class="tag"
@@ -11,7 +11,7 @@
           [class.tag--active]="store.categories().length === 0"
           (click)="store.setCategories([])"
         >
-          all
+          {{ i18n.t('threads.all') }}
         </button>
         @for (cat of categories; track cat) {
           <button
@@ -22,7 +22,7 @@
             [attr.aria-pressed]="store.categories().includes(cat)"
             (click)="store.toggleCategory(cat)"
           >
-            {{ cat }}
+            {{ i18n.t('threads.cat.' + cat) }}
           </button>
         }
       </div>
@@ -33,14 +33,14 @@
           aria-haspopup="dialog"
           (click)="sortOpen = true"
         >
-          sort by: {{ sortLabel() }} ▾
+          {{ i18n.t('threads.sortBy') }}: {{ sortLabel() }} ▾
         </button>
       </div>
     </div>
 
     @if (store.threadsReloading()) {
       <div class="text-center p-3">
-        <app-loading-dots label="loading threads" />
+        <app-loading-dots [label]="i18n.t('threads.loading')" />
       </div>
     }
     <div class="list list--flush">
@@ -50,7 +50,7 @@
             <span class="tag" [attr.data-cat]="thread.category">{{ thread.category }}</span>
             <span class="list__title">{{ thread.title }}</span>
             @if (thread.status !== 'open') {
-              <span class="list__meta ph-label">{{ thread.status }}</span>
+              <span class="list__meta ph-label">{{ i18n.t('threads.status.' + thread.status) }}</span>
             }
           </span>
           @if (thread.body) {
@@ -64,22 +64,22 @@
           }
           <span class="list__footer ph-label">
             <span>▲ {{ thread.votes }}</span>
-            <span>{{ thread.views }} views</span>
-            <span>{{ thread.reply_count - 1 }} replies</span>
+            <span>{{ i18n.t('threads.viewsCount', { count: thread.views }) }}</span>
+            <span>{{ i18n.t('threads.repliesCount', { count: thread.reply_count - 1 }) }}</span>
             <span class="list__footer-time">{{ thread.updated_at | when }}</span>
           </span>
         </a>
       } @empty {
-        <p class="ph-label p-3">no threads yet</p>
+        <p class="ph-label p-3">{{ i18n.t('threads.empty') }}</p>
       }
     </div>
 
     @if (store.hasMoreThreads()) {
       <div class="ph-label p-3 text-center" #sentinel>
         @if (store.loadingMore()) {
-          <app-loading-dots label="loading more" />
+          <app-loading-dots [label]="i18n.t('threads.loadingMore')" />
         } @else {
-          loading more…
+          {{ i18n.t('threads.loadingMoreEllipsis') }}
         }
       </div>
     }
@@ -87,18 +87,18 @@
     @if (composerOpen) {
       <div class="overlay" (click)="closeComposer()">
         <section class="ph-panel composer overlay__card" (click)="$event.stopPropagation()">
-          <header class="ph-panel__header">new thread</header>
+          <header class="ph-panel__header">{{ i18n.t('threads.newThread') }}</header>
           <div class="ph-panel__body composer__grid">
             <input
               class="form-control"
               type="text"
-              placeholder="title"
+              [placeholder]="i18n.t('threads.titlePlaceholder')"
               maxlength="200"
               [(ngModel)]="title"
             />
             <select class="form-select" [(ngModel)]="category">
               @for (cat of categories; track cat) {
-                <option [value]="cat">{{ cat }}</option>
+                <option [value]="cat">{{ i18n.t('threads.cat.' + cat) }}</option>
               }
             </select>
             <div class="composer__body">
@@ -106,7 +106,7 @@
                 class="form-control"
                 rows="4"
                 [placeholder]="
-                  'first message — ' + store.session.limits().post_char_limit + ' char limit'
+                  i18n.t('threads.bodyPlaceholder', { limit: store.session.limits().post_char_limit })
                 "
                 [(ngModel)]="body"
               ></textarea>
@@ -119,9 +119,9 @@
                 type="button"
                 (click)="closeComposer()"
               >
-                cancel
+                {{ i18n.t('shell.cancel') }}
               </button>
-              <button class="btn btn-primary" type="button" [disabled]="busy.active()" (click)="post()">post thread</button>
+              <button class="btn btn-primary" type="button" [disabled]="busy.active()" (click)="post()">{{ i18n.t('threads.post') }}</button>
             </div>
           </div>
         </section>
@@ -133,11 +133,11 @@
         class="overlay"
         role="dialog"
         aria-modal="true"
-        aria-label="sort by"
+        [attr.aria-label]="i18n.t('threads.sortBy')"
         (click)="closeSort()"
       >
         <section class="overlay__card overlay__card--menu" (click)="$event.stopPropagation()">
-          <header class="ph-panel__header">sort by</header>
+          <header class="ph-panel__header">{{ i18n.t('threads.sortBy') }}</header>
           <div class="sort-menu">
             @for (opt of sortOptions; track opt.value) {
               <button
@@ -148,7 +148,7 @@
                 role="menuitemradio"
                 (click)="applySort(opt.value)"
               >
-                <span>{{ opt.label }}</span>
+                <span>{{ i18n.t(opt.labelKey) }}</span>
                 @if (store.sort() === opt.value) {
                   <span class="sort-menu__check" aria-hidden="true">✓</span>
                 }
@@ -164,8 +164,8 @@
     <button
       class="fab"
       type="button"
-      title="new thread"
-      aria-label="new thread"
+      [title]="i18n.t('threads.newThread')"
+      [attr.aria-label]="i18n.t('threads.newThread')"
       (click)="openComposer()"
     >
       <svg

@@ -1,6 +1,6 @@
 <section id="view-boards" class="view">
   <div class="view__head">
-    <span class="ph-label">boards · projects</span>
+    <span class="ph-label">{{ i18n.t('boards.title') }}</span>
   </div>
 
   @if (createOpen) {
@@ -14,12 +14,12 @@
         (keydown.escape)="closeCreate()"
       >
         <header class="ph-panel__header boards__modal-head">
-          <span id="new-project-title">new project</span>
+          <span id="new-project-title">{{ i18n.t('boards.newProject') }}</span>
           <button
             class="btn btn-sm btn-outline-secondary btn-icon"
             type="button"
-            title="close"
-            aria-label="close"
+            [title]="i18n.t('shell.close')"
+            [attr.aria-label]="i18n.t('shell.close')"
             (click)="closeCreate()"
           >
             <svg
@@ -38,32 +38,32 @@
           </button>
         </header>
         <form class="boards__modal-form" (ngSubmit)="create()">
-          <label class="ph-label" for="project-name">title</label>
+          <label class="ph-label" for="project-name">{{ i18n.t('boards.nameLabel') }}</label>
           <input
             #nameInput
             id="project-name"
             class="form-control"
             type="text"
-            placeholder="project name"
+            [placeholder]="i18n.t('boards.projectName')"
             name="name"
             maxlength="64"
             [(ngModel)]="name"
           />
-          <label class="ph-label" for="project-description">description</label>
+          <label class="ph-label" for="project-description">{{ i18n.t('boards.description') }}</label>
           <textarea
             id="project-description"
             class="form-control boards__modal-desc"
             rows="3"
-            placeholder="what is this project for? (optional)"
+            [placeholder]="i18n.t('boards.descriptionPlaceholder')"
             name="description"
             [(ngModel)]="description"
           ></textarea>
           <div class="boards__modal-actions">
             <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">
-              cancel
+              {{ i18n.t('shell.cancel') }}
             </button>
             <button class="btn btn-primary" type="submit" [disabled]="busy.active()">
-              create
+              {{ i18n.t('shell.create') }}
             </button>
           </div>
         </form>
@@ -91,7 +91,7 @@
         />
       </div>
     } @empty {
-      <p class="ph-label p-3">no projects yet</p>
+      <p class="ph-label p-3">{{ i18n.t('boards.empty') }}</p>
     }
   </div>
 
@@ -99,8 +99,8 @@
     <button
       class="fab"
       type="button"
-      title="new project"
-      aria-label="new project"
+      [title]="i18n.t('boards.newProject')"
+      [attr.aria-label]="i18n.t('boards.newProject')"
       (click)="openCreate()"
     >
       <svg

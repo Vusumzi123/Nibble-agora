@@ -368,3 +368,125 @@ test('thread read windows replies with limit/offset and reports replies_total', 
     app.db.close();
   }
 });
+
+
+test('mention dismiss: DELETE removes only the caller\'s row, journals, and guards', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'agora-mention-delete-'));
+  dirs.push(dir);
+
+  const configPath = path.join(dir, 'config.yaml');
+  writeFileSync(
+    configPath,
+    [
+      'bind: 127.0.0.1',
+      'port: 0',
+      'data_dir: data',
+      'db_file: agora.db',
+      'default_board: agora',
+      '',
+    ].join('\n'),
+  );
+
+  const cfg = loadConfig({ configPath, cwd: dir, env: { AGORA_PORT: '0' } });
+  const app: App = await start(cfg);
+  try {
+    const base = app.url;
+    const reg = async (handle: string) =>
+      json(
+        await fetch(`${base}/api/agents`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ handle }),
+        }),
+      );
+
+    const owner = await reg('mention-owner');
+    const bystander = await reg('mention-bystander');
+    const authOwner = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${owner.token}`,
+    };
+    const authBystander = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${bystander.token}`,
+    };
+
+    const forums = await json(
+      await fetch(`${base}/api/forums`, { headers: { authorization: authOwner.authorization } }),
+    );
+    const forumId = forums.forums[0].id;
+
+    const made = await json(
+      await fetch(`${base}/api/threads`, {
+        method: 'POST',
+        headers: authBystander,
+        body: JSON.stringify({
+          forum_id: forumId,
+          category: 'discussion',
+          title: 'dismiss me',
+          body: 'ping',
+          mentions: ['mention-owner', 'mention-bystander'],
+        }),
+      }),
+    );
+    const threadId = made.thread.id;
+
+    const inbox = async (handle: string, auth: Record<string, string>) =>
+      json(await fetch(`${base}/api/inbox/${handle}`, { headers: { authorization: auth.authorization } }));
+
+    const mine = await inbox('mention-owner', authOwner);
+    const theirs = await inbox('mention-bystander', authBystander);
+    assert.equal(mine.counts.mentions_total, 1);
+    assert.equal(theirs.counts.mentions_total, 1);
+    const mentionId = mine.mentions[0].mention_id as number;
+    const bystanderMentionId = theirs.mentions[0].mention_id as number;
+    assert.notEqual(mentionId, bystanderMentionId);
+
+    const del = (handle: string, id: number | string, headers?: Record<string, string>) =>
+      fetch(`${base}/api/inbox/${handle}/mentions/${id}`, { method: 'DELETE', headers });
+
+    // 200: self-scoped hard delete of exactly one row
+    const ok = await del('mention-owner', mentionId, authOwner);
+    assert.equal(ok.status, 200);
+    assert.deepEqual(await json(ok), { ok: true, removed: 1 });
+
+    const afterOwner = await inbox('mention-owner', authOwner);
+    assert.equal(afterOwner.counts.mentions_total, 0, 'owner row is gone');
+    assert.equal(afterOwner.mentions.length, 0);
+
+    // post + thread survive; the other seat's mention on the same post survives
+    const thread = await fetch(`${base}/api/threads/${threadId}`, {
+      headers: { authorization: authOwner.authorization },
+    });
+    assert.equal(thread.status, 200, 'thread still readable');
+    const afterBystander = await inbox('mention-bystander', authBystander);
+    assert.equal(afterBystander.counts.mentions_total, 1, 'other seat mention intact');
+
+    // repeat + cross-seat + unknown rows
+    assert.equal((await del('mention-owner', mentionId, authOwner)).status, 404, 'already removed');
+    assert.equal(
+      (await del('mention-owner', bystanderMentionId, authOwner)).status,
+      404,
+      "cannot delete another seat's row via own handle",
+    );
+    assert.equal(
+      (await del('mention-owner', bystanderMentionId, authBystander)).status,
+      403,
+      'another seat cannot target your handle',
+    );
+    assert.equal((await del('ghost', mentionId, authOwner)).status, 404, 'unknown handle');
+    assert.equal((await del('mention-owner', 999999, authOwner)).status, 404, 'unknown mention');
+    assert.equal((await del('mention-owner', mentionId)).status, 401, 'no token');
+
+    // journal entry mirrors mention.create's shape
+    const event = app.db.get<{ action: string; target: string; payload: string }>(
+      "SELECT action, target, payload FROM events WHERE action = 'mention.delete'",
+    );
+    assert.ok(event, 'mention.delete journaled');
+    assert.equal(event!.target, `mention:${mentionId}`);
+    assert.deepEqual(JSON.parse(event!.payload), { agent_ids: [owner.id] });
+  } finally {
+    app.server.close();
+    app.db.close();
+  }
+});

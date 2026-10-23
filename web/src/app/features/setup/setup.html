@@ -1,54 +1,53 @@
 <div id="setup" class="setup">
   <section class="ph-panel setup__panel">
     <img class="gate__logo" src="brand/agora-logo-v4-landscape.png" alt="Agora" />
-    <header class="ph-panel__header">Agora — first-run setup</header>
+    <header class="ph-panel__header">{{ i18n.t('setup.title') }}</header>
     <div class="ph-panel__body">
       <p class="ph-label">
-        Create the admin account and choose how the forum looks. You can change
-        any of this later under <em>Settings</em>.
+        {{ i18n.t('setup.intro') }} <em>{{ i18n.t('shell.settings') }}</em>.
       </p>
 
       <label class="field-stack">
-        <span class="ph-label">forum name</span>
+        <span class="ph-label">{{ i18n.t('setup.forumName') }}</span>
         <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" placeholder="Agora" />
       </label>
 
       <label class="field-stack">
-        <span class="ph-label">admin handle</span>
+        <span class="ph-label">{{ i18n.t('setup.adminHandle') }}</span>
         <input class="form-control" type="text" autocomplete="username" spellcheck="false" [(ngModel)]="handle" />
       </label>
 
       <div class="field-row">
         <label class="field-stack">
-          <span class="ph-label">password</span>
+          <span class="ph-label">{{ i18n.t('setup.password') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="password" />
         </label>
         <label class="field-stack">
-          <span class="ph-label">confirm password</span>
+          <span class="ph-label">{{ i18n.t('setup.confirmPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
         </label>
       </div>
 
       <div class="field-stack">
-        <span class="ph-label">mode</span>
+        <span class="ph-label">{{ i18n.t('setup.mode') }}</span>
         <div class="theme-switch-row">
-          <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">dark</span>
+          <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">{{ i18n.t('settings.dark') }}</span>
           <label class="theme-switch">
             <input
               type="checkbox"
               role="switch"
-              aria-label="light mode"
+              [attr.aria-label]="i18n.t('settings.lightMode')"
               [checked]="modeIsLight"
               (change)="toggleMode($event)"
             />
             <span class="theme-switch__track"></span>
           </label>
-          <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">light</span>
+          <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">{{ i18n.t('settings.light') }}</span>
         </div>
       </div>
 
       <div class="field-stack">
-        <span class="ph-label">accent</span>
+        <span class="ph-label">{{ i18n.t('setup.accent') }}</span>
         <div class="accent-row">
           @for (a of accents; track a.id) {
             <button
@@ -69,7 +68,7 @@
 
       <div class="gate__actions">
         <button id="setup-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
-          {{ busy ? 'creating…' : 'create forum' }}
+          {{ i18n.t(busy ? 'setup.busy' : 'setup.submit') }}
         </button>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 import { BusyService } from '../../core/busy.service';
 import { ForumStore, type ThreadSort } from '../../core/forum.store';
 import { CATEGORIES, type Category } from '../../core/models';
+import { TranslateService } from '../../core/i18n';
 import { WhenPipe } from '../../core/time';
 import { CharCounter } from '../../shared/char-counter';
 import { LoadingDots } from '../../shared/loading-dots';
@@ -30,13 +31,14 @@ export class ThreadsPage implements OnInit {
   protected readonly store = inject(ForumStore);
   private readonly status = inject(StatusService);
   protected readonly busy = inject(BusyService);
+  protected readonly i18n = inject(TranslateService);
 
   protected readonly categories = CATEGORIES;
-  protected readonly sortOptions: { value: ThreadSort; label: string }[] = [
-    { value: 'updated', label: 'recent' },
-    { value: 'created', label: 'posted' },
-    { value: 'votes', label: 'votes' },
-    { value: 'views', label: 'views' },
+  protected readonly sortOptions: { value: ThreadSort; labelKey: string }[] = [
+    { value: 'updated', labelKey: 'threads.sortRecent' },
+    { value: 'created', labelKey: 'threads.sortPosted' },
+    { value: 'votes', labelKey: 'threads.sortVotes' },
+    { value: 'views', labelKey: 'threads.sortViews' },
   ];
 
   protected composerOpen = false;
@@ -99,7 +101,7 @@ export class ThreadsPage implements OnInit {
   }
 
   protected sortLabel(): string {
-    return this.sortOptions.find((o) => o.value === this.store.sort())?.label ?? '';
+    return this.i18n.t(this.sortOptions.find((o) => o.value === this.store.sort())?.labelKey ?? '');
   }
 
   protected async applySort(value: ThreadSort): Promise<void> {
@@ -109,11 +111,11 @@ export class ThreadsPage implements OnInit {
 
   protected async post(): Promise<void> {
     if (!this.title.trim()) {
-      this.status.flash('title is required', true);
+      this.status.flash(this.i18n.t('threads.titleRequired'), true);
       return;
     }
     if (!this.body.trim()) {
-      this.status.flash('message is required', true);
+      this.status.flash(this.i18n.t('threads.messageRequired'), true);
       return;
     }
     const ok = await this.store.postThread({

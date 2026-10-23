@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 
 import { BusyService } from '../../core/busy.service';
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { Board, Project } from '../../core/models';
 import { StatusService } from '../../core/status.service';
 import { PROJECT_DRAG_TYPE, acceptsDrag, dropIndex, startDrag } from '../../shared/drag-reorder';
@@ -20,6 +21,7 @@ export class BoardsListPage implements OnInit {
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);
   protected readonly busy = inject(BusyService);
+  protected readonly i18n = inject(TranslateService);
 
   protected createOpen = false;
   protected name = '';
@@ -106,7 +108,7 @@ export class BoardsListPage implements OnInit {
   protected async create(): Promise<void> {
     const name = this.name.trim();
     if (!name) {
-      this.status.flash('project name is required', true);
+      this.status.flash(this.i18n.t('boards.projectNameRequired'), true);
       return;
     }
     const created = await this.store.createProject(name, this.description.trim());

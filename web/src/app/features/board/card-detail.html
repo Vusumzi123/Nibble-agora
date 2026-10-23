@@ -14,8 +14,8 @@
           type="text"
           name="title"
           maxlength="200"
-          aria-label="card title"
-          [placeholder]="creating() ? 'card title' : ''"
+          [attr.aria-label]="i18n.t('board.cardTitlePlaceholder')"
+          [placeholder]="creating() ? i18n.t('board.cardTitlePlaceholder') : ''"
           [ngModel]="title()"
           (ngModelChange)="title.set($event)"
           (blur)="commitTitle()"
@@ -26,20 +26,20 @@
         <h2
           class="card-detail__title"
           [class.card-detail__title--empty]="!title().trim()"
-          title="double-click to rename"
+          [title]="i18n.t('board.renameHint')"
           (dblclick)="startTitleEdit()"
         >
-          {{ title().trim() || 'untitled' }}
+          {{ title().trim() || i18n.t('board.untitled') }}
         </h2>
       }
       @if (blocked()) {
-        <span class="card-detail__blocked" role="status">blocked</span>
+        <span class="card-detail__blocked" role="status">{{ i18n.t('board.blocked') }}</span>
       }
       <button
         class="btn btn-sm btn-outline-secondary card-detail__close"
         type="button"
-        title="close card"
-        aria-label="close card"
+        [title]="i18n.t('board.closeCard')"
+        [attr.aria-label]="i18n.t('board.closeCard')"
         (click)="closed.emit()"
       >
         <svg
@@ -61,30 +61,30 @@
     <form class="card-detail__form" (ngSubmit)="save()">
       @if (remoteChanged()) {
         <div class="card-detail__remote" role="status">
-          <span>this card changed elsewhere — your draft is untouched.</span>
+          <span>{{ i18n.t('board.remoteChanged') }}</span>
           <button class="btn btn-sm btn-outline-secondary" type="button" (click)="reload()">
-            reload
+            {{ i18n.t('board.reload') }}
           </button>
         </div>
       }
 
       <div class="card-detail__bodyhead">
-        <span class="ph-label">body · markdown</span>
+        <span class="ph-label">{{ i18n.t('board.bodyMarkdown') }}</span>
         <div class="card-detail__bodybar">
           @if (editing()) {
             <app-char-counter [value]="body()" [limit]="limit" />
           }
-          <div class="card-detail__mode" role="group" aria-label="body mode">
+          <div class="card-detail__mode" role="group" [attr.aria-label]="i18n.t('board.bodyMode')">
             <span
               class="card-detail__mode-end"
               [class.card-detail__mode-end--active]="!editing()"
-              >view</span
+              >{{ i18n.t('board.view') }}</span
             >
-            <label class="card-detail__switch" title="toggle view / edit">
+            <label class="card-detail__switch" [title]="i18n.t('board.toggleViewEdit')">
               <input
                 type="checkbox"
                 role="switch"
-                aria-label="edit markdown"
+                [attr.aria-label]="i18n.t('board.editMarkdown')"
                 [checked]="editing()"
                 (change)="editing.set(!editing())"
               />
@@ -93,7 +93,7 @@
             <span
               class="card-detail__mode-end"
               [class.card-detail__mode-end--active]="editing()"
-              >edit</span
+              >{{ i18n.t('board.edit') }}</span
             >
           </div>
         </div>
@@ -105,35 +105,35 @@
           class="form-control card-detail__body"
           name="body"
           rows="10"
-          aria-label="body markdown"
+          [attr.aria-label]="i18n.t('board.bodyMarkdown')"
           [ngModel]="body()"
           (ngModelChange)="body.set($event)"
         ></textarea>
       } @else if (body().trim()) {
         <div
           class="markdown card-detail__preview"
-          title="double-click to edit"
+          [title]="i18n.t('board.dblclickEdit')"
           [innerHTML]="rendered()"
           (dblclick)="startBodyEdit()"
         ></div>
       } @else {
         <p
           class="card-detail__preview card-detail__preview--empty"
-          title="double-click to edit"
+          [title]="i18n.t('board.dblclickEdit')"
           (dblclick)="startBodyEdit()"
         >
-          no body yet — switch to edit to write one.
+          {{ i18n.t('board.noBody') }}
         </p>
       }
 
-      <label class="ph-label" for="card-detail-assignee">owner</label>
+      <label class="ph-label" for="card-detail-assignee">{{ i18n.t('board.owner') }}</label>
       <select
         id="card-detail-assignee"
         class="form-select"
         name="assignee"
         (change)="onAssignee($event)"
       >
-        <option value="" [selected]="assignee() === null">unassigned</option>
+        <option value="" [selected]="assignee() === null">{{ i18n.t('board.unassigned') }}</option>
         @for (agent of store.agents(); track agent.id) {
           <option [value]="agent.id" [selected]="assignee() === agent.id">
             @{{ agent.handle }}
@@ -144,16 +144,16 @@
       @if (!creating()) {
         <div class="card-detail__conversation">
           <div class="card-detail__conversation-head">
-            <span class="ph-label">conversation</span>
+            <span class="ph-label">{{ i18n.t('board.conversation') }}</span>
             @if (comments().length) {
               <span class="ph-label">{{ comments().length }}</span>
             }
           </div>
           <div class="card-detail__comment-list">
             @if (commentsLoading()) {
-              <p class="card-detail__comment-empty">loading conversation…</p>
+              <p class="card-detail__comment-empty">{{ i18n.t('board.loadingConversation') }}</p>
             } @else if (!comments().length) {
-              <p class="card-detail__comment-empty">no comments yet — start the conversation.</p>
+              <p class="card-detail__comment-empty">{{ i18n.t('board.noComments') }}</p>
             }
             @for (comment of comments(); track comment.id) {
               <article class="card-comment">
@@ -172,7 +172,7 @@
               class="form-control card-detail__comment-input"
               name="comment"
               rows="2"
-              placeholder="add a comment… (saved with the card)"
+              [placeholder]="i18n.t('board.addComment')"
               [ngModel]="commentDraft()"
               (ngModelChange)="commentDraft.set($event)"
             ></textarea>
@@ -193,29 +193,29 @@
             [disabled]="blocking()"
             (click)="toggleBlocked()"
           >
-            {{ blocked() ? 'unblock' : 'mark blocked' }}
+            {{ blocked() ? i18n.t('board.unblock') : i18n.t('board.markBlocked') }}
           </button>
           <button
             class="btn btn-sm btn-outline-danger"
             type="button"
             (click)="confirmingDelete.set(true)"
           >
-            delete
+            {{ i18n.t('shell.delete') }}
           </button>
         }
         <div class="card-detail__buttons">
           <button class="btn btn-sm btn-outline-secondary" type="button" (click)="closed.emit()">
-            cancel
+            {{ i18n.t('shell.cancel') }}
           </button>
-          <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">save</button>
+          <button class="btn btn-sm btn-primary" type="submit" [disabled]="!canSave()">{{ i18n.t('shell.save') }}</button>
         </div>
       </div>
     </form>
 
     @if (confirmingDelete()) {
       <app-confirm-dialog
-        title="delete card"
-        message="delete this card?"
+        [title]="i18n.t('board.deleteCard')"
+        [message]="i18n.t('board.deleteCardMessage')"
         (keydown.escape)="$event.stopPropagation()"
         (confirmed)="remove()"
         (cancelled)="confirmingDelete.set(false)"

@@ -14,6 +14,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import { StatusService } from '../../core/status.service';
 import { dragScroll, stopDragScroll } from '../../shared/drag-reorder';
 import { Lane } from './lane';
@@ -26,6 +27,7 @@ import { Lane } from './lane';
 })
 export class BoardPage implements OnInit, OnDestroy {
   protected readonly store = inject(ForumStore);
+  protected readonly i18n = inject(TranslateService);
   private readonly status = inject(StatusService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -159,7 +161,7 @@ export class BoardPage implements OnInit, OnDestroy {
   protected async addColumn(): Promise<void> {
     const name = this.columnName.trim();
     if (!name) {
-      this.status.flash('column name is required', true);
+      this.status.flash(this.i18n.t('board.columnNameRequired'), true);
       return;
     }
     if (await this.store.addColumn(name)) {
@@ -205,7 +207,7 @@ export class BoardPage implements OnInit, OnDestroy {
   protected async saveSettings(): Promise<void> {
     const name = this.editName.trim();
     if (!name) {
-      this.status.flash('name is required', true);
+      this.status.flash(this.i18n.t('board.nameRequired'), true);
       return;
     }
     const description = this.editDesc.trim() || null;

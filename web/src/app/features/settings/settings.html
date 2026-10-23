@@ -1,32 +1,32 @@
 <section id="view-settings" class="view">
   <div class="view__head">
-    <span class="ph-label">settings</span>
+    <span class="ph-label">{{ i18n.t('settings.title') }}</span>
     <span class="badge text-bg-secondary">@{{ config.forumName() }}</span>
   </div>
 
   <section class="ph-panel">
-    <header class="ph-panel__header">appearance</header>
+    <header class="ph-panel__header">{{ i18n.t('settings.appearance') }}</header>
     <div class="ph-panel__body">
-      <p class="ph-label">mode — applied to every seat immediately</p>
+      <p class="ph-label">{{ i18n.t('settings.modeLabel') }}</p>
       <div class="theme-switch-row">
         <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">
-          dark
+          {{ i18n.t('settings.dark') }}
         </span>
         <label class="theme-switch">
           <input
             type="checkbox"
             role="switch"
-            aria-label="light mode"
+            [attr.aria-label]="i18n.t('settings.lightMode')"
             [checked]="modeIsLight"
             (change)="toggleMode($event)"
           />
           <span class="theme-switch__track"></span>
         </label>
         <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">
-          light
+          {{ i18n.t('settings.light') }}
         </span>
       </div>
-      <p class="ph-label">accent — applied to every seat immediately</p>
+      <p class="ph-label">{{ i18n.t('settings.accentLabel') }}</p>
       <div class="accent-row">
         @for (a of accents; track a.id) {
           <button
@@ -43,44 +43,59 @@
           </button>
         }
       </div>
+      <p class="ph-label">{{ i18n.t('settings.languageLabel') }}</p>
+      <div class="accent-row">
+        @for (l of languages; track l.id) {
+          <button
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="config.locale() === l.id"
+            [class.btn-outline-secondary]="config.locale() !== l.id"
+            [attr.aria-pressed]="config.locale() === l.id"
+            (click)="pickLocale(l.id)"
+          >
+            {{ l.label }}
+          </button>
+        }
+      </div>
     </div>
   </section>
 
   <section class="ph-panel">
-    <header class="ph-panel__header">forum</header>
+    <header class="ph-panel__header">{{ i18n.t('settings.forum') }}</header>
     <div class="ph-panel__body">
       <label class="field-stack">
-        <span class="ph-label">forum name</span>
+        <span class="ph-label">{{ i18n.t('settings.forumName') }}</span>
         <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" />
       </label>
       <div class="composer__actions">
         <button class="btn btn-primary" type="button" [disabled]="savingName" (click)="saveName()">
-          {{ savingName ? 'saving…' : 'save name' }}
+          {{ i18n.t(savingName ? 'settings.saving' : 'settings.saveName') }}
         </button>
       </div>
     </div>
   </section>
 
   <section class="ph-panel">
-    <header class="ph-panel__header">password</header>
+    <header class="ph-panel__header">{{ i18n.t('settings.password') }}</header>
     <div class="ph-panel__body">
       <label class="field-stack">
-        <span class="ph-label">current password</span>
+        <span class="ph-label">{{ i18n.t('settings.currentPassword') }}</span>
         <input class="form-control" type="password" autocomplete="current-password" [(ngModel)]="current" />
       </label>
       <div class="field-row">
         <label class="field-stack">
-          <span class="ph-label">new password</span>
+          <span class="ph-label">{{ i18n.t('settings.newPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="next" />
         </label>
         <label class="field-stack">
-          <span class="ph-label">confirm new password</span>
+          <span class="ph-label">{{ i18n.t('settings.confirmPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
         </label>
       </div>
       <div class="composer__actions">
         <button class="btn btn-primary" type="button" [disabled]="savingPassword" (click)="savePassword()">
-          {{ savingPassword ? 'saving…' : 'change password' }}
+          {{ i18n.t(savingPassword ? 'settings.saving' : 'settings.changePassword') }}
         </button>
       </div>
     </div>

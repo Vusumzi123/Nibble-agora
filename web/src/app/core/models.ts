@@ -212,6 +212,7 @@ export interface AppConfig {
   forum_name: string;
   theme: string;
   accent: string;
+  locale: string;
 }
 
 /** A recently active thread on a forum's overview. */

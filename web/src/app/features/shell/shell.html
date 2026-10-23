@@ -1,8 +1,13 @@
 <div class="app">
   <header class="topbar">
-    <button class="topbar__toggle" type="button" (click)="openPanel()" aria-label="open navigation">
+    <button
+      class="topbar__toggle"
+      type="button"
+      (click)="openPanel()"
+      [attr.aria-label]="i18n.t('shell.openNavigation')"
+    >
       <span class="topbar__burger" aria-hidden="true"></span>
-      <span class="topbar__toggle-label">menu</span>
+      <span class="topbar__toggle-label">{{ i18n.t('shell.menu') }}</span>
     </button>
     <span class="topbar__brand">
       <img class="topbar__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
@@ -25,15 +30,15 @@
           class="user-menu__scrim"
           type="button"
           tabindex="-1"
-          aria-label="close menu"
+          [attr.aria-label]="i18n.t('shell.closeMenu')"
           (click)="closeUserMenu()"
         ></button>
         <div class="user-menu" role="menu">
           <button class="user-menu__item" type="button" role="menuitem" (click)="openSettings()">
-            settings
+            {{ i18n.t('shell.settings') }}
           </button>
           <button class="user-menu__item" type="button" role="menuitem" (click)="disconnect()">
-            disconnect
+            {{ i18n.t('shell.disconnect') }}
           </button>
         </div>
       }

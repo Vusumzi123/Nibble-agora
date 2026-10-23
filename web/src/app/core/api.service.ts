@@ -131,7 +131,7 @@ export class ApiService {
     return this.request<LoginResult>('POST', '/api/login', { handle, password });
   }
 
-  /** Public instance config: setup state, forum name, theme. */
+  /** Public instance config: setup state, forum name, theme, locale. */
   getConfig(): Promise<AppConfig> {
     return this.request<AppConfig>('GET', '/api/config');
   }
@@ -141,7 +141,12 @@ export class ApiService {
     return this.request('POST', '/api/setup', input);
   }
 
-  updateSettings(patch: { forum_name?: string; theme?: string }): Promise<AppConfig> {
+  updateSettings(patch: {
+    forum_name?: string;
+    theme?: string;
+    accent?: string;
+    locale?: string;
+  }): Promise<AppConfig> {
     return this.request<AppConfig>('PATCH', '/api/settings', patch);
   }
 

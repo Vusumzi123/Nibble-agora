@@ -1,5 +1,5 @@
 import type { Config } from '../config.ts';
-import { isAccent, isTheme } from '../config.ts';
+import { isAccent, isLocale, isTheme } from '../config.ts';
 import type { Db } from '../db/sqlite.ts';
 import {
   DEFAULT_COLUMNS,
@@ -111,15 +111,18 @@ function configOf(ctx: Ctx): {
   forum_name: string;
   theme: string;
   accent: string;
+  locale: string;
 } {
   // Stored ids predate this build — coerce instead of serving dead values.
   const storedTheme = getSetting(ctx.db, 'theme');
   const storedAccent = getSetting(ctx.db, 'accent');
+  const storedLocale = getSetting(ctx.db, 'locale');
   return {
     configured: isConfigured(ctx.db),
     forum_name: getSetting(ctx.db, 'forum_name') ?? ctx.cfg.defaultBoardName,
     theme: isTheme(storedTheme) ? storedTheme : ctx.cfg.defaultTheme,
     accent: isAccent(storedAccent) ? storedAccent : ctx.cfg.defaultAccent,
+    locale: isLocale(storedLocale) ? storedLocale : ctx.cfg.defaultLocale,
   };
 }
 
@@ -416,6 +419,7 @@ const handlers = {
         : ctx.cfg.defaultBoardName;
     const theme = isTheme(body.theme) ? body.theme : ctx.cfg.defaultTheme;
     const accent = isAccent(body.accent) ? body.accent : ctx.cfg.defaultAccent;
+    const locale = isLocale(body.locale) ? body.locale : ctx.cfg.defaultLocale;
     const token = newToken();
 
     const agentId = ctx.db.tx(() => {
@@ -431,6 +435,7 @@ const handlers = {
       setSetting(ctx.db, 'forum_name', forumName);
       setSetting(ctx.db, 'theme', theme);
       setSetting(ctx.db, 'accent', accent);
+      setSetting(ctx.db, 'locale', locale);
       renameDefaultForum(ctx, forumName);
       logEvent(ctx.db, {
         actorId: r.lastInsertRowid,
@@ -477,11 +482,25 @@ const handlers = {
       }
       setSetting(ctx.db, 'accent', body.accent);
     }
+    if (body.locale !== undefined) {
+      if (!isLocale(body.locale)) {
+        throw badRequest('unknown locale', {
+          field: 'locale',
+          value: body.locale,
+        });
+      }
+      setSetting(ctx.db, 'locale', body.locale);
+    }
     logEvent(ctx.db, {
       actorId: agent.id,
       action: 'settings.update',
       target: 'settings',
-      payload: { forum_name: body.forum_name, theme: body.theme, accent: body.accent },
+      payload: {
+        forum_name: body.forum_name,
+        theme: body.theme,
+        accent: body.accent,
+        locale: body.locale,
+      },
     });
     return { status: 200, body: configOf(ctx) };
   },
@@ -1784,6 +1803,34 @@ const handlers = {
     );
     return { status: 200, body: { ok: true, marked: r.changes } };
   },
+
+  /** Hard-delete one of the caller's own mentions (self-only). */
+  deleteMention(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const ref = decodeURIComponent(m[1]).replace(/^@/, '');
+    const target = ctx.db.get<Agent>(
+      'SELECT * FROM agents WHERE handle = ? OR id = ?',
+      ref,
+      Number(ref) || -1,
+    );
+    if (!target) throw notFound(`agent ${ref} does not exist`, { handle: ref });
+    if (target.id !== agent.id)
+      throw forbidden('you can only remove your own mentions', { handle: ref });
+    const mentionId = requireInt(m[2], 'id');
+    const row = ctx.db.get<{ id: number }>(
+      'SELECT id FROM mentions WHERE id = ? AND agent_id = ?',
+      mentionId,
+      agent.id,
+    );
+    if (!row) throw notFound(`mention ${mentionId} does not exist`, { id: mentionId });
+    ctx.db.run('DELETE FROM mentions WHERE id = ? AND agent_id = ?', mentionId, agent.id);
+    logEvent(ctx.db, {
+      actorId: agent.id,
+      action: 'mention.delete',
+      target: `mention:${mentionId}`,
+      payload: { agent_ids: [agent.id] },
+    });
+    return { status: 200, body: { ok: true, removed: 1 } };
+  },
 } satisfies Record<string, Handler>;
 
 function diffKeys(before: Record<string, unknown>, after: Record<string, unknown>): string[] {
@@ -2058,5 +2105,12 @@ export const ROUTES: Route[] = [
     re: /^\/api\/inbox\/([^/]+)\/read$/,
     auth: true,
     h: handlers.readInbox,
+  },
+
+  {
+    method: 'DELETE',
+    re: /^\/api\/inbox\/([^/]+)\/mentions\/(\d+)$/,
+    auth: true,
+    h: handlers.deleteMention,
   },
 ];

@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
+import { TranslateService } from '../../core/i18n';
 import { SessionService } from '../../core/session.service';
 import { StatusService } from '../../core/status.service';
 import {
@@ -23,6 +24,7 @@ import {
 export class SetupPage {
   private readonly api = inject(ApiService);
   private readonly config = inject(ConfigService);
+  protected readonly i18n = inject(TranslateService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);
@@ -58,15 +60,15 @@ export class SetupPage {
 
   protected async submit(): Promise<void> {
     if (!this.handle.trim()) {
-      this.status.flash('a handle is required', true);
+      this.status.flash(this.i18n.t('setup.handleRequired'), true);
       return;
     }
     if (this.password.length < 8) {
-      this.status.flash('password must be at least 8 characters', true);
+      this.status.flash(this.i18n.t('setup.passwordTooShort'), true);
       return;
     }
     if (this.password !== this.confirm) {
-      this.status.flash('passwords do not match', true);
+      this.status.flash(this.i18n.t('setup.passwordMismatch'), true);
       return;
     }
     this.busy = true;
