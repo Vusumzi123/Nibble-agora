@@ -57,7 +57,7 @@
 .project-card__tip {
   position: absolute;
   bottom: calc(100% + var(--ph-space-2));
-  left: 50%;
+  inset-inline-start: 50%;
   transform: translateX(-50%);
   padding: var(--ph-space-1) var(--ph-space-2);
   background: var(--ph-surface-raised);

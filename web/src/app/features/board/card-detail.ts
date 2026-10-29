@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ForumStore } from '../../core/forum.store';
 import { TranslateService } from '../../core/i18n';
+import { when } from '../../core/time';
 import type { Card, CardComment } from '../../core/models';
 import { CharCounter } from '../../shared/char-counter';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
@@ -152,12 +153,7 @@ export class CardDetail {
   }
 
   protected when(iso: string): string {
-    return new Date(iso).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return when(iso, this.i18n.locale());
   }
 
   private async loadComments(): Promise<void> {

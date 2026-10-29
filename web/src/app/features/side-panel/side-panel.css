@@ -4,7 +4,7 @@
 .side-panel {
   position: fixed;
   top: var(--seat-topbar);
-  left: 0;
+  inset-inline-start: 0;
   bottom: 0;
   z-index: 400;
   width: var(--seat-sidebar);
@@ -13,7 +13,7 @@
   gap: var(--ph-space-5);
   padding: var(--ph-space-4);
   background: var(--ph-surface);
-  border-right: 1px solid var(--ph-border);
+  border-inline-end: 1px solid var(--ph-border);
   overflow-y: auto;
 }
 
@@ -103,7 +103,7 @@
   font-family: var(--ph-font-mono);
   font-size: var(--ph-text-sm);
   letter-spacing: 0.04em;
-  text-align: left;
+  text-align: start;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -126,7 +126,7 @@
 }
 
 .panel-item__badge {
-  margin-left: auto;
+  margin-inline-start: auto;
   min-width: 1.25rem;
   padding: 0 var(--ph-space-1);
   border-radius: 999px;
@@ -145,7 +145,7 @@
     width: 100%;
     padding: var(--ph-space-5);
     background: var(--ph-bg);
-    border-right: none;
+    border-inline-end: none;
     display: none;
   }
 

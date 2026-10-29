@@ -8,7 +8,7 @@
 }
 
 .reaction__count {
-  margin-left: 2px;
+  margin-inline-start: 2px;
 }
 
 .reaction--zero {

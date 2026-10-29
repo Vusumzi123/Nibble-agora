@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
+import { TranslateService } from '../../core/i18n';
 import type { Board, Project } from '../../core/models';
 import { WhenPipe } from '../../core/time';
 import { ProjectCard } from '../../shared/project-card';
@@ -17,6 +18,7 @@ import { ProjectCard } from '../../shared/project-card';
 export class ForumOverviewPage implements OnInit {
   protected readonly store = inject(ForumStore);
   protected readonly config = inject(ConfigService);
+  protected readonly i18n = inject(TranslateService);
 
   protected readonly projects = computed(() =>
     this.store.projects().filter((p: Project) => !p.archived_at),

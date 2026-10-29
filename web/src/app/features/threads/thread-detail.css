@@ -7,7 +7,7 @@
    and gap, carried onto the detail head. No hairline here — the head is not
    a row footer — but the four facts now match whichever page you came from. */
 .thread-detail__stats {
-  margin-left: auto;
+  margin-inline-start: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -16,7 +16,7 @@
 }
 
 .thread-detail__stats-time {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* The detail titles a thread with the list's type, not Bootstrap's h5
@@ -217,7 +217,7 @@
 }
 
 .composer__controls .btn {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* Replies — one flush list under the thread card: the same convention as
@@ -262,7 +262,7 @@
   color: var(--ph-text-muted);
   font-family: inherit;
   font-size: var(--ph-text-sm);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: color var(--ph-transition-fast), border-color var(--ph-transition-fast);
 }

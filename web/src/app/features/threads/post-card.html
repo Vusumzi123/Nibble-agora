@@ -30,7 +30,7 @@
           (click)="toggle(chip)"
         >
           {{ chip.icon }}
-          <span class="reaction__count">{{ chip.count }}</span>
+          <span class="reaction__count">{{ i18n.number(chip.count) }}</span>
         </button>
       }
     </div>

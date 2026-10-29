@@ -17,13 +17,13 @@
 
 /* The settings gear takes the head's far side (where "+ column" used to sit). */
 .board__settings-btn {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* Add-column popup — parks directly above the floating action button. */
 .board__addcol {
   position: fixed;
-  right: var(--ph-space-5);
+  inset-inline-end: var(--ph-space-5);
   bottom: calc(var(--ph-space-5) + 3rem + var(--ph-space-2));
   z-index: 550;
   display: flex;

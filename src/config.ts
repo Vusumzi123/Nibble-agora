@@ -37,7 +37,7 @@ export const isAccent = (value: unknown): value is AccentId =>
   typeof value === 'string' && (ACCENTS as readonly string[]).includes(value);
 
 /** Locales the app can render. The second catalog lands with the i18n conversion. */
-export const LOCALES = ['en'] as const;
+export const LOCALES = ['en', 'es'] as const;
 export type LocaleId = (typeof LOCALES)[number];
 export const isLocale = (value: unknown): value is LocaleId =>
   typeof value === 'string' && (LOCALES as readonly string[]).includes(value);

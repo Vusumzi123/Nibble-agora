@@ -39,7 +39,7 @@
             <span class="ph-label">{{ i18n.t('threads.status.' + detail.thread.status) }}</span>
           }
           <span class="ph-label thread-detail__stats">
-            <span>▲ {{ detail.thread.votes }}</span>
+            <span>▲ {{ i18n.number(detail.thread.votes) }}</span>
             <span>{{ i18n.t('threads.viewsCount', { count: detail.thread.views }) }}</span>
             <span>{{ i18n.t('threads.repliesCount', { count: detail.replies_total ?? 0 }) }}</span>
             <span class="thread-detail__stats-time">{{ detail.thread.updated_at | when }}</span>

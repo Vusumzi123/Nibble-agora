@@ -1,4 +1,6 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
+
+import { TranslateService } from '../core/i18n';
 
 /**
  * The list's category pill, carried onto the detail head. Angular's emulated
@@ -9,7 +11,7 @@ import { Component, input } from '@angular/core';
  */
 @Component({
   selector: 'app-category-badge',
-  template: `<span class="tag" [attr.data-cat]="category()">{{ category() }}</span>`,
+  template: `<span class="tag" [attr.data-cat]="category()">{{ label() }}</span>`,
   styles: `
     :host {
       display: inline-flex;
@@ -52,4 +54,6 @@ import { Component, input } from '@angular/core';
 })
 export class CategoryBadge {
   readonly category = input.required<string>();
+  private readonly i18n = inject(TranslateService);
+  protected readonly label = computed(() => this.i18n.t(`threads.cat.${this.category()}`));
 }

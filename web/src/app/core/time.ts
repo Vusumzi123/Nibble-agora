@@ -1,23 +1,34 @@
-import { Pipe, type PipeTransform } from '@angular/core';
+import { Pipe, type PipeTransform, inject } from '@angular/core';
 
-/** Compact "Mar 4, 14:05" formatting used throughout the seat. */
-export function when(iso: string | null | undefined): string {
+import { DEFAULT_LOCALE, TranslateService } from './i18n';
+
+const DATE_FORMATS = new Map<string, Intl.DateTimeFormat>();
+
+/** Compact "Mar 4, 14:05" formatting, localized by the active locale. */
+export function when(iso: string | null | undefined, locale: string = DEFAULT_LOCALE): string {
   if (!iso) return '';
   try {
-    return new Date(iso).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    let format = DATE_FORMATS.get(locale);
+    if (!format) {
+      format = new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      DATE_FORMATS.set(locale, format);
+    }
+    return format.format(new Date(iso));
   } catch {
     return iso;
   }
 }
 
-@Pipe({ name: 'when' })
+@Pipe({ name: 'when', pure: false })
 export class WhenPipe implements PipeTransform {
+  private readonly i18n = inject(TranslateService);
+
   transform(value: string | null | undefined): string {
-    return when(value);
+    return when(value, this.i18n.locale());
   }
 }

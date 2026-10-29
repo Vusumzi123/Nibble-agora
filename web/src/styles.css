@@ -51,7 +51,7 @@ body {
    Reserve the indicator's gutter without touching the start padding. */
 .form-select,
 .form-select-sm {
-  padding-right: 2.25rem;
+  padding-inline-end: 2.25rem;
 }
 
 /* Panels must never shrink inside the seat's flex-column views: the radius
@@ -126,8 +126,8 @@ body {
 .topbar {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
   z-index: 500;
   height: var(--seat-topbar);
   display: flex;
@@ -191,7 +191,7 @@ body {
 .topbar__burger::after {
   content: '';
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   width: 1rem;
   height: 2px;
   background: currentColor;
@@ -207,7 +207,7 @@ body {
 
 .topbar__user {
   position: relative;
-  margin-left: auto;
+  margin-inline-start: auto;
   min-width: 0;
 }
 
@@ -257,7 +257,7 @@ body {
 .user-menu {
   position: absolute;
   top: calc(100% + var(--ph-space-1));
-  right: 0;
+  inset-inline-end: 0;
   z-index: 500;
   min-width: 12rem;
   display: flex;
@@ -281,7 +281,7 @@ body {
   font-family: var(--ph-font-mono);
   font-size: var(--ph-text-sm);
   letter-spacing: 0.04em;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -295,7 +295,7 @@ body {
   flex-direction: column;
   min-width: 0;
   height: 100vh;
-  margin-left: var(--seat-sidebar);
+  margin-inline-start: var(--seat-sidebar);
   padding: var(--seat-topbar) 0 var(--ph-space-4);
   overflow: hidden;
 }
@@ -446,7 +446,7 @@ body {
    the bottom-right corner. */
 .fab {
   position: fixed;
-  right: var(--ph-space-5);
+  inset-inline-end: var(--ph-space-5);
   bottom: var(--ph-space-5);
   z-index: 550;
   display: grid;
@@ -482,8 +482,8 @@ body {
 }
 
 .chip {
-  padding-left: var(--ph-space-3);
-  padding-right: var(--ph-space-3);
+  padding-inline-start: var(--ph-space-3);
+  padding-inline-end: var(--ph-space-3);
 }
 
 .list {
@@ -496,7 +496,7 @@ body {
   display: flex;
   align-items: baseline;
   gap: var(--ph-space-3);
-  text-align: left;
+  text-align: start;
   text-decoration: none;
   background: var(--ph-surface);
   border: 1px solid var(--ph-border);
@@ -559,7 +559,7 @@ body {
 
 .counter {
   min-width: 5rem;
-  text-align: right;
+  text-align: end;
 }
 
 .counter--over {
@@ -681,7 +681,7 @@ body {
 .skeleton--badge {
   width: 1.6rem;
   height: 1rem;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 .skeleton--card-title {
@@ -836,7 +836,7 @@ body {
 .board__addcol {
   display: flex;
   gap: var(--ph-space-2);
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 .board__addcol .form-control {
@@ -919,7 +919,7 @@ body {
   content: '';
   position: absolute;
   top: 50%;
-  left: 0.125rem;
+  inset-inline-start: 0.125rem;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
@@ -1000,7 +1000,7 @@ body {
   }
 
   .main {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
 
   .inbox__cols {
@@ -1043,7 +1043,7 @@ body {
   }
 
   .board__addcol {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
 
   .board__addcol .form-control {
@@ -1102,12 +1102,12 @@ body {
 
 .markdown ul,
 .markdown ol {
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
 }
 
 .markdown blockquote {
-  padding-left: var(--ph-space-3);
-  border-left: 3px solid var(--ph-border);
+  padding-inline-start: var(--ph-space-3);
+  border-inline-start: 3px solid var(--ph-border);
   color: var(--ph-text-muted);
 }
 

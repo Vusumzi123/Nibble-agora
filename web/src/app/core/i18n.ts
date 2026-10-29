@@ -7,7 +7,10 @@ export interface LocaleOption {
 
 export const DEFAULT_LOCALE = 'en';
 
-export const LOCALES: LocaleOption[] = [{ id: 'en', label: 'English' }];
+export const LOCALES: LocaleOption[] = [
+  { id: 'en', label: 'English' },
+  { id: 'es', label: 'Español' },
+];
 
 /**
  * Source of truth for the UI chrome. Namespaced by feature so later view
@@ -212,10 +215,234 @@ export const EN: Readonly<Record<string, string>> = {
   'common.pageOf': 'page {page} of {total}',
 };
 
-const CATALOGS: Readonly<Record<string, Readonly<Record<string, string>>>> = { en: EN };
+
+/**
+ * Spanish chrome. Mirrors EN key-for-key; values are lowercase to sit in the
+ * same terminal vocabulary as English. User content is never translated.
+ */
+export const ES: Readonly<Record<string, string>> = {
+  'shell.loading': 'cargando…',
+  'shell.save': 'guardar',
+  'shell.saving': 'guardando…',
+  'shell.cancel': 'cancelar',
+  'shell.confirm': 'confirmar',
+  'shell.delete': 'eliminar',
+  'shell.keep': 'conservar',
+  'shell.retry': 'reintentar',
+  'shell.empty': 'aún no hay nada',
+  'shell.ellipsis': 'más',
+  'shell.menu': 'menú',
+  'shell.openNavigation': 'abrir navegación',
+  'shell.closeMenu': 'cerrar menú',
+  'shell.close': 'cerrar',
+  'shell.settings': 'ajustes',
+  'shell.disconnect': 'desconectar',
+  'shell.navigation': 'navegación',
+  'shell.views': 'vistas',
+  'shell.threads': 'hilos',
+  'shell.boards': 'tableros',
+  'shell.inbox': 'bandeja',
+  'shell.forums': 'foros',
+  'shell.newForum': '+ nuevo foro',
+  'shell.forumName': 'nombre del foro',
+  'shell.create': 'crear',
+  'shell.dismiss': 'descartar',
+  'board.title': 'tablero',
+  'board.card': 'tarjeta',
+  'board.cards': 'tarjetas',
+  'board.comments': 'comentarios',
+  'board.owner': 'responsable',
+  'board.unassigned': 'sin asignar',
+  'board.inbox': 'bandeja',
+  'board.todo': 'pendiente',
+  'board.inProgress': 'en curso',
+  'board.testing': 'pruebas',
+  'board.done': 'hecho',
+  'board.dropped': 'descartado',
+  'threads.title': 'hilos',
+  'threads.replies': 'respuestas',
+  'threads.reply': 'responder',
+  'threads.views': 'vistas',
+  'threads.votes': 'votos',
+  'threads.newThread': 'nuevo hilo',
+  'threads.noReplies': 'aún no hay respuestas',
+  'threads.noForum': 'ningún foro seleccionado',
+  'threads.all': 'todos',
+  'threads.sortBy': 'ordenar por',
+  'threads.sortRecent': 'recientes',
+  'threads.sortPosted': 'publicación',
+  'threads.sortVotes': 'votos',
+  'threads.sortViews': 'vistas',
+  'threads.loading': 'cargando hilos',
+  'threads.loadingMore': 'cargando más',
+  'threads.loadingMoreEllipsis': 'cargando más…',
+  'threads.empty': 'aún no hay hilos',
+  'threads.viewsCount': '{count} vistas',
+  'threads.repliesCount': '{count} respuestas',
+  'threads.status.open': 'abierto',
+  'threads.status.resolved': 'resuelto',
+  'threads.status.archived': 'archivado',
+  'threads.cat.discussion': 'debate',
+  'threads.cat.task': 'tarea',
+  'threads.cat.idea': 'idea',
+  'threads.cat.idle': 'inactivo',
+  'threads.cat.announcement': 'anuncio',
+  'threads.titlePlaceholder': 'título',
+  'threads.bodyPlaceholder': 'primer mensaje — límite de {limit} caracteres',
+  'threads.post': 'publicar hilo',
+  'threads.allThreads': 'todos los hilos',
+  'threads.backToThreads': 'volver a hilos',
+  'threads.upvote': 'votar',
+  'threads.upvoted': 'votado',
+  'threads.loadingThread': 'cargando hilo',
+  'threads.olderReplies': 'respuestas anteriores',
+  'threads.loadingReplies': 'cargando respuestas',
+  'threads.loadingOlderReplies': 'cargando respuestas anteriores',
+  'threads.joinConversation': 'únete a la conversación',
+  'threads.replyPlaceholder': 'escribe una respuesta…',
+  'threads.human': 'humano',
+  'threads.mentions': 'menciones',
+  'threads.titleRequired': 'el título es obligatorio',
+  'threads.messageRequired': 'el mensaje es obligatorio',
+  'threads.replyEmpty': 'la respuesta está vacía',
+  'boards.title': 'tableros · proyectos',
+  'boards.newProject': 'nuevo proyecto',
+  'boards.nameLabel': 'título',
+  'boards.projectName': 'nombre del proyecto',
+  'boards.description': 'descripción',
+  'boards.descriptionPlaceholder': '¿para qué es este proyecto? (opcional)',
+  'boards.empty': 'aún no hay proyectos',
+  'boards.projectNameRequired': 'el nombre del proyecto es obligatorio',
+  'boards.columnsCount': '{count} columnas',
+  'boards.seeBoard': 'ver el tablero del proyecto',
+  'board.backToBoards': 'volver a tableros',
+  'board.settings': 'ajustes del tablero',
+  'board.noColumns': 'sin columnas',
+  'board.columnName': 'nombre de la columna',
+  'board.add': 'añadir',
+  'board.newColumn': 'nueva columna',
+  'board.name': 'nombre',
+  'board.description': 'descripción',
+  'board.deleteProject': 'eliminar este proyecto',
+  'board.deleteProjectAction': 'eliminar proyecto…',
+  'board.deleteProjectWarning': 'elimina el proyecto, su tablero, columnas y tarjetas. no se puede deshacer.',
+  'board.yesDelete': 'sí, eliminar',
+  'board.loading': 'cargando tablero',
+  'board.none': 'ningún tablero seleccionado',
+  'board.nameRequired': 'el nombre es obligatorio',
+  'board.columnNameRequired': 'el nombre de la columna es obligatorio',
+  'board.blocked': 'bloqueado',
+  'board.assignee': 'asignado',
+  'board.moveUp': 'subir',
+  'board.moveDown': 'bajar',
+  'board.deleteCard': 'eliminar tarjeta',
+  'board.deleteCardMessage': '¿eliminar esta tarjeta?',
+  'board.addCard': 'añadir tarjeta',
+  'board.deleteColumn': 'eliminar columna',
+  'board.deleteColumnMessage': '¿eliminar esta columna y sus tarjetas?',
+  'board.cardTitlePlaceholder': 'título de la tarjeta',
+  'board.untitled': 'sin título',
+  'board.renameHint': 'doble clic para renombrar',
+  'board.closeCard': 'cerrar tarjeta',
+  'board.remoteChanged': 'esta tarjeta cambió en otro lugar — tu borrador no se tocó.',
+  'board.reload': 'recargar',
+  'board.bodyMarkdown': 'cuerpo · markdown',
+  'board.bodyMode': 'modo del cuerpo',
+  'board.view': 'ver',
+  'board.edit': 'editar',
+  'board.toggleViewEdit': 'alternar ver / editar',
+  'board.editMarkdown': 'editar markdown',
+  'board.dblclickEdit': 'doble clic para editar',
+  'board.noBody': 'aún no hay cuerpo — cambia a editar para escribir uno.',
+  'board.conversation': 'conversación',
+  'board.loadingConversation': 'cargando conversación…',
+  'board.noComments': 'aún no hay comentarios — inicia la conversación.',
+  'board.addComment': 'añadir un comentario… (se guarda con la tarjeta)',
+  'board.unblock': 'desbloquear',
+  'board.markBlocked': 'marcar bloqueado',
+  'inbox.heading': 'bandeja · @{handle}',
+  'inbox.unreadCount': '{count} sin leer',
+  'inbox.mentionsCount': '{count} menciones',
+  'inbox.cardsCount': '{count} tarjetas',
+  'inbox.markAllRead': 'marcar todo como leído',
+  'inbox.mentions': 'menciones',
+  'inbox.assigned': 'asignado a ti',
+  'inbox.unread': 'sin leer',
+  'inbox.from': 'de @{author}',
+  'inbox.noMentions': 'sin menciones',
+  'inbox.noAssigned': 'sin tarjetas asignadas',
+  'inbox.loading': 'cargando…',
+  'settings.title': 'ajustes',
+  'settings.appearance': 'apariencia',
+  'settings.modeLabel': 'modo — se aplica a todos los usuarios de inmediato',
+  'settings.dark': 'oscuro',
+  'settings.light': 'claro',
+  'settings.lightMode': 'modo claro',
+  'settings.accentLabel': 'acento — se aplica a todos los usuarios de inmediato',
+  'settings.languageLabel': 'idioma — se aplica a todos los usuarios de inmediato',
+  'settings.forum': 'foro',
+  'settings.forumName': 'nombre del foro',
+  'settings.saveName': 'guardar nombre',
+  'settings.saving': 'guardando…',
+  'settings.password': 'contraseña',
+  'settings.currentPassword': 'contraseña actual',
+  'settings.newPassword': 'nueva contraseña',
+  'settings.confirmPassword': 'confirmar nueva contraseña',
+  'settings.changePassword': 'cambiar contraseña',
+  'settings.modeChanged': 'cambiado a modo {mode}',
+  'settings.accentChanged': 'acento establecido en {accent}',
+  'settings.languageChanged': 'idioma establecido en {label}',
+  'settings.nameSaved': 'nombre del foro guardado',
+  'settings.passwordTooShort': 'la nueva contraseña debe tener al menos 8 caracteres',
+  'settings.passwordMismatch': 'las contraseñas no coinciden',
+  'settings.passwordChanged': 'contraseña cambiada',
+  'login.title': '{forum} — iniciar sesión',
+  'login.hint': 'Inicia sesión con la cuenta de administrador creada durante la configuración.',
+  'login.handle': 'usuario',
+  'login.password': 'contraseña',
+  'login.busy': 'iniciando sesión…',
+  'login.submit': 'iniciar sesión',
+  'login.note': 'Los agentes siguen usando tokens bearer a través del puente MCP; esta página es para la sesión humana.',
+  'setup.title': 'Agora — configuración inicial',
+  'setup.intro': 'Crea la cuenta de administrador y elige el aspecto del foro. Puedes cambiar todo esto más tarde en',
+  'setup.forumName': 'nombre del foro',
+  'setup.adminHandle': 'usuario administrador',
+  'setup.password': 'contraseña',
+  'setup.confirmPassword': 'confirmar contraseña',
+  'setup.mode': 'modo',
+  'setup.accent': 'acento',
+  'setup.submit': 'crear foro',
+  'setup.busy': 'creando…',
+  'setup.handleRequired': 'se requiere un usuario',
+  'setup.passwordTooShort': 'la contraseña debe tener al menos 8 caracteres',
+  'setup.passwordMismatch': 'las contraseñas no coinciden',
+  'common.pageOf': 'página {page} de {total}',
+};
+
+export const CATALOGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  en: EN,
+  es: ES,
+};
 
 export function normalizeLocale(id: string | undefined): string {
   return id !== undefined && Object.hasOwn(CATALOGS, id) ? id : DEFAULT_LOCALE;
+}
+
+const NUMBER_FORMATS = new Map<string, Intl.NumberFormat>();
+
+/** Locale-aware number formatting; empty string for missing/non-finite input. */
+export function formatNumber(
+  value: number | null | undefined,
+  locale: string = DEFAULT_LOCALE,
+): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '';
+  const id = normalizeLocale(locale);
+  let format = NUMBER_FORMATS.get(id);
+  if (!format) {
+    format = new Intl.NumberFormat(id);
+    NUMBER_FORMATS.set(id, format);
+  }
+  return format.format(value);
 }
 
 /** Runtime translation layer backed by a locale signal. */
@@ -233,12 +460,22 @@ export class TranslateService {
     this.active.set(normalizeLocale(id));
   }
 
+  /** Format a number through Intl for the active locale. */
+  number(value: number | null | undefined): string {
+    return formatNumber(value, this.locale());
+  }
+
   /** Translate a key, interpolating `{name}` params; unknown keys echo back. */
   t(key: string, params?: Record<string, string | number>): string {
     const template = this.catalog()[key] ?? EN[key] ?? key;
     if (!params) return template;
     return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-      name in params ? String(params[name]) : match,
+      name in params ? this.formatParam(params[name]) : match,
     );
+  }
+
+  /** Numbers (counts, votes, views) render through Intl, not raw JS toString. */
+  private formatParam(value: string | number): string {
+    return typeof value === 'number' ? this.number(value) : value;
   }
 }

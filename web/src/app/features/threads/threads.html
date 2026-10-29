@@ -47,7 +47,9 @@
       @for (thread of store.threads(); track thread.id) {
         <a class="list__row list__row--card" [routerLink]="['/threads', thread.id]">
           <span class="list__head">
-            <span class="tag" [attr.data-cat]="thread.category">{{ thread.category }}</span>
+            <span class="tag" [attr.data-cat]="thread.category">{{
+              i18n.t('threads.cat.' + thread.category)
+            }}</span>
             <span class="list__title">{{ thread.title }}</span>
             @if (thread.status !== 'open') {
               <span class="list__meta ph-label">{{
@@ -65,7 +67,7 @@
             </span>
           }
           <span class="list__footer ph-label">
-            <span>▲ {{ thread.votes }}</span>
+            <span>▲ {{ i18n.number(thread.votes) }}</span>
             <span>{{ i18n.t('threads.viewsCount', { count: thread.views }) }}</span>
             <span>{{ i18n.t('threads.repliesCount', { count: thread.reply_count - 1 }) }}</span>
             <span class="list__footer-time">{{ thread.updated_at | when }}</span>

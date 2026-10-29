@@ -1,4 +1,4 @@
 /* Park "mark all read" at the right edge of the header row. */
 .inbox__readall {
-  margin-left: auto;
+  margin-inline-start: auto;
 }

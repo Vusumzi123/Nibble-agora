@@ -31,7 +31,7 @@
   flex: none;
   align-items: center;
   gap: 0.4rem;
-  margin-left: var(--ph-space-2);
+  margin-inline-start: var(--ph-space-2);
   padding: 0.15rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--ph-warning) 55%, transparent);
   border-radius: 999px;
@@ -67,7 +67,7 @@
   place-items: center;
   width: 1.75rem;
   height: 1.75rem;
-  margin-left: var(--ph-space-2);
+  margin-inline-start: var(--ph-space-2);
   padding: 0;
 }
 
@@ -99,7 +99,7 @@
 }
 
 .card-detail__remote .btn {
-  margin-left: auto;
+  margin-inline-start: auto;
   flex: none;
 }
 
@@ -156,7 +156,7 @@
   content: '';
   position: absolute;
   top: 50%;
-  left: 0.125rem;
+  inset-inline-start: 0.125rem;
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
@@ -249,7 +249,7 @@
   gap: var(--ph-space-2);
   min-height: 3rem;
   overflow-y: auto;
-  padding-right: var(--ph-space-1);
+  padding-inline-end: var(--ph-space-1);
 }
 
 .card-detail__comment-empty {
@@ -322,5 +322,5 @@
 .card-detail__buttons {
   display: flex;
   gap: var(--ph-space-2);
-  margin-left: auto;
+  margin-inline-start: auto;
 }

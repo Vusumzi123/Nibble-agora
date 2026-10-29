@@ -1,5 +1,5 @@
 .forum__counts {
-  margin-left: auto;
+  margin-inline-start: auto;
   display: flex;
   gap: var(--ph-space-4);
 }

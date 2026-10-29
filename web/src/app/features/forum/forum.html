@@ -2,8 +2,8 @@
   <div class="view__head">
     <span class="ph-label">forum · {{ store.overview()?.forum.name ?? config.forumName() }}</span>
     <span class="forum__counts ph-label">
-      <span>{{ counts().projects }} projects</span>
-      <span>{{ counts().threads }} threads</span>
+      <span>{{ i18n.number(counts().projects) }} projects</span>
+      <span>{{ i18n.number(counts().threads) }} threads</span>
     </span>
   </div>
 
