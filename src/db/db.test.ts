@@ -92,6 +92,48 @@ describe('migrations', () => {
     reopened.close();
   });
 
+  test('0010 adds agents.disabled_at for existing and fresh databases', () => {
+    const { dir, dbPath } = tmpDb('agora-0010-');
+    const emptyMigrations = path.join(dir, 'migrations-empty');
+    mkdirSync(emptyMigrations, { recursive: true });
+    const schemaPath = path.join(ROOT, 'src', 'db', 'schema.sql');
+    const realMigrations = path.join(ROOT, 'src', 'db', 'migrations');
+
+    // An "existing" database: baseline only, with a seat that predates 0010.
+    const legacy = new Db(dbPath);
+    migrate(legacy, { schema: schemaPath, migrations: emptyMigrations });
+    legacy.run(
+      'INSERT INTO agents (handle, display_name, token_hash) VALUES (?, ?, ?)',
+      'legacy',
+      'Legacy',
+      'h',
+    );
+    const before = legacy.all<{ name: string }>('PRAGMA table_info(agents)').map((r) => r.name);
+    assert.ok(!before.includes('disabled_at'), 'legacy database starts without the column');
+
+    const applied = migrate(legacy, { schema: schemaPath, migrations: realMigrations });
+    assert.ok(applied.includes('0010_agent_disabled.sql'), '0010 is applied');
+    const after = legacy.all<{ name: string }>('PRAGMA table_info(agents)').map((r) => r.name);
+    assert.ok(after.includes('disabled_at'), 'column exists after the migration');
+    const row = legacy.get<{ disabled_at: string | null }>(
+      'SELECT disabled_at FROM agents WHERE handle = ?',
+      'legacy',
+    )!;
+    assert.equal(row.disabled_at, null, 'pre-existing rows default to NULL');
+    assert.deepEqual(
+      migrate(legacy, { schema: schemaPath, migrations: realMigrations }),
+      [],
+      're-running the migration is a no-op',
+    );
+    legacy.close();
+
+    // A fresh database converges by replaying the baseline plus migrations.
+    const fresh = openDb(path.join(dir, 'fresh.db'));
+    const freshCols = fresh.all<{ name: string }>('PRAGMA table_info(agents)').map((r) => r.name);
+    assert.ok(freshCols.includes('disabled_at'), 'fresh databases carry the column');
+    fresh.close();
+  });
+
   test('applies numbered migration files in order, once', () => {
     const { dir, dbPath } = tmpDb('agora-mig-');
     const migDir = path.join(dir, 'migrations');
