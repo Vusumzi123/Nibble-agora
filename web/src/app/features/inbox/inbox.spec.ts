@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForumStore } from '../../core/forum.store';
 import { EN } from '../../core/i18n';
 import type { Inbox } from '../../core/models';
+import { StatusService } from '../../core/status.service';
 import { InboxPage } from './inbox';
 
 const INBOX: Inbox = {
@@ -119,5 +120,63 @@ describe('InboxPage (unread mentions + mark all read)', () => {
     expect(navigate).toHaveBeenCalledWith(['/boards', 4], {
       queryParams: { card: 10 },
     });
+  });
+
+  it('dismiss opens the shared confirm dialog without navigating', () => {
+    const { fixture } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    el.querySelectorAll<HTMLButtonElement>('.inbox__dismiss')[0]?.click();
+    fixture.detectChanges();
+
+    expect(el.querySelector('app-confirm-dialog')).not.toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('cancel keeps the row and calls no delete', () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const dismiss = vi.spyOn(store, 'dismissMention');
+
+    el.querySelectorAll<HTMLButtonElement>('.inbox__dismiss')[0]?.click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('app-confirm-dialog .btn-outline-secondary')?.click();
+    fixture.detectChanges();
+
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(el.querySelector('app-confirm-dialog')).toBeNull();
+    expect(el.querySelectorAll('.inbox__mention').length).toBe(2);
+  });
+
+  it('confirm dismisses the targeted mention and flashes success', async () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const dismiss = vi.spyOn(store, 'dismissMention').mockResolvedValue(true);
+    const flash = vi.spyOn(TestBed.inject(StatusService), 'flash');
+
+    el.querySelectorAll<HTMLButtonElement>('.inbox__dismiss')[1]?.click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('app-confirm-dialog .btn-outline-danger')?.click();
+    await fixture.whenStable();
+
+    expect(dismiss).toHaveBeenCalledWith(2);
+    expect(flash).toHaveBeenCalledWith(EN['inbox.removed']);
+    expect(el.querySelector('app-confirm-dialog')).toBeNull();
+  });
+
+  it('a failed dismiss leaves the rows and shows no success note', async () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    vi.spyOn(store, 'dismissMention').mockResolvedValue(false);
+    const flash = vi.spyOn(TestBed.inject(StatusService), 'flash');
+
+    el.querySelectorAll<HTMLButtonElement>('.inbox__dismiss')[0]?.click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('app-confirm-dialog .btn-outline-danger')?.click();
+    await fixture.whenStable();
+
+    expect(flash).not.toHaveBeenCalledWith(EN['inbox.removed']);
+    expect(el.querySelectorAll('.inbox__mention').length).toBe(2);
   });
 });

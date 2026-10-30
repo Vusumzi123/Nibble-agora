@@ -61,7 +61,8 @@ describe('Spanish shell chrome', () => {
     fixture.detectChanges();
 
     const input = root.querySelector('.side-panel__create input') as HTMLInputElement;
-    expect(input.getAttribute('placeholder')).toBe('nombre del foro');
+    expect(root.querySelector('label[for="side-panel-forum-name"]')!.textContent).toContain('nombre del foro');
+    expect(input.getAttribute('placeholder')).toBe('p. ej. diseño');
     expect(root.querySelector('.side-panel__create button')!.textContent).toContain('crear');
   });
 

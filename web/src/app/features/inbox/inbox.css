@@ -2,3 +2,20 @@
 .inbox__readall {
   margin-inline-start: auto;
 }
+
+/* Mention rows are containers (a dismiss button lives inside the flag slot),
+   so they carry the pointer affordance themselves. */
+.inbox__mention {
+  cursor: pointer;
+}
+
+/* Read/unread slot now also holds the dismiss control. */
+.list__flag {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+}
+
+.inbox__dismiss {
+  flex: 0 0 auto;
+}

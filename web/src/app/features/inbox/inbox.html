@@ -21,22 +21,34 @@
         <div class="ph-panel__body p-0">
           <div class="list">
             @for (mention of inbox.mentions; track mention.mention_id) {
-              <button
-                class="list__row"
+              <div
+                class="list__row inbox__mention"
                 [class.list__row--unread]="!mention.read_at"
-                type="button"
+                role="button"
+                tabindex="0"
                 (click)="openThread(mention.thread_id)"
+                (keydown.enter)="openThread(mention.thread_id)"
+                (keydown.space)="openThread(mention.thread_id); $event.preventDefault()"
               >
                 <span class="list__flag">
                   @if (!mention.read_at) {
                     <span class="badge text-bg-primary">{{ i18n.t('inbox.unread') }}</span>
                   }
+                  <button
+                    class="btn btn-sm btn-icon inbox__dismiss"
+                    type="button"
+                    [title]="i18n.t('inbox.dismiss')"
+                    [attr.aria-label]="i18n.t('inbox.dismiss')"
+                    (click)="startDismiss($event, mention.mention_id)"
+                  >
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </button>
                 </span>
                 <span class="list__title">{{ mention.thread_title }}</span>
                 <span class="list__meta ph-label">
                   {{ i18n.t('inbox.from', { author: mention.author }) }} · {{ mention.created_at | when }} · {{ mention.body.slice(0, 80) }}
                 </span>
-              </button>
+              </div>
             } @empty {
               <p class="ph-label p-3">{{ i18n.t('inbox.noMentions') }}</p>
             }
@@ -64,5 +76,16 @@
     </div>
   } @else {
     <p class="ph-label">{{ i18n.t('inbox.loading') }}</p>
+  }
+
+  @if (pendingMentionId() !== null) {
+    <app-confirm-dialog
+      [title]="i18n.t('inbox.dismissTitle')"
+      [message]="i18n.t('inbox.dismissMessage')"
+      [confirmLabel]="i18n.t('inbox.confirmRemove')"
+      confirmClass="btn-outline-danger"
+      (confirmed)="confirmDismiss()"
+      (cancelled)="cancelDismiss()"
+    />
   }
 </section>

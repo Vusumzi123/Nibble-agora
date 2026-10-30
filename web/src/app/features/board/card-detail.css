@@ -60,20 +60,10 @@
   font-weight: 600;
 }
 
-/* The header's X — a quiet square control at the far edge of the title bar. */
+/* The header's X — a quiet square control at the far edge of the title bar.
+   Geometry and icon sizing come from the global button system (.btn-icon). */
 .card-detail__close {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
   margin-inline-start: var(--ph-space-2);
-  padding: 0;
-}
-
-.card-detail__close svg {
-  width: 0.85rem;
-  height: 0.85rem;
 }
 
 .card-detail__form {

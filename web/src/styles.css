@@ -19,39 +19,209 @@ body {
   font-family: var(--ph-font-mono);
 }
 
-/* Density — Phosphorstrap's control scale is generous; at seat size the
-   buttons, inputs, panels and tabs read chunky. Trim them to a quieter,
-   denser rhythm (these are app-level tweaks, not theme overrides). */
+/* Button system — the single source of truth for every `.btn` in the seat.
+   Variants keep the Phosphorstrap bridge's per-variant `--ph-accent`; this
+   block owns geometry, interaction states, depth and icon sizing. */
 .btn {
-  min-height: 2rem;
-  padding: var(--ph-space-1) var(--ph-space-3);
+  --seat-btn-h: 2rem;
+  --seat-btn-h-sm: 1.6rem;
+  --seat-btn-square: 2rem;
+  --seat-btn-radius: 10px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ph-space-2);
+  min-height: var(--seat-btn-h);
+  padding-block: var(--ph-space-1);
+  padding-inline: var(--ph-space-3);
+  border-radius: var(--seat-btn-radius);
   letter-spacing: 0.02em;
   font-weight: 500;
+  line-height: 1;
+  transition:
+    color var(--ph-transition-fast),
+    background-color var(--ph-transition-fast),
+    border-color var(--ph-transition-fast),
+    box-shadow var(--ph-transition-fast),
+    transform var(--ph-transition-fast);
 }
 
 .btn-sm {
-  min-height: 1.6rem;
-  padding: 2px var(--ph-space-2);
+  --seat-btn-h: var(--seat-btn-h-sm);
+  --seat-btn-square: var(--seat-btn-h-sm);
+  --seat-btn-radius: var(--ph-radius-lg);
+
+  padding-block: 2px;
+  padding-inline: var(--ph-space-2);
 }
 
+/* Filled variants: a faint top sheen and a darker hairline edge make them
+   read as dimensional surfaces instead of flat Bootstrap swatches. */
+.btn-primary,
+.btn-danger,
+.btn-warning,
+.btn-success {
+  background-image: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 18%),
+    rgb(255 255 255 / 0%) 55%
+  );
+  border-color: color-mix(in srgb, var(--ph-accent) 82%, rgb(0 0 0));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
+}
+
+/* Outlined variants hover into a soft accent tint rather than Bootstrap's
+   full-fill swap — quieter, modern, and the label stays legible. */
+.btn-outline-primary,
+.btn-outline-secondary,
+.btn-outline-danger,
+.btn-outline-warning {
+  background-color: transparent;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-secondary:hover,
+.btn-outline-danger:hover,
+.btn-outline-warning:hover {
+  background-color: color-mix(in srgb, var(--ph-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ph-accent) 55%, var(--ph-border));
+  color: var(--ph-accent);
+}
+
+.btn-outline-primary:active,
+.btn-outline-secondary:active,
+.btn-outline-danger:active,
+.btn-outline-warning:active {
+  background-color: color-mix(in srgb, var(--ph-accent) 22%, transparent);
+}
+
+/* A one-pixel lift with feathered depth on hover; the press settles flush
+   with the surface. Transform-only, so no layout shift. */
+.btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--ph-shadow-2);
+}
+
+.btn:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: var(--ph-shadow-1);
+}
+
+/* Accent ring that follows the active variant through the bridge token
+   instead of Bootstrap's fixed rgba shadow. Declared after the hover rules
+   (same specificity) so a focused hovered control keeps its ring. */
+.btn:focus-visible,
+.btn:not(:disabled):focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ph-accent) 35%, transparent);
+}
+
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn[aria-busy="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Icon-only square control (back arrow, settings gear, dismiss X). */
+.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--seat-btn-square);
+  height: var(--seat-btn-square);
+  min-height: 0;
+  padding: 0;
+  flex: none;
+}
+
+/* FA glyphs and inline SVGs share one size so buttons align across views. */
+.btn :is(svg, i) {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Borderless quiet action for low-emphasis, inline affordances. */
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ph-text-muted);
+}
+
+.btn--ghost:hover,
+.btn--ghost:focus-visible {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ph-text) 8%, transparent);
+  color: var(--ph-text);
+}
+
+/* Form field system — the single source of truth for every control in the
+   seat. Component CSS arranges fields; it never styles the control itself. */
 .form-control,
 .form-select {
-  min-height: 2rem;
-  padding: var(--ph-space-1) var(--ph-space-2);
+  --seat-control-h: 2rem;
+
+  min-height: var(--seat-control-h);
+  padding-block: var(--ph-space-1);
+  padding-inline: var(--ph-space-2);
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface);
+  color: var(--ph-text);
+  transition:
+    border-color var(--ph-transition-fast),
+    box-shadow var(--ph-transition-fast);
 }
 
 .form-control-sm,
 .form-select-sm {
-  min-height: 1.6rem;
-  padding: 2px var(--ph-space-2);
+  --seat-control-h: 1.6rem;
+
+  padding-block: 2px;
 }
 
-/* A native select also carries Bootstrap's indicator at right:12px (16px
-   wide), so the shorthand's 8px end padding lets the arrow sit on the text.
-   Reserve the indicator's gutter without touching the start padding. */
+.form-control::placeholder {
+  color: var(--ph-text-muted);
+  opacity: 1;
+}
+
+/* One visible focus ring everywhere; it follows the accent instead of
+   Bootstrap's fixed blue. */
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: 0;
+  border-color: var(--ph-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ph-primary) 30%, transparent);
+}
+
+/* Invalid state: native constraint validation and an explicit aria-invalid
+   share one danger border; the message itself lives in a .field__hint. */
+.form-control:user-invalid,
+.form-select:user-invalid,
+.form-control[aria-invalid='true'],
+.form-select[aria-invalid='true'] {
+  border-color: var(--ph-danger);
+}
+
+/* Drop Bootstrap's indicator and draw the chevron in currentColor, so the
+   inline padding no longer depends on the indicator's fixed position. */
 .form-select,
 .form-select-sm {
-  padding-inline-end: 2.25rem;
+  appearance: none;
+  padding-inline-end: calc(var(--ph-space-2) + 1.25rem);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--ph-space-2) center;
+  background-size: 1rem;
+}
+
+[dir='rtl'] .form-select,
+[dir='rtl'] .form-select-sm {
+  background-position: left var(--ph-space-2) center;
 }
 
 /* Panels must never shrink inside the seat's flex-column views: the radius
@@ -338,21 +508,6 @@ body {
   flex-wrap: wrap;
 }
 
-/* Icon-only chip around a leading glyph (back arrow, settings gear) — the
-   small square control that leads or tags a view's head. */
-.btn-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-}
-
-.btn-icon svg {
-  width: 1rem;
-  height: 1rem;
-}
-
 /* Single/multi-line truncation — applied by the appEllipsis directive, which
    also exposes the full text as a title tooltip while clipped. Bare usage is
    one line; `[appEllipsis]="n"` adds .ellipsis--multi and clamps after n
@@ -470,9 +625,9 @@ body {
   box-shadow: var(--ph-shadow-4, var(--ph-shadow-3));
 }
 
-.fab svg {
-  width: 1.25rem;
-  height: 1.25rem;
+.fab :is(svg, i) {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .chips {
@@ -853,11 +1008,39 @@ body {
 /* Shared form + appearance primitives (setup wizard, settings page): the
    mode switch and the accent picker. Component CSS is view-scoped, so both
    live here the way .overlay does. */
+/* Field wrapper: label, control and hint share one rhythm. `.field-row`
+   pairs two fields side by side; `.field--row` is a single settings row with
+   the label first and the control at the inline end. */
+.field,
 .field-stack {
   display: flex;
   flex-direction: column;
   gap: var(--ph-space-1);
   margin-top: var(--ph-space-3);
+}
+
+.field__label {
+  color: var(--ph-text);
+  font-size: var(--ph-text-sm);
+  letter-spacing: 0.06em;
+}
+
+.field__hint {
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-xs);
+}
+
+.field__hint--danger {
+  color: var(--ph-danger);
+}
+
+.field--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-3);
+  min-height: 2rem;
+  cursor: pointer;
 }
 
 .field-row {

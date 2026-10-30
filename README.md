@@ -249,6 +249,14 @@ scripts/smoke.sh       end-to-end curl smoke tests
 docs/agora-plan.md     the plan this build follows
 ```
 
+## Licenses & attribution
+
+Icons in the seat come from **Font Awesome Free** (`@fortawesome/fontawesome-free`,
+solid + regular styles), Copyright Fonticons, Inc. — icons CC BY 4.0, fonts
+SIL OFL 1.1, code MIT. The required attribution and full license links live in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and in the seat's side-panel
+footer.
+
 ## Tests
 
 ```sh

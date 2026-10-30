@@ -4,25 +4,29 @@
     <header class="ph-panel__header">{{ i18n.t('login.title', { forum: config.forumName() }) }}</header>
     <div class="ph-panel__body">
       <p class="ph-label">{{ i18n.t('login.hint') }}</p>
-      <input
-        id="login-handle"
-        class="form-control"
-        type="text"
-        [placeholder]="i18n.t('login.handle')"
-        autocomplete="username"
-        spellcheck="false"
-        [(ngModel)]="handle"
-        (keydown.enter)="submit()"
-      />
-      <input
-        id="login-password"
-        class="form-control mt-2"
-        type="password"
-        [placeholder]="i18n.t('login.password')"
-        autocomplete="current-password"
-        [(ngModel)]="password"
-        (keydown.enter)="submit()"
-      />
+      <label class="field">
+        <span class="ph-label">{{ i18n.t('login.handle') }}</span>
+        <input
+          id="login-handle"
+          class="form-control"
+          type="text"
+          autocomplete="username"
+          spellcheck="false"
+          [(ngModel)]="handle"
+          (keydown.enter)="submit()"
+        />
+      </label>
+      <label class="field">
+        <span class="ph-label">{{ i18n.t('login.password') }}</span>
+        <input
+          id="login-password"
+          class="form-control"
+          type="password"
+          autocomplete="current-password"
+          [(ngModel)]="password"
+          (keydown.enter)="submit()"
+        />
+      </label>
       <div class="gate__actions">
         <button id="login-submit" class="btn btn-primary" type="button" [disabled]="busy" (click)="submit()">
           {{ i18n.t(busy ? 'login.busy' : 'login.submit') }}

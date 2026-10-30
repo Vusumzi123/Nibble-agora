@@ -64,7 +64,7 @@
   <section class="ph-panel">
     <header class="ph-panel__header">{{ i18n.t('settings.forum') }}</header>
     <div class="ph-panel__body">
-      <label class="field-stack">
+      <label class="field">
         <span class="ph-label">{{ i18n.t('settings.forumName') }}</span>
         <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" />
       </label>
@@ -79,16 +79,16 @@
   <section class="ph-panel">
     <header class="ph-panel__header">{{ i18n.t('settings.password') }}</header>
     <div class="ph-panel__body">
-      <label class="field-stack">
+      <label class="field">
         <span class="ph-label">{{ i18n.t('settings.currentPassword') }}</span>
         <input class="form-control" type="password" autocomplete="current-password" [(ngModel)]="current" />
       </label>
       <div class="field-row">
-        <label class="field-stack">
+        <label class="field">
           <span class="ph-label">{{ i18n.t('settings.newPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="next" />
         </label>
-        <label class="field-stack">
+        <label class="field">
           <span class="ph-label">{{ i18n.t('settings.confirmPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
         </label>

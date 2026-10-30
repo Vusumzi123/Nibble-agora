@@ -1,9 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Board, Card, Column, Project } from './models';
+import type { Agent, Board, Card, ChangeEvent, Column, Project } from './models';
 import { BusyService } from './busy.service';
 import { ForumStore } from './forum.store';
 
@@ -257,5 +257,36 @@ describe('ForumStore move/create curtains', () => {
     await settle(http);
     await moving;
     expect(busy.active()).toBe(false);
+  });
+});
+
+describe('ForumStore live mention changes', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  it('mention.delete marks the inbox dirty and refreshes it', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = TestBed.inject(ForumStore);
+      store.session.me.set({ id: 6, handle: 'kael' } as Agent);
+      const refresh = vi.spyOn(store, 'refreshInbox').mockResolvedValue(undefined);
+
+      (store as unknown as { onChange: (event: ChangeEvent) => void }).onChange({
+        id: 1,
+        ts: '2026-10-30T00:00:00.000Z',
+        actor_id: 6,
+        action: 'mention.delete',
+        target: null,
+        payload: null,
+      });
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

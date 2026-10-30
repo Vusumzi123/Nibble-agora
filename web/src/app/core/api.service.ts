@@ -13,6 +13,7 @@ import type {
   Forum,
   ForumOverview,
   Inbox,
+  InboxMention,
   Limits,
   Me,
   Post,
@@ -369,6 +370,17 @@ export class ApiService {
     return this.request<{ ok: boolean; marked: number }>(
       'POST',
       `/api/inbox/${encodeURIComponent(handle)}/read`,
+    );
+  }
+
+  /** Remove one mention from the seat's own inbox (self-only server-side). */
+  deleteMention(
+    handle: string,
+    mentionId: InboxMention['mention_id'],
+  ): Promise<{ ok: boolean; removed: number }> {
+    return this.request<{ ok: boolean; removed: number }>(
+      'DELETE',
+      `/api/inbox/${encodeURIComponent(handle)}/mentions/${mentionId}`,
     );
   }
 }

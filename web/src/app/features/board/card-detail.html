@@ -37,25 +37,13 @@
       <span class="card-detail__blocked" role="status">{{ i18n.t('board.blocked') }}</span>
     }
     <button
-      class="btn btn-sm btn-outline-secondary card-detail__close"
+      class="btn btn-sm btn-outline-secondary btn-icon card-detail__close"
       type="button"
       [title]="i18n.t('board.closeCard')"
       [attr.aria-label]="i18n.t('board.closeCard')"
       (click)="closed.emit()"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M18 6 6 18" />
-        <path d="m6 6 12 12" />
-      </svg>
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
   </header>
 
@@ -181,10 +169,9 @@
     <div class="card-detail__actions">
       @if (!creating()) {
         <button
-          class="btn btn-sm"
+          class="btn btn-sm btn-outline-warning"
           type="button"
-          [class.btn-outline-warning]="!blocked()"
-          [class.btn-warning]="blocked()"
+          [class.active]="blocked()"
           [disabled]="blocking()"
           (click)="toggleBlocked()"
         >

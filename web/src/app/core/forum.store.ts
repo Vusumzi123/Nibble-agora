@@ -184,9 +184,13 @@ export class ForumStore {
       case 'post':
       case 'reaction':
       case 'thread':
-      case 'mention':
         dirty.threads = true;
-        if (entity === 'mention') dirty.inbox = true;
+        break;
+      case 'mention':
+        // covers mention.create and mention.delete: the inbox AND the
+        // badge (counts.mentions + counts.cards) must follow either way.
+        dirty.threads = true;
+        dirty.inbox = true;
         break;
       case 'agent':
         dirty.agents = true;
@@ -431,6 +435,15 @@ export class ForumStore {
     return this.mutate(async () => {
       await this.api.markInboxRead(me.handle);
       this.status.flash('mentions marked read');
+    });
+  }
+
+  /** Dismiss one mention from the seat's own inbox (self-only server-side). */
+  async dismissMention(mentionId: number): Promise<boolean> {
+    const me = this.session.me();
+    if (!me) return false;
+    return this.mutate(async () => {
+      await this.api.deleteMention(me.handle, mentionId);
     });
   }
 

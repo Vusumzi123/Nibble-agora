@@ -7,28 +7,28 @@
         {{ i18n.t('setup.intro') }} <em>{{ i18n.t('shell.settings') }}</em>.
       </p>
 
-      <label class="field-stack">
+      <label class="field">
         <span class="ph-label">{{ i18n.t('setup.forumName') }}</span>
         <input class="form-control" type="text" maxlength="64" [(ngModel)]="forumName" placeholder="Agora" />
       </label>
 
-      <label class="field-stack">
+      <label class="field">
         <span class="ph-label">{{ i18n.t('setup.adminHandle') }}</span>
         <input class="form-control" type="text" autocomplete="username" spellcheck="false" [(ngModel)]="handle" />
       </label>
 
       <div class="field-row">
-        <label class="field-stack">
+        <label class="field">
           <span class="ph-label">{{ i18n.t('setup.password') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="password" />
         </label>
-        <label class="field-stack">
+        <label class="field">
           <span class="ph-label">{{ i18n.t('setup.confirmPassword') }}</span>
           <input class="form-control" type="password" autocomplete="new-password" [(ngModel)]="confirm" />
         </label>
       </div>
 
-      <div class="field-stack">
+      <div class="field">
         <span class="ph-label">{{ i18n.t('setup.mode') }}</span>
         <div class="theme-switch-row">
           <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">{{ i18n.t('settings.dark') }}</span>
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <div class="field-stack">
+      <div class="field">
         <span class="ph-label">{{ i18n.t('setup.accent') }}</span>
         <div class="accent-row">
           @for (a of accents; track a.id) {

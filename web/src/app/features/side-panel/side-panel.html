@@ -75,10 +75,12 @@
       </button>
     } @else {
       <form class="side-panel__create" (ngSubmit)="create()">
+        <label class="visually-hidden" for="side-panel-forum-name">{{ i18n.t('shell.forumName') }}</label>
         <input
+          id="side-panel-forum-name"
           class="form-control form-control-sm"
           type="text"
-          [attr.placeholder]="i18n.t('shell.forumName')"
+          [attr.placeholder]="i18n.t('shell.forumExample')"
           name="name"
           maxlength="64"
           [(ngModel)]="name"
@@ -90,4 +92,10 @@
       </form>
     }
   </div>
+
+  <footer class="side-panel__footer">
+    <a href="https://fontawesome.com/license/free" target="_blank" rel="noopener noreferrer">
+      {{ i18n.t('shell.iconsCredit') }}
+    </a>
+  </footer>
 </aside>

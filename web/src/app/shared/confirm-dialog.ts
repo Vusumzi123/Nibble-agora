@@ -30,7 +30,7 @@ import { Modal } from './modal';
           >
             {{ cancelLabel() ?? i18n.t('shell.keep') }}
           </button>
-          <button class="btn btn-sm btn-danger" type="button" (click)="confirmed.emit()">
+          <button [class]="'btn btn-sm ' + confirmClass()" type="button" (click)="confirmed.emit()">
             {{ confirmLabel() ?? i18n.t('shell.delete') }}
           </button>
         </div>
@@ -68,6 +68,8 @@ export class ConfirmDialog {
   readonly message = input.required<string>();
   readonly confirmLabel = input<string>();
   readonly cancelLabel = input<string>();
+  /** Extra classes on the confirm button — defaults to the solid danger fill. */
+  readonly confirmClass = input<string>('btn-danger');
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();
