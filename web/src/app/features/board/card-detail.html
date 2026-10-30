@@ -155,6 +155,7 @@
             class="form-control card-detail__comment-input"
             name="comment"
             rows="2"
+            [attr.aria-label]="i18n.t('board.commentLabel')"
             [placeholder]="i18n.t('board.addComment')"
             [ngModel]="commentDraft()"
             (ngModelChange)="commentDraft.set($event)"

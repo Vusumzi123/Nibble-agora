@@ -7,25 +7,27 @@
   <section class="ph-panel">
     <header class="ph-panel__header">{{ i18n.t('settings.appearance') }}</header>
     <div class="ph-panel__body">
-      <p class="ph-label">{{ i18n.t('settings.modeLabel') }}</p>
-      <div class="theme-switch-row">
-        <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">
-          {{ i18n.t('settings.dark') }}
+      <label class="field field--row">
+        <span class="field__label">{{ i18n.t('settings.modeLabel') }}</span>
+        <span class="theme-switch-row">
+          <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">
+            {{ i18n.t('settings.dark') }}
+          </span>
+          <span class="theme-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [attr.aria-label]="i18n.t('settings.lightMode')"
+              [checked]="modeIsLight"
+              (change)="toggleMode($event)"
+            />
+            <span class="theme-switch__track"></span>
+          </span>
+          <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">
+            {{ i18n.t('settings.light') }}
+          </span>
         </span>
-        <label class="theme-switch">
-          <input
-            type="checkbox"
-            role="switch"
-            [attr.aria-label]="i18n.t('settings.lightMode')"
-            [checked]="modeIsLight"
-            (change)="toggleMode($event)"
-          />
-          <span class="theme-switch__track"></span>
-        </label>
-        <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">
-          {{ i18n.t('settings.light') }}
-        </span>
-      </div>
+      </label>
       <p class="ph-label">{{ i18n.t('settings.accentLabel') }}</p>
       <div class="accent-row">
         @for (a of accents; track a.id) {

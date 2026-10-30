@@ -96,19 +96,26 @@
         (closed)="closeComposer()"
       >
         <div class="ph-panel__body composer__grid">
-          <input
-            class="form-control"
-            type="text"
-            [placeholder]="i18n.t('threads.titlePlaceholder')"
-            maxlength="200"
-            [(ngModel)]="title"
-          />
-          <select class="form-select" [(ngModel)]="category">
-            @for (cat of categories; track cat) {
-              <option [value]="cat">{{ i18n.t('threads.cat.' + cat) }}</option>
-            }
-          </select>
-          <div class="composer__body">
+          <label class="field">
+            <span class="field__label">{{ i18n.t('threads.titleLabel') }}</span>
+            <input
+              class="form-control"
+              type="text"
+              [placeholder]="i18n.t('threads.titlePlaceholder')"
+              maxlength="200"
+              [(ngModel)]="title"
+            />
+          </label>
+          <label class="field">
+            <span class="field__label">{{ i18n.t('threads.categoryLabel') }}</span>
+            <select class="form-select" [(ngModel)]="category">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ i18n.t('threads.cat.' + cat) }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span class="field__label">{{ i18n.t('threads.bodyLabel') }}</span>
             <textarea
               class="form-control"
               rows="4"
@@ -117,8 +124,11 @@
               "
               [(ngModel)]="body"
             ></textarea>
-            <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
-          </div>
+            <span class="field__hint composer__hint">
+              <span>{{ i18n.t('threads.bodyHint') }}</span>
+              <app-char-counter [value]="body" [limit]="store.session.limits().post_char_limit" />
+            </span>
+          </label>
           <app-mention-input [(value)]="mentions" />
           <div class="composer__actions">
             <button class="btn btn-outline-secondary me-2" type="button" (click)="closeComposer()">

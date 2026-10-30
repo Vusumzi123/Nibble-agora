@@ -95,7 +95,9 @@
   <section class="composer" #composer (focusout)="onFocusOut($event)">
     <span class="composer__glyph" aria-hidden="true">↳</span>
     <div class="composer__field">
+      <label class="visually-hidden" for="thread-reply-input">{{ i18n.t('threads.replyLabel') }}</label>
       <textarea
+        id="thread-reply-input"
         class="form-control composer__input"
         #input
         rows="1"

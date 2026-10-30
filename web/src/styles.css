@@ -712,12 +712,25 @@ body {
   justify-content: flex-end;
 }
 
+/* Counter + hint share one line under the field; wrap before they collide. */
+.composer__grid > .field {
+  margin-top: 0;
+}
+
+.composer__hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ph-space-2);
+  flex-wrap: wrap;
+}
+
 .counter {
   min-width: 5rem;
   text-align: end;
 }
 
-.counter--over {
+.counter.counter--over {
   color: var(--ph-danger);
 }
 
@@ -1041,6 +1054,10 @@ body {
   gap: var(--ph-space-3);
   min-height: 2rem;
   cursor: pointer;
+}
+
+.field--row .theme-switch-row {
+  margin: 0;
 }
 
 .field-row {

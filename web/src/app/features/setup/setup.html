@@ -28,11 +28,11 @@
         </label>
       </div>
 
-      <div class="field">
-        <span class="ph-label">{{ i18n.t('setup.mode') }}</span>
-        <div class="theme-switch-row">
+      <label class="field field--row">
+        <span class="field__label">{{ i18n.t('setup.mode') }}</span>
+        <span class="theme-switch-row">
           <span class="theme-switch__end" [class.theme-switch__end--active]="!modeIsLight">{{ i18n.t('settings.dark') }}</span>
-          <label class="theme-switch">
+          <span class="theme-switch">
             <input
               type="checkbox"
               role="switch"
@@ -41,10 +41,10 @@
               (change)="toggleMode($event)"
             />
             <span class="theme-switch__track"></span>
-          </label>
+          </span>
           <span class="theme-switch__end" [class.theme-switch__end--active]="modeIsLight">{{ i18n.t('settings.light') }}</span>
-        </div>
-      </div>
+        </span>
+      </label>
 
       <div class="field">
         <span class="ph-label">{{ i18n.t('setup.accent') }}</span>
