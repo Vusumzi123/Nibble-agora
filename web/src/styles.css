@@ -5,6 +5,7 @@
 :root {
   --seat-topbar: 3.25rem;
   --seat-sidebar: 16rem;
+  --seat-sidebar-rail: 4.25rem;
 }
 
 html,
@@ -292,6 +293,12 @@ body {
   min-height: 100vh;
 }
 
+/* Collapsed desktop rail: the side panel and the main offset share the token,
+   so flipping the variable moves both in one step. */
+.app--rail {
+  --seat-sidebar: var(--seat-sidebar-rail);
+}
+
 /* Top nav bar — fixed, carries the drawer toggle and the account menu. */
 .topbar {
   position: fixed;
@@ -308,24 +315,34 @@ body {
   border-bottom: 1px solid var(--ph-border);
 }
 
-.topbar__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--ph-space-2);
-  font-family: var(--ph-font-mono);
-  font-size: var(--ph-text-lg);
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  color: var(--ph-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Desktop sidebar collapse control — sits where the redundant brand used to. */
+.topbar__rail {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--ph-border);
+  border-radius: var(--ph-radius-md);
+  background: var(--ph-surface-raised);
+  color: var(--ph-text-muted);
+  font-size: var(--ph-text-sm);
+  cursor: pointer;
+  transition:
+    color var(--ph-transition-fast),
+    border-color var(--ph-transition-fast),
+    background-color var(--ph-transition-fast);
 }
 
-.topbar__logo {
-  width: 2.5rem;
-  height: 2.5rem;
-  flex-shrink: 0;
+.topbar__rail:hover,
+.topbar__rail[aria-pressed='true'] {
+  border-color: var(--ph-primary);
+  color: var(--ph-primary);
+}
+
+.topbar__rail:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ph-primary) 30%, transparent);
 }
 
 .topbar__toggle {

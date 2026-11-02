@@ -1,12 +1,13 @@
 <aside
   class="side-panel"
   [class.side-panel--open]="open()"
+  [class.side-panel--collapsed]="collapsed()"
   [attr.aria-label]="i18n.t('shell.navigation')"
 >
   <div class="side-panel__head">
     <div class="side-panel__brand ph-glow">
       <img class="side-panel__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
-      {{ config.forumName() }}
+      <span class="side-panel__brand-name">{{ config.forumName() }}</span>
     </div>
     <button class="side-panel__close" type="button" (click)="close()">
       {{ i18n.t('shell.close') }}
@@ -21,9 +22,14 @@
           class="panel-item"
           routerLink="/threads"
           routerLinkActive="panel-item--active"
+          ariaCurrentWhenActive="page"
+          [attr.title]="collapsed() ? i18n.t('shell.threads') : null"
           (click)="close()"
         >
-          {{ i18n.t('shell.threads') }}
+          <i class="fa-solid fa-comments fa-fw panel-item__icon" aria-hidden="true"></i>
+          <span class="panel-item__label">{{
+            i18n.t('shell.threads')
+          }}</span>
         </a>
       </li>
       <li>
@@ -31,9 +37,14 @@
           class="panel-item"
           routerLink="/boards"
           routerLinkActive="panel-item--active"
+          ariaCurrentWhenActive="page"
+          [attr.title]="collapsed() ? i18n.t('shell.boards') : null"
           (click)="close()"
         >
-          {{ i18n.t('shell.boards') }}
+          <i class="fa-solid fa-table-columns fa-fw panel-item__icon" aria-hidden="true"></i>
+          <span class="panel-item__label">{{
+            i18n.t('shell.boards')
+          }}</span>
         </a>
       </li>
       <li>
@@ -41,9 +52,14 @@
           class="panel-item"
           routerLink="/inbox"
           routerLinkActive="panel-item--active"
+          ariaCurrentWhenActive="page"
+          [attr.title]="collapsed() ? i18n.t('shell.inbox') : null"
           (click)="close()"
         >
-          {{ i18n.t('shell.inbox') }}
+          <i class="fa-solid fa-inbox fa-fw panel-item__icon" aria-hidden="true"></i>
+          <span class="panel-item__label">{{
+            i18n.t('shell.inbox')
+          }}</span>
           @if (store.inboxCount() > 0) {
             <span class="panel-item__badge">{{ store.inboxCount() }}</span>
           }
@@ -61,17 +77,29 @@
             class="panel-item"
             type="button"
             [class.panel-item--active]="store.forumId() === forum.id"
+            [attr.title]="collapsed() ? forum.name : null"
             (click)="selectForum(forum.id)"
           >
-            {{ forum.name }}
+            <i class="fa-solid fa-folder fa-fw panel-item__icon" aria-hidden="true"></i>
+            <span class="panel-item__label">{{
+              forum.name
+            }}</span>
           </button>
         </li>
       }
     </ul>
 
     @if (!createOpen) {
-      <button class="panel-item panel-item--ghost" type="button" (click)="toggleCreate()">
-        {{ i18n.t('shell.newForum') }}
+      <button
+        class="panel-item panel-item--ghost"
+        type="button"
+        [attr.title]="collapsed() ? i18n.t('shell.newForum') : null"
+        (click)="toggleCreate()"
+      >
+        <i class="fa-solid fa-plus fa-fw panel-item__icon" aria-hidden="true"></i>
+        <span class="panel-item__label">{{
+          i18n.t('shell.newForum')
+        }}</span>
       </button>
     } @else {
       <form class="side-panel__create" (ngSubmit)="create()">

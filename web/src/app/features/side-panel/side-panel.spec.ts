@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ForumStore } from '../../core/forum.store';
@@ -9,6 +10,9 @@ import { EN } from '../../core/i18n';
 import type { Agent } from '../../core/models';
 import { SessionService } from '../../core/session.service';
 import { SidePanel } from './side-panel';
+
+@Component({ template: '' })
+class BlankPage {}
 
 const ROOT: Agent = {
   id: 1,
@@ -25,7 +29,11 @@ describe('SidePanel (full-screen navigation drawer)', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([{ path: 'threads', component: BlankPage }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     store = TestBed.inject(ForumStore);
@@ -104,6 +112,33 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     expect(root.querySelector('a[href="/threads"]')!.textContent).toContain(EN['shell.threads']);
     expect(root.querySelector('a[href="/boards"]')!.textContent).toContain(EN['shell.boards']);
     expect(root.querySelector('a[href="/inbox"]')!.textContent).toContain(EN['shell.inbox']);
+  });
+
+  it('marks the active route link with aria-current and leaves the others bare', async () => {
+    const fixture = TestBed.createComponent(SidePanel);
+    await TestBed.inject(Router).navigateByUrl('/threads');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    const active = root.querySelector('a[href="/threads"]')!;
+    expect(active.classList.contains('panel-item--active')).toBe(true);
+    expect(active.getAttribute('aria-current')).toBe('page');
+    expect(root.querySelector('a[href="/boards"]')!.getAttribute('aria-current')).toBeNull();
+    expect(root.querySelector('a[href="/inbox"]')!.getAttribute('aria-current')).toBeNull();
+  });
+
+  it('gives every view tab a decorative leading icon', () => {
+    const fixture = TestBed.createComponent(SidePanel);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    for (const href of ['/threads', '/boards', '/inbox']) {
+      const icon = root.querySelector(`a[href="${href}"] .panel-item__icon`);
+      expect(icon, href).not.toBeNull();
+      expect(icon!.getAttribute('aria-hidden')).toBe('true');
+      expect(icon!.classList.contains('fa-solid')).toBe(true);
+    }
   });
 
   it('re-renders labels from the catalog instead of hardcoded copy', () => {

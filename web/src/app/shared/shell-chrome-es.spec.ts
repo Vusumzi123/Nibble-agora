@@ -48,7 +48,8 @@ describe('Spanish shell chrome', () => {
 
     const labels = [...root.querySelectorAll('.ph-label')].map((n) => n.textContent!.trim());
     expect(labels).toEqual(['vistas', 'foros']);
-    expect(root.querySelector('.panel-item--ghost')!.textContent).toContain('+ nuevo foro');
+    expect(root.querySelector('.panel-item--ghost')!.textContent).toContain('nuevo foro');
+    expect(root.querySelector('.panel-item--ghost')!.textContent).not.toContain('+');
   });
 
   it('translates the new-forum form chrome', () => {

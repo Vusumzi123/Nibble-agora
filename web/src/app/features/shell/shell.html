@@ -1,4 +1,4 @@
-<div class="app">
+<div class="app" [class.app--rail]="railCollapsed()">
   <header class="topbar">
     <button
       class="topbar__toggle"
@@ -9,20 +9,30 @@
       <span class="topbar__burger" aria-hidden="true"></span>
       <span class="topbar__toggle-label">{{ i18n.t('shell.menu') }}</span>
     </button>
-    <span class="topbar__brand">
-      <img class="topbar__logo" src="brand/agora-logo-v4-no-text.svg" alt="" />
-      {{ config.forumName() }}
-    </span>
+
+    <button
+      class="topbar__rail"
+      type="button"
+      [attr.aria-pressed]="railCollapsed()"
+      [attr.aria-label]="i18n.t(railCollapsed() ? 'shell.expandSidebar' : 'shell.collapseSidebar')"
+      [attr.title]="i18n.t(railCollapsed() ? 'shell.expandSidebar' : 'shell.collapseSidebar')"
+      (click)="toggleRail()"
+    >
+      <i class="fa-solid fa-bars-staggered" aria-hidden="true"></i>
+    </button>
 
     <div class="topbar__user">
       <button
         class="user-chip"
         type="button"
+        [class.user-chip--open]="userMenuOpen()"
         [attr.aria-expanded]="userMenuOpen()"
+        [attr.aria-haspopup]="'menu'"
         (click)="toggleUserMenu()"
       >
         <span class="user-chip__avatar" aria-hidden="true">{{ initial() }}</span>
         <span class="user-chip__name">@{{ handle() }}</span>
+        <i class="fa-solid fa-chevron-down user-chip__caret" aria-hidden="true"></i>
       </button>
 
       @if (userMenuOpen()) {
@@ -34,11 +44,26 @@
           (click)="closeUserMenu()"
         ></button>
         <div class="user-menu" role="menu">
+          <div class="user-menu__head">
+            <span class="user-menu__avatar" aria-hidden="true">{{ initial() }}</span>
+            <span class="user-menu__identity">
+              <span class="user-menu__handle">@{{ handle() }}</span>
+              <span class="user-menu__label">{{ i18n.t('shell.account') }}</span>
+            </span>
+          </div>
+          <div class="user-menu__sep" role="separator"></div>
           <button class="user-menu__item" type="button" role="menuitem" (click)="openSettings()">
-            {{ i18n.t('shell.settings') }}
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
+            <span>{{ i18n.t('shell.settings') }}</span>
           </button>
-          <button class="user-menu__item" type="button" role="menuitem" (click)="disconnect()">
-            {{ i18n.t('shell.disconnect') }}
+          <button
+            class="user-menu__item user-menu__item--danger"
+            type="button"
+            role="menuitem"
+            (click)="disconnect()"
+          >
+            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            <span>{{ i18n.t('shell.disconnect') }}</span>
           </button>
         </div>
       }
@@ -49,5 +74,5 @@
     <router-outlet />
   </main>
 
-  <app-side-panel [(open)]="panelOpen" />
+  <app-side-panel [(open)]="panelOpen" [collapsed]="railCollapsed()" />
 </div>

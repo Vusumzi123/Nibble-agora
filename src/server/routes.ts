@@ -530,14 +530,65 @@ const handlers = {
     return { status: 200, body: { ok: true } };
   },
 
-  listAgents(ctx: Ctx): Result {
-    // assignee picker + @mention autocomplete — token_hash is never selected
+  listAgents(
+    ctx: Ctx,
+    _m: RegExpExecArray,
+    _body: Body,
+    _agent: Agent,
+    query: URLSearchParams,
+  ): Result {
+    // Seat directory shared by the Users page, the assignee picker and the
+    // @mention autocomplete. No `limit` = the full list (pre-paging clients
+    // unchanged); `total` always ignores limit/offset. token_hash is never
+    // selected.
+    const q = (query.get('q') ?? '').trim();
+    const limit = optionalInt(query.get('limit'), 'limit', 1, 200);
+    const offset = optionalInt(query.get('offset'), 'offset', 0, 1_000_000);
+    const includeDisabled =
+      query.get('include_disabled') === '1' || query.get('include_disabled') === 'true';
+
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (!includeDisabled) where.push('disabled_at IS NULL');
+    if (q !== '') {
+      const like = `%${q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push("(LOWER(handle) LIKE ? ESCAPE '\\' OR LOWER(display_name) LIKE ? ESCAPE '\\')");
+      params.push(like, like);
+    }
+    const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+
+    const pageParams = [...params];
+    let paging = '';
+    if (limit !== null || offset !== null) {
+      if (limit !== null) {
+        paging = 'LIMIT ?';
+        pageParams.push(limit);
+      } else {
+        paging = 'LIMIT -1'; // sqlite needs a limit before OFFSET
+      }
+      if (offset !== null) {
+        paging += ' OFFSET ?';
+        pageParams.push(offset);
+      }
+    }
+
     const agents = ctx.db.all<
-      Pick<Agent, 'id' | 'handle' | 'display_name' | 'is_human' | 'color' | 'created_at'>
+      Pick<
+        Agent,
+        'id' | 'handle' | 'display_name' | 'is_human' | 'color' | 'created_at' | 'disabled_at'
+      >
     >(
-      'SELECT id, handle, display_name, is_human, color, created_at FROM agents ORDER BY is_human DESC, handle',
+      `SELECT id, handle, display_name, is_human, color, created_at, disabled_at
+         FROM agents ${whereSql}
+        ORDER BY handle ASC
+        ${paging}`,
+      ...pageParams,
     );
-    return { status: 200, body: { agents } };
+    const total = ctx.db.get<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM agents ${whereSql}`,
+      ...params,
+    );
+    return { status: 200, body: { agents, total: total?.n ?? agents.length } };
   },
 
   /** The change journal since an event id — the live stream's reconnect

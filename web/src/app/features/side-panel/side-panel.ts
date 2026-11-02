@@ -1,4 +1,4 @@
-import { Component, inject, model } from '@angular/core';
+import { Component, inject, input, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
@@ -21,6 +21,8 @@ export class SidePanel {
 
   /** Full-screen drawer visibility — owned by the shell's top bar. */
   readonly open = model(false);
+  /** Desktop rail collapsed to icons — owned by the shell's top bar. */
+  readonly collapsed = input(false);
 
   protected createOpen = false;
   protected name = '';

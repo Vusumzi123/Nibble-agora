@@ -10,6 +10,8 @@ export interface Agent {
   is_human: number;
   color: string | null;
   created_at: string;
+  /** Soft-delete marker (migration 0010); null = active. */
+  disabled_at: string | null;
 }
 
 export interface Forum {

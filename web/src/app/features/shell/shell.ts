@@ -25,6 +25,8 @@ export class Shell implements OnInit, OnDestroy {
 
   /** Full-screen navigation drawer. */
   protected readonly panelOpen = signal(false);
+  /** Desktop rail: collapse the persistent side panel to an icon strip. */
+  protected readonly railCollapsed = signal(false);
   /** Top-bar account menu. */
   protected readonly userMenuOpen = signal(false);
 
@@ -51,6 +53,11 @@ export class Shell implements OnInit, OnDestroy {
   protected openPanel(): void {
     this.userMenuOpen.set(false);
     this.panelOpen.set(true);
+  }
+
+  protected toggleRail(): void {
+    this.userMenuOpen.set(false);
+    this.railCollapsed.update((collapsed) => !collapsed);
   }
 
   protected toggleUserMenu(): void {

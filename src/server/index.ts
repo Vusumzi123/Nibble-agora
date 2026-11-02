@@ -76,6 +76,7 @@ export function createApp(cfg: Config): App {
         is_human: 0,
         color: null,
         created_at: '',
+        disabled_at: null,
       };
 
       const result = route.h(ctx, match, body, actor, target.searchParams);
