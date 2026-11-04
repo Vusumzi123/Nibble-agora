@@ -7,6 +7,11 @@
   padding: var(--ph-space-4);
 }
 
+.chip i {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .reaction__count {
   margin-inline-start: 2px;
 }

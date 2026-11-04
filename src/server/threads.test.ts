@@ -490,3 +490,149 @@ test('mention dismiss: DELETE removes only the caller\'s row, journals, and guar
     app.db.close();
   }
 });
+
+test('inbox mentions filter by unread and a default 15-day window', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'agora-inbox-filter-'));
+  dirs.push(dir);
+
+  const configPath = path.join(dir, 'config.yaml');
+  writeFileSync(
+    configPath,
+    [
+      'bind: 127.0.0.1',
+      'port: 0',
+      'data_dir: data',
+      'db_file: agora.db',
+      'default_board: agora',
+      '',
+    ].join('\n'),
+  );
+
+  const cfg = loadConfig({ configPath, cwd: dir, env: { AGORA_PORT: '0' } });
+  const app: App = await start(cfg);
+  try {
+    const base = app.url;
+    const reg = async (handle: string) =>
+      json(
+        await fetch(`${base}/api/agents`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ handle }),
+        }),
+      );
+    const reader = await reg('filter-reader');
+    const author = await reg('filter-author');
+    const authR = { 'content-type': 'application/json', authorization: `Bearer ${reader.token}` };
+    const authA = { 'content-type': 'application/json', authorization: `Bearer ${author.token}` };
+
+    const forums = await json(
+      await fetch(`${base}/api/forums`, { headers: { authorization: authA.authorization } }),
+    );
+    const forumId = forums.forums[0].id;
+
+    const openThread = async (title: string) =>
+      json(
+        await fetch(`${base}/api/threads`, {
+          method: 'POST',
+          headers: authA,
+          body: JSON.stringify({
+            forum_id: forumId,
+            category: 'task',
+            title,
+            body: 'ping',
+            mentions: ['filter-reader'],
+          }),
+        }),
+      );
+
+    const day = 24 * 60 * 60 * 1000;
+    const backdate = (postId: number, ageMs: number) =>
+      app.db.run(
+        'UPDATE posts SET created_at = ? WHERE id = ?',
+        new Date(Date.now() - ageMs).toISOString(),
+        postId,
+      );
+
+    await openThread('recent unread');
+    const recentRead = await openThread('recent read');
+    const fourteeen = await openThread('fourteen days');
+    backdate(fourteeen.post.id, 14 * day);
+    const fifteen = await openThread('fifteen days');
+    backdate(fifteen.post.id, 15 * day);
+    const sixteen = await openThread('sixteen days');
+    backdate(sixteen.post.id, 16 * day);
+
+    // Viewing the thread stamps read_at only (the row stays in the inbox).
+    const view = await fetch(`${base}/api/threads/${recentRead.thread.id}`, {
+      headers: { authorization: authR.authorization },
+    });
+    assert.equal(view.status, 200, 'viewing marks the mention read');
+
+    const inbox = async (query = '') => {
+      const res = await fetch(`${base}/api/inbox/filter-reader${query}`, {
+        headers: { authorization: authR.authorization },
+      });
+      return { status: res.status, data: await json(res) };
+    };
+
+    // Default: last 15 days (read + unread), 15-day-old boundary excluded.
+    const def = await inbox();
+    assert.equal(def.status, 200);
+    assert.equal(def.data.window.default, true, 'default window is signalled');
+    assert.deepEqual(
+      def.data.mentions.map((m: any) => m.thread_title).sort(),
+      ['fourteen days', 'recent read', 'recent unread'],
+      'the 15- and 16-day-old mentions are hidden',
+    );
+    assert.equal(def.data.counts.mentions, 4, 'badge stays the global unread count');
+    assert.equal(def.data.counts.mentions_total, 3, 'total counts the filtered rows');
+
+    // window=all skips the default 15-day cutoff.
+    const all = await inbox('?window=all');
+    assert.equal(all.data.window.default, false, 'all-time is not the default window');
+    assert.equal(all.data.window.since, null, 'all-time has no lower bound');
+    assert.equal(all.data.mentions.length, 5, 'all five mentions are reachable');
+
+    // unread=1 drops the read row, still inside the default window.
+    const unread = await inbox('?unread=1');
+    assert.deepEqual(
+      unread.data.mentions.map((m: any) => m.thread_title).sort(),
+      ['fourteen days', 'recent unread'],
+    );
+    assert.equal(unread.data.counts.mentions, 4, 'badge ignores the read filter');
+    assert.equal(unread.data.counts.mentions_total, 2, 'total respects unread + window');
+
+    // An explicit since replaces the default and reaches older history.
+    const since17 = new Date(Date.now() - 17 * day).toISOString().slice(0, 10);
+    const widened = await inbox(`?since=${since17}`);
+    assert.equal(widened.data.window.default, false, 'explicit since disables the default');
+    assert.equal(widened.data.mentions.length, 5, 'all five mentions are reachable');
+
+    // since + until + unread combine, with whole-day inclusive boundaries.
+    const since14 = new Date(Date.now() - 14 * day).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const combo = await inbox(`?unread=1&since=${since14}&until=${today}`);
+    assert.deepEqual(
+      combo.data.mentions.map((m: any) => m.thread_title).sort(),
+      ['fourteen days', 'recent unread'],
+      'combined filters intersect',
+    );
+
+    // until-only has no lower bound (the default window is not applied).
+    const onlyUntil = await inbox(`?until=${today}`);
+    assert.equal(onlyUntil.data.window.since, null, 'until-only has no lower bound');
+
+    // Invalid and inverted ranges are 400s with field detail.
+    const bad = await inbox('?since=not-a-date');
+    assert.equal(bad.status, 400);
+    assert.equal(bad.data.error.code, 'bad_request');
+    assert.equal(bad.data.error.field, 'since');
+
+    const inverted = await inbox('?since=2026-02-10&until=2026-02-01');
+    assert.equal(inverted.status, 400);
+    assert.equal(inverted.data.error.code, 'bad_request');
+  } finally {
+    app.server.close();
+    app.db.close();
+  }
+});

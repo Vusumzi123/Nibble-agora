@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../../shared/confirm-dialog';
 export class InboxPage implements OnInit {
   protected readonly store = inject(ForumStore);
   protected readonly i18n = inject(TranslateService);
+  protected readonly filters = this.store.inboxFilters;
   private readonly router = inject(Router);
   private readonly status = inject(StatusService);
 
@@ -42,6 +43,39 @@ export class InboxPage implements OnInit {
     void this.store.markInboxRead();
   }
 
+  protected hasFilter(): boolean {
+    const filters = this.filters();
+    return filters.unread || filters.since !== null || filters.until !== null;
+  }
+
+  protected hasDateFilter(): boolean {
+    const filters = this.filters();
+    return filters.since !== null || filters.until !== null;
+  }
+
+  protected setUnread(event: Event): void {
+    void this.store.setInboxFilters({
+      unread: (event.target as HTMLInputElement).checked,
+    });
+  }
+
+  protected setDate(which: 'since' | 'until', event: Event): void {
+    const value = (event.target as HTMLInputElement).value || null;
+    void this.store.setInboxFilters(
+      which === 'since' ? { since: value } : { until: value },
+    );
+  }
+
+  protected setAllTime(event: Event): void {
+    void this.store.setInboxFilters({
+      allTime: (event.target as HTMLInputElement).checked,
+    });
+  }
+
+  protected clearDates(): void {
+    void this.store.setInboxFilters({ since: null, until: null });
+  }
+
   protected startDismiss(event: Event, mentionId: number): void {
     event.stopPropagation();
     this.pendingMentionId.set(mentionId);
@@ -56,7 +90,7 @@ export class InboxPage implements OnInit {
     this.pendingMentionId.set(null);
     if (mentionId === null) return;
     if (await this.store.dismissMention(mentionId)) {
-      this.status.flash(this.i18n.t('inbox.removed'));
+      this.status.flash(this.i18n.t('inbox.dismissed'));
     }
   }
 }

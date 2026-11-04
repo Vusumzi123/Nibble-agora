@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,6 +13,7 @@ import type {
   Forum,
   ForumOverview,
   Inbox,
+  InboxFilters,
   InboxMention,
   Limits,
   Me,
@@ -24,6 +25,28 @@ import type {
   ThreadDetail,
   ThreadSummary,
 } from './models';
+
+/** Seat-directory filters for the Users page; every field is optional. */
+export interface AgentFilters {
+  q?: string;
+  limit?: number;
+  offset?: number;
+  includeDisabled?: boolean;
+}
+
+export interface AgentPage {
+  agents: Agent[];
+  total: number;
+}
+
+/** Fields the Users page can set when creating a seat. */
+export interface CreateAgentInput {
+  handle: string;
+  display_name?: string;
+  password?: string;
+  is_human?: boolean;
+  color?: string | null;
+}
 
 export interface LoginResult {
   agent: Agent;
@@ -132,6 +155,11 @@ export class ApiService {
     return this.request<LoginResult>('POST', '/api/login', { handle, password });
   }
 
+  /** Revoke the caller's session server-side (the bearer dies afterwards). */
+  logout(): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>('POST', '/api/logout');
+  }
+
   /** Public instance config: setup state, forum name, theme, locale. */
   getConfig(): Promise<AppConfig> {
     return this.request<AppConfig>('GET', '/api/config');
@@ -159,8 +187,46 @@ export class ApiService {
     return this.request('POST', '/api/agents', password ? { handle, password } : { handle });
   }
 
-  listAgents(): Promise<Agent[]> {
-    return this.request<{ agents: Agent[] }>('GET', '/api/agents').then((r) => r.agents);
+  /** Create a seat with the full field set; the token is returned once only. */
+  createAgent(input: CreateAgentInput): Promise<Agent & { token: string }> {
+    return this.request('POST', '/api/agents', input);
+  }
+
+  /** Seat directory. No filters = the full list, unchanged for pickers. */
+  listAgents(filters: AgentFilters = {}): Promise<AgentPage> {
+    const params = new URLSearchParams();
+    const q = filters.q?.trim() ?? '';
+    if (q !== '') params.set('q', q);
+    if (filters.limit !== undefined) params.set('limit', String(filters.limit));
+    if (filters.offset !== undefined) params.set('offset', String(filters.offset));
+    if (filters.includeDisabled) params.set('include_disabled', '1');
+    const query = params.toString() ? `?${params}` : '';
+    return this.request<{ agents: Agent[]; total?: number }>('GET', `/api/agents${query}`).then(
+      (r) => ({ agents: r.agents, total: r.total ?? r.agents.length }),
+    );
+  }
+
+  /** Edit a seat's identity fields; handle renames stay mention-safe server-side. */
+  updateAgent(
+    id: number,
+    patch: { handle?: string; display_name?: string; color?: string | null },
+  ): Promise<Agent> {
+    return this.request<Agent>('PATCH', `/api/agents/${id}`, patch);
+  }
+
+  /** Reset another seat's password; the server rotates its token (live sessions die). */
+  resetAgentPassword(id: number, password: string): Promise<Agent> {
+    return this.request<Agent>('POST', `/api/agents/${id}/password`, { password });
+  }
+
+  /** Soft-delete a seat; content survives and the token is rotated away. */
+  disableAgent(id: number): Promise<Agent> {
+    return this.request<Agent>('DELETE', `/api/agents/${id}`);
+  }
+
+  /** Undo a soft-delete; the seat needs a password reset or new token to sign in. */
+  restoreAgent(id: number): Promise<Agent> {
+    return this.request<Agent>('POST', `/api/agents/${id}/restore`);
   }
 
   listBoards(forumId?: number): Promise<Board[]> {
@@ -361,8 +427,15 @@ export class ApiService {
     }).then((r) => r.column);
   }
 
-  inbox(handle: string): Promise<Inbox> {
-    return this.request<Inbox>('GET', `/api/inbox/${encodeURIComponent(handle)}`);
+  inbox(handle: string, filters?: Partial<InboxFilters>): Promise<Inbox> {
+    let params = new HttpParams();
+    if (filters?.unread) params = params.set('unread', '1');
+    if (filters?.since) params = params.set('since', filters.since);
+    if (filters?.until) params = params.set('until', filters.until);
+    if (filters?.allTime) params = params.set('window', 'all');
+    const query = params.toString();
+    const path = `/api/inbox/${encodeURIComponent(handle)}${query ? `?${query}` : ''}`;
+    return this.request<Inbox>('GET', path);
   }
 
   /** Clear every unread mention in the seat's own inbox (self-only server-side). */
@@ -373,14 +446,15 @@ export class ApiService {
     );
   }
 
-  /** Remove one mention from the seat's own inbox (self-only server-side). */
-  deleteMention(
+  /** Dismiss one mention from the seat's own inbox (self-only server-side).
+      Notification-only: the mention row survives so the post pill stays. */
+  dismissMention(
     handle: string,
     mentionId: InboxMention['mention_id'],
-  ): Promise<{ ok: boolean; removed: number }> {
-    return this.request<{ ok: boolean; removed: number }>(
-      'DELETE',
-      `/api/inbox/${encodeURIComponent(handle)}/mentions/${mentionId}`,
+  ): Promise<{ ok: boolean; dismissed: number }> {
+    return this.request<{ ok: boolean; dismissed: number }>(
+      'POST',
+      `/api/inbox/${encodeURIComponent(handle)}/mentions/${mentionId}/dismiss`,
     );
   }
 }

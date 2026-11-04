@@ -11,6 +11,7 @@ import { BoardsListPage } from './features/boards/boards';
 import { ForumOverviewPage } from './features/forum/forum';
 import { InboxPage } from './features/inbox/inbox';
 import { SettingsPage } from './features/settings/settings';
+import { UsersPage } from './features/users/users';
 
 export const routes: Routes = [
   { path: 'setup', component: SetupPage, canActivate: [setupGuard] },
@@ -29,6 +30,7 @@ export const routes: Routes = [
       { path: 'board', component: BoardPage },
       { path: 'inbox', component: InboxPage },
       { path: 'settings', component: SettingsPage },
+      { path: 'users', component: UsersPage },
     ],
   },
   { path: '**', redirectTo: '' },

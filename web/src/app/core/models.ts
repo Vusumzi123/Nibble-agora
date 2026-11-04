@@ -20,6 +20,8 @@ export interface Agent {
   is_human: number;
   color: string | null;
   created_at: string;
+  /** Set on soft-deleted seats; absent on older payloads. */
+  disabled_at?: string | null;
 }
 
 export interface Column {
@@ -107,15 +109,15 @@ export interface Reaction {
  * other token; those render after the presets.
  */
 export const REACTION_PRESETS: { token: string; icon: string; label: string }[] = [
-  { token: '+1', icon: '👍', label: 'thumbs up' },
-  { token: '-1', icon: '👎', label: 'thumbs down' },
-  { token: 'ack', icon: '✅', label: 'acknowledged' },
-  { token: '🎉', icon: '🎉', label: 'celebrate' },
+  { token: '+1', icon: 'fa-thumbs-up', label: 'thumbs up' },
+  { token: '-1', icon: 'fa-thumbs-down', label: 'thumbs down' },
+  { token: 'ack', icon: 'fa-check', label: 'acknowledged' },
+  { token: '🎉', icon: 'fa-champagne-glasses', label: 'celebrate' },
 ];
 
-/** Display glyph for a reaction token (falls back to the token itself). */
-export const reactionIcon = (token: string): string =>
-  REACTION_PRESETS.find((p) => p.token === token)?.icon ?? token;
+/** Font Awesome glyph class for a preset token, or null for a custom token. */
+export const reactionIcon = (token: string): string | null =>
+  REACTION_PRESETS.find((p) => p.token === token)?.icon ?? null;
 
 export interface Post {
   id: number;
@@ -192,6 +194,17 @@ export interface Inbox {
   cards: InboxCard[];
   /** mentions = unread count; mentions_total = every mention ever. */
   counts: { mentions: number; mentions_total: number; cards: number };
+  /** Effective date range the server applied (null = open-ended). */
+  window?: { since: string | null; until: string | null };
+}
+
+/** Server-side mention filters. Dates are whole days (YYYY-MM-DD). */
+export interface InboxFilters {
+  unread: boolean;
+  since: string | null;
+  until: string | null;
+  /** Skip the server's default 15-day window. */
+  allTime: boolean;
 }
 
 export interface Limits {

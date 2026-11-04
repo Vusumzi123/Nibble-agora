@@ -42,22 +42,24 @@ describe('PostCard', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('always shows every preset with a counter and marks the caller’s own reaction', () => {
+  it('always shows every preset as a Font Awesome glyph with a counter and marks the caller’s own reaction', () => {
     const el = render();
     const chips = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')];
     expect(chips.length).toBeGreaterThanOrEqual(4);
-    const plusOne = chips.find((c) => c.textContent?.includes('👍'));
+    const plusOne = chips.find((c) => c.querySelector('i.fa-thumbs-up'));
+    expect(plusOne?.querySelector('i')?.classList.contains('fa-solid')).toBe(true);
     expect(plusOne?.textContent).toContain('2');
     expect(plusOne?.classList.contains('btn-primary')).toBe(true);
-    const thumbsDown = chips.find((c) => c.textContent?.includes('👎'));
+    const thumbsDown = chips.find((c) => c.querySelector('i.fa-thumbs-down'));
     expect(thumbsDown?.textContent).toContain('0');
     expect(thumbsDown?.classList.contains('reaction--zero')).toBe(true);
+    expect(thumbsDown?.getAttribute('aria-label')).toBe('thumbs down');
   });
 
   it('adds a preset reaction the caller has not used yet', () => {
     const el = render();
     const thumbsDown = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find((c) =>
-      c.textContent?.includes('👎'),
+      c.querySelector('i.fa-thumbs-down'),
     );
     thumbsDown?.click();
     expect(toggleReaction).toHaveBeenCalledWith(7, '-1', false);
@@ -66,10 +68,23 @@ describe('PostCard', () => {
   it('removes the caller’s reaction when an owned chip is clicked', () => {
     const el = render();
     const plusOne = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find((c) =>
-      c.textContent?.includes('👍'),
+      c.querySelector('i.fa-thumbs-up'),
     );
     plusOne?.click();
     expect(toggleReaction).toHaveBeenCalledWith(7, '+1', true);
+  });
+
+  it('renders a custom reaction token as text instead of a preset glyph', () => {
+    const custom: Post = { ...post, reactions: [{ emoji: 'rocket', agent: 'kael' }] };
+    const fixture = TestBed.createComponent(PostCard);
+    fixture.componentRef.setInput('post', custom);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const chip = [...el.querySelectorAll<HTMLButtonElement>('.reactions .chip')].find((c) =>
+      c.textContent?.includes('rocket'),
+    );
+    expect(chip).toBeTruthy();
+    expect(chip?.querySelector('i')).toBeNull();
   });
 
   it('renders the author, body and mentions', () => {

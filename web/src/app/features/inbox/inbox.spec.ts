@@ -161,7 +161,7 @@ describe('InboxPage (unread mentions + mark all read)', () => {
     await fixture.whenStable();
 
     expect(dismiss).toHaveBeenCalledWith(2);
-    expect(flash).toHaveBeenCalledWith(EN['inbox.removed']);
+    expect(flash).toHaveBeenCalledWith(EN['inbox.dismissed']);
     expect(el.querySelector('app-confirm-dialog')).toBeNull();
   });
 
@@ -176,7 +176,91 @@ describe('InboxPage (unread mentions + mark all read)', () => {
     el.querySelector<HTMLButtonElement>('app-confirm-dialog .btn-outline-danger')?.click();
     await fixture.whenStable();
 
-    expect(flash).not.toHaveBeenCalledWith(EN['inbox.removed']);
+    expect(flash).not.toHaveBeenCalledWith(EN['inbox.dismissed']);
     expect(el.querySelectorAll('.inbox__mention').length).toBe(2);
+  });
+});
+
+describe('InboxPage filters', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  function render(inbox: Inbox = INBOX) {
+    const store = TestBed.inject(ForumStore);
+    store.inbox.set(inbox);
+    const fixture = TestBed.createComponent(InboxPage);
+    fixture.detectChanges();
+    return { fixture, store };
+  }
+
+  it('defaults to unread only and toggling it refetches with the new value', () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const spy = vi.spyOn(store, 'setInboxFilters').mockResolvedValue(undefined);
+    const toggle = el.querySelector<HTMLInputElement>('.inbox__filter input[type="checkbox"]');
+
+    expect(store.inboxFilters().unread).toBe(true);
+    expect(toggle?.checked).toBe(true);
+
+    toggle!.checked = false;
+    toggle!.dispatchEvent(new Event('change'));
+    expect(spy).toHaveBeenCalledWith({ unread: false });
+  });
+
+  it('date inputs send since/until and clearing resets both', () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const spy = vi.spyOn(store, 'setInboxFilters').mockResolvedValue(undefined);
+    const [since, until] = el.querySelectorAll<HTMLInputElement>(
+      '.inbox__filter input[type="date"]',
+    );
+
+    since.value = '2026-10-01';
+    since.dispatchEvent(new Event('change'));
+    expect(spy).toHaveBeenCalledWith({ since: '2026-10-01' });
+
+    until.value = '2026-10-30';
+    until.dispatchEvent(new Event('change'));
+    expect(spy).toHaveBeenCalledWith({ until: '2026-10-30' });
+
+    store.inboxFilters.set({ unread: true, since: '2026-10-01', until: '2026-10-30', allTime: false });
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('.inbox__filters .btn-outline-secondary')?.click();
+    expect(spy).toHaveBeenCalledWith({ since: null, until: null });
+  });
+
+  it('all-time toggle clears the default 15-day window', () => {
+    const { fixture, store } = render();
+    const el = fixture.nativeElement as HTMLElement;
+    const spy = vi.spyOn(store, 'setInboxFilters').mockResolvedValue(undefined);
+    const toggles = el.querySelectorAll<HTMLInputElement>(
+      '.inbox__filter input[type="checkbox"]',
+    );
+
+    toggles[1]!.checked = true;
+    toggles[1]!.dispatchEvent(new Event('change'));
+
+    expect(spy).toHaveBeenCalledWith({ allTime: true });
+    expect(el.textContent ?? '').toContain(EN['inbox.allTime']);
+  });
+
+  it('range-empty state differs from the unfiltered empty state', () => {
+    const { fixture, store } = render({
+      ...INBOX,
+      mentions: [],
+      counts: { mentions: 0, mentions_total: 0, cards: 0 },
+    });
+    const el = fixture.nativeElement as HTMLElement;
+    const empty = () =>
+      (el.querySelector('.ph-panel .list > .ph-label')?.textContent ?? '').trim();
+
+    expect(empty()).toBe(EN['inbox.noMentionsRange']);
+
+    store.inboxFilters.set({ unread: false, since: null, until: null, allTime: false });
+    fixture.detectChanges();
+    expect(empty()).toBe(EN['inbox.noMentions']);
   });
 });

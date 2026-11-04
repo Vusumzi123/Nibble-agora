@@ -18,7 +18,12 @@
       [attr.title]="i18n.t(railCollapsed() ? 'shell.expandSidebar' : 'shell.collapseSidebar')"
       (click)="toggleRail()"
     >
-      <i class="fa-solid fa-bars-staggered" aria-hidden="true"></i>
+      <i
+        class="fa-solid"
+        [class.fa-bars-staggered]="!railCollapsed()"
+        [class.fa-bars]="railCollapsed()"
+        aria-hidden="true"
+      ></i>
     </button>
 
     <div class="topbar__user">

@@ -8,7 +8,8 @@ import { WhenPipe } from '../../core/time';
 
 interface Chip {
   token: string;
-  icon: string;
+  icon: string | null;
+  label: string | null;
   count: number;
   mine: boolean;
   agents: string[];
@@ -67,6 +68,7 @@ export class PostCard {
       return {
         token: p.token,
         icon: p.icon,
+        label: p.label,
         count: hit?.agents.length ?? 0,
         mine: hit?.mine ?? false,
         agents: hit?.agents ?? [],
@@ -77,6 +79,7 @@ export class PostCard {
       .map((g) => ({
         token: g.token,
         icon: reactionIcon(g.token),
+        label: null,
         count: g.agents.length,
         mine: g.mine,
         agents: g.agents,

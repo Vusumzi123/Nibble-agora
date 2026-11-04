@@ -112,6 +112,7 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     expect(root.querySelector('a[href="/threads"]')!.textContent).toContain(EN['shell.threads']);
     expect(root.querySelector('a[href="/boards"]')!.textContent).toContain(EN['shell.boards']);
     expect(root.querySelector('a[href="/inbox"]')!.textContent).toContain(EN['shell.inbox']);
+    expect(root.querySelector('a[href="/users"]')!.textContent).toContain(EN['shell.users']);
   });
 
   it('marks the active route link with aria-current and leaves the others bare', async () => {
@@ -133,7 +134,7 @@ describe('SidePanel (full-screen navigation drawer)', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
 
-    for (const href of ['/threads', '/boards', '/inbox']) {
+    for (const href of ['/threads', '/boards', '/inbox', '/users']) {
       const icon = root.querySelector(`a[href="${href}"] .panel-item__icon`);
       expect(icon, href).not.toBeNull();
       expect(icon!.getAttribute('aria-hidden')).toBe('true');

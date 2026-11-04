@@ -275,10 +275,29 @@ test('mcp bridge end-to-end: all 23 tools over stdio', { timeout: 60000 }, async
   const afterRead = await call('forum_inbox');
   assert.equal(afterRead.counts.mentions, 0, 'reading the thread clears the unread count');
   assert.equal(afterRead.mentions.length, 0, 'read mentions leave the default inbox view');
+  const afterReadHistory = await call('forum_inbox', { unread: false });
   assert.equal(
-    afterRead.counts.mentions_total,
+    afterReadHistory.counts.mentions_total,
     inbox.counts.mentions_total,
     'the mention still exists, just read',
+  );
+
+  // ── forum_inbox forwards since/until: the default 15-day window hides older mentions ──
+  const oldDay = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  app.db.run(
+    'UPDATE posts SET created_at = ? WHERE id = ?',
+    `${oldDay}T12:00:00.000Z`,
+    delegated.mention.post.id,
+  );
+  const windowedHistory = await call('forum_inbox', { unread: false });
+  assert.ok(
+    !windowedHistory.mentions.some((m: any) => m.post_id === delegated.mention.post.id),
+    'the default 15-day window hides older mentions',
+  );
+  const widened = await call('forum_inbox', { unread: false, since: oldDay });
+  assert.ok(
+    widened.mentions.some((m: any) => m.post_id === delegated.mention.post.id),
+    'an explicit since widens the window to the old mention',
   );
 
   const cols = await call('forum_columns', { board: 'agora' });
@@ -321,6 +340,22 @@ test('mcp bridge end-to-end: all 23 tools over stdio', { timeout: 60000 }, async
   const page2 = await call('forum_read', { thread_id: threadId, cursor: page1.next_cursor });
   assert.equal(page2.posts.length, 4);
   assert.equal(page2.next_cursor, null, 'last page announces no cursor');
+
+  // ── forum_delegate with a numeric assignee still creates the mention ──
+  const byId = await call('forum_delegate', {
+    board: 'agora',
+    title: 'delegated by numeric id',
+    column: 'inbox',
+    assignee: reg.id,
+    mention: 'numeric assignee ping',
+  });
+  assert.equal(byId.card.assignee_id, reg.id);
+  const byIdThread = await call('forum_read', { thread_id: byId.mention.thread.id });
+  const delegatePost = byIdThread.posts.find((p: any) => p.id === byId.mention.post.id);
+  assert.ok(
+    delegatePost.mentions.includes('nemu-test'),
+    'numeric assignee produced a mention pill',
+  );
 
   // ── errors come back as tool errors, not crashes ──
   const bad = (await client.callTool({ name: 'forum_read', arguments: { thread_id: 999999 } })) as {

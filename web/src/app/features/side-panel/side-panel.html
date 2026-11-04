@@ -65,6 +65,21 @@
           }
         </a>
       </li>
+      <li>
+        <a
+          class="panel-item"
+          routerLink="/users"
+          routerLinkActive="panel-item--active"
+          ariaCurrentWhenActive="page"
+          [attr.title]="collapsed() ? i18n.t('shell.users') : null"
+          (click)="close()"
+        >
+          <i class="fa-solid fa-users fa-fw panel-item__icon" aria-hidden="true"></i>
+          <span class="panel-item__label">{{
+            i18n.t('shell.users')
+          }}</span>
+        </a>
+      </li>
     </ul>
   </nav>
 

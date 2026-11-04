@@ -17,7 +17,53 @@
 
     <div class="inbox__cols">
       <section class="ph-panel">
-        <header class="ph-panel__header">{{ i18n.t('inbox.mentions') }}</header>
+        <header class="ph-panel__header inbox__filters">
+          <span>{{ i18n.t('inbox.mentions') }}</span>
+          <label class="inbox__filter">
+            <input
+              type="checkbox"
+              [checked]="filters().unread"
+              (change)="setUnread($event)"
+            />
+            {{ i18n.t('inbox.unreadOnly') }}
+          </label>
+          <label class="inbox__filter">
+            <input
+              type="checkbox"
+              [checked]="filters().allTime"
+              (change)="setAllTime($event)"
+            />
+            {{ i18n.t('inbox.allTime') }}
+          </label>
+          @if (!filters().allTime) {
+            <span class="ph-label">{{ i18n.t('inbox.last15') }}</span>
+          }
+          <label class="inbox__filter">
+            {{ i18n.t('inbox.fromDate') }}
+            <input
+              type="date"
+              [value]="filters().since ?? ''"
+              (change)="setDate('since', $event)"
+            />
+          </label>
+          <label class="inbox__filter">
+            {{ i18n.t('inbox.toDate') }}
+            <input
+              type="date"
+              [value]="filters().until ?? ''"
+              (change)="setDate('until', $event)"
+            />
+          </label>
+          @if (hasDateFilter()) {
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              type="button"
+              (click)="clearDates()"
+            >
+              {{ i18n.t('inbox.clearDates') }}
+            </button>
+          }
+        </header>
         <div class="ph-panel__body p-0">
           <div class="list">
             @for (mention of inbox.mentions; track mention.mention_id) {
@@ -50,7 +96,22 @@
                 </span>
               </div>
             } @empty {
-              <p class="ph-label p-3">{{ i18n.t('inbox.noMentions') }}</p>
+              @if (hasFilter()) {
+                <p class="ph-label p-3">
+                  {{ i18n.t('inbox.noMentionsRange') }}
+                  @if (hasDateFilter()) {
+                    <button
+                      class="btn btn-sm btn-outline-secondary inbox__clear"
+                      type="button"
+                      (click)="clearDates()"
+                    >
+                      {{ i18n.t('inbox.clearDates') }}
+                    </button>
+                  }
+                </p>
+              } @else {
+                <p class="ph-label p-3">{{ i18n.t('inbox.noMentions') }}</p>
+              }
             }
           </div>
         </div>

@@ -75,6 +75,23 @@ const slugify = (s: string): string =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 64) || 'board';
 
+/** Parse an inbox date bound (YYYY-MM-DD, whole day); null when absent. */
+function inboxDay(
+  raw: string | null,
+  field: 'since' | 'until',
+): { day: string; iso: string } | null {
+  if (raw === null || raw === '') return null;
+  const day = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw badRequest(`${field} must be a YYYY-MM-DD date`, { field, value: raw });
+  }
+  const d = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day) {
+    throw badRequest(`${field} is not a valid date`, { field, value: raw });
+  }
+  return { day, iso: `${day}T00:00:00.000Z` };
+}
+
 /** Identity shape that never carries credentials (token or password hashes). */
 function publicAgent(agent: Agent): Omit<Agent, 'token_hash' | 'password_hash'> {
   const { token_hash: _token, password_hash: _password, ...identity } = agent;
@@ -311,23 +328,31 @@ function insertProjectWithBoard(
   });
 }
 
-/** Mentions are best-effort: unknown handles are reported, never fatal. */
+/** Mentions are best-effort: unknown handles/ids are reported, never fatal. */
 function resolveMentions(ctx: Ctx, raw: unknown): { ids: number[]; unknown: string[] } {
   if (raw === undefined || raw === null) return { ids: [], unknown: [] };
   if (!Array.isArray(raw))
-    throw badRequest('mentions must be an array of handles', {
+    throw badRequest('mentions must be an array of handles or ids', {
       field: 'mentions',
     });
   const ids: number[] = [];
   const unknown: string[] = [];
   for (const entry of raw) {
-    const handle = String(entry).trim().replace(/^@/, '');
-    if (!handle) continue;
-    const row = ctx.db.get<Agent>('SELECT id FROM agents WHERE handle = ?', handle);
+    const value = String(entry).trim().replace(/^@/, '');
+    if (!value) continue;
+    // Digit-only entries are seat ids (forum_delegate forwards numeric ids
+    // verbatim); a numeric handle still resolves when no seat has that id.
+    const numeric =
+      /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
+    const row =
+      (numeric === null
+        ? undefined
+        : ctx.db.get<Agent>('SELECT id FROM agents WHERE id = ?', numeric)) ??
+      ctx.db.get<Agent>('SELECT id FROM agents WHERE handle = ?', value);
     if (row) {
       if (!ids.includes(row.id)) ids.push(row.id);
     } else {
-      unknown.push(handle);
+      unknown.push(value);
     }
   }
   return { ids, unknown };
@@ -374,6 +399,9 @@ const handlers = {
     if (!agent || !verifyPassword(password, agent.password_hash)) {
       throw unauthorized('invalid handle or password');
     }
+    if (agent.disabled_at !== null) {
+      throw forbidden('this seat is disabled');
+    }
     const token = newToken();
     ctx.db.tx(() => {
       ctx.db.run('UPDATE agents SET token_hash = ? WHERE id = ?', hashToken(token), agent.id);
@@ -387,6 +415,24 @@ const handlers = {
       status: 200,
       body: { agent: publicAgent(agent), token, limits: limitsOf(ctx.cfg) },
     };
+  },
+
+  /**
+   * Revoke the caller's own session. Reuses the login rotation trick: the
+   * bearer used for this request hashes to a value that no longer matches, so
+   * it is dead on the next call. Only the id is journaled — never token data.
+   */
+  logout(ctx: Ctx, _m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    ctx.db.tx(() => {
+      ctx.db.run('UPDATE agents SET token_hash = ? WHERE id = ?', hashToken(newToken()), agent.id);
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'agent.logout',
+        target: `agent:${agent.id}`,
+        payload: { agent_id: agent.id },
+      });
+    });
+    return { status: 200, body: { ok: true } };
   },
 
   config(ctx: Ctx): Result {
@@ -528,6 +574,173 @@ const handlers = {
       });
     });
     return { status: 200, body: { ok: true } };
+  },
+
+  /**
+   * Operator reset of another seat's password. Replaces the scrypt hash and
+   * rotates `token_hash` in the same transaction, so any previously issued
+   * bearer token fails with 401 on its next request. The plaintext password is
+   * never stored, logged or journaled.
+   */
+  resetAgentPassword(ctx: Ctx, m: RegExpExecArray, body: Body, actor: Agent): Result {
+    const id = requireInt(m[1], 'agent_id');
+    const target = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', id);
+    if (!target) {
+      throw notFound(`agent ${id} not found`, { field: 'agent_id', value: id });
+    }
+    if (typeof body.password !== 'string') {
+      throw badRequest('password is required', { field: 'password' });
+    }
+    const password = body.password;
+    if (password.length < 8) {
+      throw badRequest('password must be at least 8 characters', { field: 'password' });
+    }
+    const token = newToken();
+    ctx.db.tx(() => {
+      ctx.db.run(
+        'UPDATE agents SET password_hash = ?, token_hash = ? WHERE id = ?',
+        hashPassword(password),
+        hashToken(token),
+        target.id,
+      );
+      logEvent(ctx.db, {
+        actorId: actor.id,
+        action: 'agent.password_reset',
+        target: `agent:${target.id}`,
+        payload: { agent_id: target.id },
+      });
+    });
+    const updated = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', target.id)!;
+    return { status: 200, body: publicAgent(updated) };
+  },
+
+  /**
+   * Operator edit of a seat's identity fields. A handle rename is safe by
+   * construction: mentions store only (post_id, agent_id), so every read
+   * re-derives the handle through a live JOIN. Hand-typed `@oldhandle` text in
+   * existing bodies stays literal (accepted).
+   */
+  updateAgent(ctx: Ctx, m: RegExpExecArray, body: Body, actor: Agent): Result {
+    const id = requireInt(m[1], 'agent_id');
+    const target = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', id);
+    if (!target) {
+      throw notFound(`agent ${id} not found`, { field: 'agent_id', value: id });
+    }
+    const hasHandle = body.handle !== undefined;
+    const hasDisplayName = body.display_name !== undefined;
+    const hasColor = body.color !== undefined;
+    if (!hasHandle && !hasDisplayName && !hasColor) {
+      throw badRequest('at least one of handle, display_name or color is required', {
+        field: 'handle',
+      });
+    }
+
+    const handle = hasHandle ? normalizeHandle(body.handle) : target.handle;
+    if (hasHandle && handle !== target.handle) {
+      if (ctx.db.get('SELECT id FROM agents WHERE handle = ? AND id != ?', handle, target.id)) {
+        throw conflict(`handle "${handle}" is already registered`, {
+          field: 'handle',
+          value: handle,
+        });
+      }
+    }
+    const displayName = hasDisplayName
+      ? String(requireString(body.display_name, 'display_name', 64)).trim()
+      : target.display_name;
+    let color = target.color;
+    if (hasColor) {
+      if (body.color === null) color = null;
+      else if (typeof body.color === 'string') color = body.color.slice(0, 32);
+      else throw badRequest('color must be a string or null', { field: 'color' });
+    }
+
+    ctx.db.tx(() => {
+      ctx.db.run(
+        'UPDATE agents SET handle = ?, display_name = ?, color = ? WHERE id = ?',
+        handle,
+        displayName,
+        color,
+        target.id,
+      );
+      logEvent(ctx.db, {
+        actorId: actor.id,
+        action: 'agent.update',
+        target: `agent:${target.id}`,
+        payload: {
+          before: {
+            handle: target.handle,
+            display_name: target.display_name,
+            color: target.color,
+          },
+          after: { handle, display_name: displayName, color },
+        },
+      });
+    });
+    const updated = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', target.id)!;
+    return { status: 200, body: publicAgent(updated) };
+  },
+
+  /**
+   * Soft-delete a seat. Stamps `disabled_at`, rotates `token_hash` to an
+   * unknown value (live sessions die on their next request) and keeps every
+   * authored thread, post, card and comment intact. Idempotent: disabling an
+   * already-disabled seat is a 200 no-op. There is deliberately no hard
+   * delete — the NO ACTION foreign keys make it fail once the seat has
+   * authored anything, and content must outlive the seat.
+   */
+  disableAgent(ctx: Ctx, m: RegExpExecArray, _body: Body, actor: Agent): Result {
+    const id = requireInt(m[1], 'agent_id');
+    const target = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', id);
+    if (!target) {
+      throw notFound(`agent ${id} not found`, { field: 'agent_id', value: id });
+    }
+    if (target.disabled_at !== null) {
+      return { status: 200, body: publicAgent(target) };
+    }
+    ctx.db.tx(() => {
+      ctx.db.run(
+        'UPDATE agents SET disabled_at = ?, token_hash = ? WHERE id = ?',
+        now(),
+        hashToken(newToken()),
+        target.id,
+      );
+      logEvent(ctx.db, {
+        actorId: actor.id,
+        action: 'agent.disable',
+        target: `agent:${target.id}`,
+        payload: { agent_id: target.id },
+      });
+    });
+    const updated = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', target.id)!;
+    return { status: 200, body: publicAgent(updated) };
+  },
+
+  /**
+   * Undo a soft-delete. The bearer was rotated away by the disable, so a
+   * restored seat has no valid token until a password reset (humans) or the
+   * token-rotation script (agents); a human can still log in with the
+   * password they already had.
+   */
+  restoreAgent(ctx: Ctx, m: RegExpExecArray, _body: Body, actor: Agent): Result {
+    const id = requireInt(m[1], 'agent_id');
+    const target = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', id);
+    if (!target) {
+      throw notFound(`agent ${id} not found`, { field: 'agent_id', value: id });
+    }
+    if (target.disabled_at === null) {
+      return { status: 200, body: publicAgent(target) };
+    }
+    ctx.db.tx(() => {
+      ctx.db.run('UPDATE agents SET disabled_at = NULL WHERE id = ?', target.id);
+      logEvent(ctx.db, {
+        actorId: actor.id,
+        action: 'agent.restore',
+        target: `agent:${target.id}`,
+        payload: { agent_id: target.id },
+      });
+    });
+    const updated = ctx.db.get<Agent>('SELECT * FROM agents WHERE id = ?', target.id)!;
+    return { status: 200, body: publicAgent(updated) };
   },
 
   listAgents(
@@ -1786,7 +1999,7 @@ const handlers = {
     };
   },
 
-  inbox(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent): Result {
+  inbox(ctx: Ctx, m: RegExpExecArray, _body: Body, _agent: Agent, query: URLSearchParams): Result {
     const ref = decodeURIComponent(m[1]).replace(/^@/, '');
     const agent = ctx.db.get<Agent>(
       'SELECT * FROM agents WHERE handle = ? OR id = ?',
@@ -1795,6 +2008,49 @@ const handlers = {
     );
     if (!agent) throw notFound(`agent ${ref} does not exist`, { handle: ref });
 
+    const unreadOnly = query.get('unread') === '1' || query.get('unread') === 'true';
+    const allTime = query.get('window') === 'all';
+    const since = inboxDay(query.get('since'), 'since');
+    const until = inboxDay(query.get('until'), 'until');
+    if (since && until && since.day > until.day) {
+      throw badRequest('since must not be after until', {
+        field: 'since',
+        value: query.get('since'),
+      });
+    }
+
+    const where = ['m.agent_id = ?', 'm.dismissed_at IS NULL'];
+    const params: unknown[] = [agent.id];
+    if (unreadOnly) where.push('m.read_at IS NULL');
+
+    // Bounds are whole days; `until` is inclusive, so its SQL bound is the
+    // next midnight. An explicit bound replaces the default 15-day window,
+    // which only applies when neither date is supplied.
+    let windowSince: string | null;
+    let windowUntil: string | null = until ? until.day : null;
+    let defaultWindow = false;
+    if (since) {
+      where.push('p.created_at >= ?');
+      params.push(since.iso);
+      windowSince = since.day;
+    } else if (allTime) {
+      windowSince = null;
+    } else if (until) {
+      windowSince = null;
+    } else {
+      const cutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+      where.push('p.created_at > ?');
+      params.push(cutoff);
+      windowSince = cutoff;
+      defaultWindow = true;
+    }
+    if (until) {
+      const next = new Date(Date.parse(until.iso) + 24 * 60 * 60 * 1000).toISOString();
+      where.push('p.created_at < ?');
+      params.push(next);
+    }
+
+    const whereSql = where.join(' AND ');
     const mentions = ctx.db.all(
       `SELECT m.id AS mention_id, m.read_at, p.id AS post_id, p.body, p.created_at,
               t.id AS thread_id, t.title AS thread_title, t.status AS thread_status,
@@ -1803,10 +2059,10 @@ const handlers = {
          JOIN posts   p ON p.id = m.post_id
          JOIN threads t ON t.id = p.thread_id
          JOIN agents  a ON a.id = p.author_id
-        WHERE m.agent_id = ?
+        WHERE ${whereSql}
         ORDER BY p.created_at DESC, p.id DESC
         LIMIT 100`,
-      agent.id,
+      ...params,
     );
     const cards = ctx.db.all(
       `SELECT c.*, col.name AS column_name, b.name AS board_name
@@ -1817,12 +2073,18 @@ const handlers = {
         ORDER BY c.updated_at DESC, c.id DESC`,
       agent.id,
     );
-    // counts come from COUNT(*), not the LIMIT-100 window
-    const tally = ctx.db.get<{ total: number; unread: number }>(
-      `SELECT COUNT(*) AS total,
-              COALESCE(SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END), 0) AS unread
-         FROM mentions WHERE agent_id = ?`,
+    // counts.mentions stays the global unread badge (no date window);
+    // mentions_total counts the rows matching the applied filters.
+    const unread = ctx.db.get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM mentions WHERE agent_id = ? AND read_at IS NULL AND dismissed_at IS NULL',
       agent.id,
+    )!;
+    const filtered = ctx.db.get<{ n: number }>(
+      `SELECT COUNT(*) AS n
+         FROM mentions m
+         JOIN posts p ON p.id = m.post_id
+        WHERE ${whereSql}`,
+      ...params,
     )!;
     return {
       status: 200,
@@ -1831,7 +2093,8 @@ const handlers = {
         is_human: agent.is_human === 1,
         mentions,
         cards,
-        counts: { mentions: tally.unread, mentions_total: tally.total, cards: cards.length },
+        counts: { mentions: unread.n, mentions_total: filtered.n, cards: cards.length },
+        window: { since: windowSince, until: windowUntil, default: defaultWindow },
       },
     };
   },
@@ -1855,7 +2118,84 @@ const handlers = {
     return { status: 200, body: { ok: true, marked: r.changes } };
   },
 
-  /** Hard-delete one of the caller's own mentions (self-only). */
+  /**
+   * Dismiss one of the caller's own mentions (self-only). This is the inbox
+   * path: it stamps `dismissed_at` so the notification row is hidden while the
+   * mention — and its pill on the post — stays intact. Idempotent.
+   */
+  dismissMention(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const ref = decodeURIComponent(m[1]).replace(/^@/, '');
+    const target = ctx.db.get<Agent>(
+      'SELECT * FROM agents WHERE handle = ? OR id = ?',
+      ref,
+      Number(ref) || -1,
+    );
+    if (!target) throw notFound(`agent ${ref} does not exist`, { handle: ref });
+    if (target.id !== agent.id)
+      throw forbidden('you can only dismiss your own mentions', { handle: ref });
+    const mentionId = requireInt(m[2], 'id');
+    const row = ctx.db.get<{ id: number; dismissed_at: string | null }>(
+      'SELECT id, dismissed_at FROM mentions WHERE id = ? AND agent_id = ?',
+      mentionId,
+      agent.id,
+    );
+    if (!row) throw notFound(`mention ${mentionId} does not exist`, { id: mentionId });
+    if (row.dismissed_at === null) {
+      ctx.db.run(
+        'UPDATE mentions SET dismissed_at = ? WHERE id = ? AND agent_id = ?',
+        now(),
+        mentionId,
+        agent.id,
+      );
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'mention.dismiss',
+        target: `mention:${mentionId}`,
+        payload: { agent_ids: [agent.id] },
+      });
+    }
+    return { status: 200, body: { ok: true, dismissed: 1 } };
+  },
+
+  /** Restore a dismissed mention to the inbox (self-only). Idempotent. */
+  undismissMention(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
+    const ref = decodeURIComponent(m[1]).replace(/^@/, '');
+    const target = ctx.db.get<Agent>(
+      'SELECT * FROM agents WHERE handle = ? OR id = ?',
+      ref,
+      Number(ref) || -1,
+    );
+    if (!target) throw notFound(`agent ${ref} does not exist`, { handle: ref });
+    if (target.id !== agent.id)
+      throw forbidden('you can only restore your own mentions', { handle: ref });
+    const mentionId = requireInt(m[2], 'id');
+    const row = ctx.db.get<{ id: number; dismissed_at: string | null }>(
+      'SELECT id, dismissed_at FROM mentions WHERE id = ? AND agent_id = ?',
+      mentionId,
+      agent.id,
+    );
+    if (!row) throw notFound(`mention ${mentionId} does not exist`, { id: mentionId });
+    if (row.dismissed_at !== null) {
+      ctx.db.run(
+        'UPDATE mentions SET dismissed_at = NULL WHERE id = ? AND agent_id = ?',
+        mentionId,
+        agent.id,
+      );
+      logEvent(ctx.db, {
+        actorId: agent.id,
+        action: 'mention.undismiss',
+        target: `mention:${mentionId}`,
+        payload: { agent_ids: [agent.id] },
+      });
+    }
+    return { status: 200, body: { ok: true, dismissed: 0 } };
+  },
+
+  /**
+   * Hard-delete one of the caller's own mentions (self-only). This is the
+   * explicit "remove entirely" path — it drops the row and the pill from the
+   * post. The inbox dismiss path is POST .../dismiss, which keeps the mention.
+   */
   deleteMention(ctx: Ctx, m: RegExpExecArray, _body: Body, agent: Agent): Result {
     const ref = decodeURIComponent(m[1]).replace(/^@/, '');
     const target = ctx.db.get<Agent>(
@@ -1983,6 +2323,7 @@ function applyReaction(
 export const ROUTES: Route[] = [
   { method: 'GET', re: /^\/api\/me$/, auth: true, h: handlers.me },
   { method: 'POST', re: /^\/api\/login$/, auth: false, h: handlers.login },
+  { method: 'POST', re: /^\/api\/logout$/, auth: true, h: handlers.logout },
   { method: 'GET', re: /^\/api\/config$/, auth: false, h: handlers.config },
   { method: 'POST', re: /^\/api\/setup$/, auth: false, h: handlers.setup },
   {
@@ -1999,6 +2340,20 @@ export const ROUTES: Route[] = [
   },
   { method: 'POST', re: /^\/api\/agents$/, auth: false, h: handlers.register },
   { method: 'GET', re: /^\/api\/agents$/, auth: true, h: handlers.listAgents },
+  { method: 'DELETE', re: /^\/api\/agents\/(\d+)$/, auth: true, h: handlers.disableAgent },
+  {
+    method: 'POST',
+    re: /^\/api\/agents\/(\d+)\/restore$/,
+    auth: true,
+    h: handlers.restoreAgent,
+  },
+  { method: 'PATCH', re: /^\/api\/agents\/(\d+)$/, auth: true, h: handlers.updateAgent },
+  {
+    method: 'POST',
+    re: /^\/api\/agents\/(\d+)\/password$/,
+    auth: true,
+    h: handlers.resetAgentPassword,
+  },
   { method: 'GET', re: /^\/api\/events$/, auth: true, h: handlers.events },
 
   { method: 'GET', re: /^\/api\/boards$/, auth: true, h: handlers.listBoards },
@@ -2156,6 +2511,20 @@ export const ROUTES: Route[] = [
     re: /^\/api\/inbox\/([^/]+)\/read$/,
     auth: true,
     h: handlers.readInbox,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/inbox\/([^/]+)\/mentions\/(\d+)\/dismiss$/,
+    auth: true,
+    h: handlers.dismissMention,
+  },
+
+  {
+    method: 'POST',
+    re: /^\/api\/inbox\/([^/]+)\/mentions\/(\d+)\/undismiss$/,
+    auth: true,
+    h: handlers.undismissMention,
   },
 
   {

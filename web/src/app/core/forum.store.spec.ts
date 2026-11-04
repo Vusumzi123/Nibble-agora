@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Agent, Board, Card, ChangeEvent, Column, Project } from './models';
+import type { Agent, Board, Card, ChangeEvent, Column, Inbox, Project } from './models';
 import { BusyService } from './busy.service';
 import { ForumStore } from './forum.store';
 
@@ -288,5 +288,204 @@ describe('ForumStore live mention changes', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+const seat = (id: number, handle: string): Agent => ({
+  id,
+  handle,
+  display_name: handle,
+  is_human: 0,
+  color: null,
+  created_at: '2026-10-30T00:00:00.000Z',
+  disabled_at: null,
+});
+
+describe('ForumStore users directory', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  function page(agents: Agent[], total: number) {
+    return { agents, total };
+  }
+
+  it('loads page one with the default window and disabled seats included', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+
+    const loading = store.loadUsers({ reset: true });
+    const req = http.expectOne('/api/agents?limit=20&offset=0&include_disabled=1');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.urlWithParams).toBe(
+      '/api/agents?limit=20&offset=0&include_disabled=1',
+    );
+    req.flush(page([seat(1, 'ana'), seat(2, 'bo')], 3));
+    await loading;
+
+    expect(store.users().map((a) => a.handle)).toEqual(['ana', 'bo']);
+    expect(store.usersTotal()).toBe(3);
+    expect(store.hasMoreUsers()).toBe(true);
+    expect(store.usersLoadingMore()).toBe(false);
+  });
+
+  it('appends the next batch after the loading beat and stops at total', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = TestBed.inject(ForumStore);
+      const http = TestBed.inject(HttpTestingController);
+      store.users.set([seat(1, 'ana'), seat(2, 'bo')]);
+      store.usersTotal.set(3);
+
+      const loading = store.loadUsers();
+      const req = http.expectOne('/api/agents?limit=40&offset=0&include_disabled=1');
+      expect(store.usersLoadingMore()).toBe(true);
+      req.flush(page([seat(1, 'ana'), seat(2, 'bo'), seat(3, 'cy')], 3));
+
+      await vi.advanceTimersByTimeAsync(1100);
+      await loading;
+
+      expect(store.users()).toHaveLength(3);
+      expect(store.hasMoreUsers()).toBe(false);
+      expect(store.usersLoadingMore()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a query reset drops the stale in-flight window', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = TestBed.inject(ForumStore);
+      const http = TestBed.inject(HttpTestingController);
+      store.users.set([seat(1, 'ana'), seat(2, 'bo')]);
+      store.usersTotal.set(5);
+
+      const stale = store.loadUsers();
+      const staleReq = http.expectOne('/api/agents?limit=40&offset=0&include_disabled=1');
+
+      store.setUsersQuery('kael');
+      expect(store.usersQuery()).toBe('kael');
+      expect(store.usersLimit()).toBe(20);
+      const freshReq = http.expectOne(
+        '/api/agents?q=kael&limit=20&offset=0&include_disabled=1',
+      );
+
+      staleReq.flush(page([seat(9, 'old')], 40));
+      freshReq.flush(page([seat(7, 'kael')], 1));
+      await vi.advanceTimersByTimeAsync(1100);
+      await stale;
+
+      expect(store.users().map((a) => a.handle)).toEqual(['kael']);
+      expect(store.usersTotal()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a 401 on the directory leaves the session', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+    const leave = vi.spyOn(store.session, 'leave');
+
+    const loading = store.loadUsers({ reset: true });
+    http
+      .expectOne('/api/agents?limit=20&offset=0&include_disabled=1')
+      .flush({ error: 'token rejected' }, { status: 401, statusText: 'Unauthorized' });
+    await loading;
+
+    expect(leave).toHaveBeenCalledTimes(1);
+    expect(store.users()).toEqual([]);
+  });
+});
+
+describe('ForumStore inbox filters', () => {
+  const EMPTY_INBOX: Inbox = {
+    handle: 'kael',
+    is_human: false,
+    mentions: [],
+    cards: [],
+    counts: { mentions: 0, mentions_total: 0, cards: 0 },
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  it('defaults to unread and sends unread=1', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+    store.session.me.set({ id: 6, handle: 'kael' } as Agent);
+
+    const loading = store.refreshInbox();
+    http.expectOne('/api/inbox/kael?unread=1').flush(EMPTY_INBOX);
+    await loading;
+
+    expect(store.inbox()?.handle).toBe('kael');
+  });
+
+  it('serializes only the filters that are set and keeps them for later reloads', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+    store.session.me.set({ id: 6, handle: 'kael' } as Agent);
+
+    const loading = store.setInboxFilters({
+      unread: false,
+      since: '2026-10-01',
+      until: '2026-10-30',
+    });
+    http.expectOne('/api/inbox/kael?since=2026-10-01&until=2026-10-30').flush(EMPTY_INBOX);
+    await loading;
+
+    expect(store.inboxFilters()).toEqual({
+      unread: false,
+      since: '2026-10-01',
+      until: '2026-10-30',
+      allTime: false,
+    });
+
+    const again = store.refreshInbox();
+    http.expectOne('/api/inbox/kael?since=2026-10-01&until=2026-10-30').flush(EMPTY_INBOX);
+    await again;
+  });
+
+  it('clearing dates keeps the unread filter', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+    store.session.me.set({ id: 6, handle: 'kael' } as Agent);
+    store.inboxFilters.set({ unread: true, since: '2026-10-01', until: null, allTime: false });
+
+    const loading = store.setInboxFilters({ since: null, until: null });
+    http.expectOne('/api/inbox/kael?unread=1').flush(EMPTY_INBOX);
+    await loading;
+
+    expect(store.inboxFilters()).toEqual({ unread: true, since: null, until: null, allTime: false });
+  });
+
+  it('all time sends window=all and clears any dates', async () => {
+    const store = TestBed.inject(ForumStore);
+    const http = TestBed.inject(HttpTestingController);
+    store.session.me.set({ id: 6, handle: 'kael' } as Agent);
+    store.inboxFilters.set({
+      unread: true,
+      since: '2026-10-01',
+      until: null,
+      allTime: false,
+    });
+
+    const loading = store.setInboxFilters({ allTime: true });
+    http.expectOne('/api/inbox/kael?unread=1&window=all').flush(EMPTY_INBOX);
+    await loading;
+
+    expect(store.inboxFilters()).toEqual({
+      unread: true,
+      since: null,
+      until: null,
+      allTime: true,
+    });
   });
 });

@@ -254,7 +254,7 @@ export function verifyToken(agent: Pick<Agent, 'token_hash'>, presented: string)
 export function findAgentByToken(db: Db, token: string): Agent | undefined {
   if (!token) return undefined;
   const hash = hashToken(token);
-  return db.get<Agent>('SELECT * FROM agents WHERE token_hash = ?', hash);
+  return db.get<Agent>('SELECT * FROM agents WHERE token_hash = ? AND disabled_at IS NULL', hash);
 }
 
 export function findAgentByHandle(db: Db, handle: string): Agent | undefined {

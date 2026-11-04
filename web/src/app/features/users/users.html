@@ -1,0 +1,197 @@
+<section id="view-users" class="view">
+  <div class="view__head">
+    <span class="ph-label">{{ i18n.t('users.title') }}</span>
+  </div>
+
+  <div class="users__toolbar">
+    <label class="field users__search">
+      <span class="ph-label">{{ i18n.t('users.search') }}</span>
+      <input
+        class="form-control"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        [placeholder]="i18n.t('users.search')"
+        [attr.aria-label]="i18n.t('users.search')"
+        [(ngModel)]="query"
+        (ngModelChange)="onSearch($event)"
+      />
+    </label>
+    <button class="btn btn-primary users__new" type="button" (click)="openCreate()">
+      {{ i18n.t('users.newUser') }}
+    </button>
+  </div>
+
+  @if (store.usersLoadingMore() && store.users().length === 0) {
+    <div class="text-center p-3">
+      <app-loading-dots [label]="i18n.t('users.loading')" />
+    </div>
+  }
+
+  <div class="list">
+    @for (user of store.users(); track user.id) {
+      <button type="button" class="list__row users__row" (click)="selectAgent(user)">
+        <span
+          class="users__dot"
+          [style.background]="user.color ?? 'var(--ph-primary)'"
+          aria-hidden="true"
+        ></span>
+        <span class="list__title users__handle">@{{ user.handle }}</span>
+        <span class="users__name">{{ user.display_name }}</span>
+        <span class="users__badge">{{ i18n.t(user.is_human ? 'users.human' : 'users.agent') }}</span>
+        @if (user.disabled_at) {
+          <span class="users__badge users__badge--disabled">{{ i18n.t('users.disabled') }}</span>
+        }
+        <span class="list__meta ph-label users__date">{{ user.created_at | when }}</span>
+      </button>
+    } @empty {
+      @if (!store.usersLoadingMore()) {
+        <p class="ph-label p-3">
+          {{ i18n.t(store.usersQuery() === '' ? 'users.empty' : 'users.noMatch') }}
+        </p>
+      }
+    }
+  </div>
+
+  @if (store.hasMoreUsers()) {
+    <div class="ph-label p-3 text-center" #sentinel>
+      @if (store.usersLoadingMore()) {
+        <app-loading-dots [label]="i18n.t('users.loading')" />
+      } @else {
+        {{ i18n.t('users.loading') }}
+      }
+    </div>
+  }
+
+  @if (createOpen) {
+    <app-modal
+      [title]="i18n.t('users.newUser')"
+      headingId="new-user-title"
+      panelClass="users__modal"
+      (closed)="closeCreate()"
+    >
+      @if (created) {
+        <div class="users__credential">
+          <p class="field__hint field__hint--danger">
+            {{ i18n.t('users.credentialWarning') }}
+          </p>
+          <div class="field">
+            <span class="field__label">{{ i18n.t('users.tokenOnce') }}</span>
+            <div class="users__secret-row">
+              <code class="users__secret">{{ created.token }}</code>
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                type="button"
+                (click)="copy(created.token, 'token')"
+              >
+                {{ i18n.t(copied === 'token' ? 'users.copied' : 'users.copy') }}
+              </button>
+            </div>
+          </div>
+          @if (created.password; as pwd) {
+            <div class="field">
+              <span class="field__label">{{ i18n.t('users.password') }}</span>
+              <div class="users__secret-row">
+                <code class="users__secret">{{ pwd }}</code>
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  type="button"
+                  (click)="copy(pwd, 'password')"
+                >
+                  {{ i18n.t(copied === 'password' ? 'users.copied' : 'users.copy') }}
+                </button>
+              </div>
+            </div>
+          }
+          <div class="users__modal-actions">
+            <button class="btn btn-primary" type="button" (click)="finishCreate()">
+              {{ i18n.t('users.savedIt') }}
+            </button>
+          </div>
+        </div>
+      } @else {
+        <form class="users__modal-form" (ngSubmit)="create()">
+          <label class="field">
+            <span class="field__label">{{ i18n.t('users.handle') }}</span>
+            <input
+              class="form-control"
+              name="handle"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="64"
+              [attr.aria-invalid]="handleError ? 'true' : null"
+              [attr.aria-describedby]="handleError ? 'new-user-handle-error' : null"
+              [(ngModel)]="handle"
+            />
+            @if (handleError) {
+              <span id="new-user-handle-error" class="field__hint field__hint--danger">
+                {{ handleError }}
+              </span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">{{ i18n.t('users.displayName') }}</span>
+            <input
+              class="form-control"
+              name="displayName"
+              type="text"
+              autocomplete="off"
+              maxlength="64"
+              [attr.aria-invalid]="displayNameError ? 'true' : null"
+              [attr.aria-describedby]="displayNameError ? 'new-user-name-error' : null"
+              [(ngModel)]="displayName"
+            />
+            @if (displayNameError) {
+              <span id="new-user-name-error" class="field__hint field__hint--danger">
+                {{ displayNameError }}
+              </span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">{{ i18n.t('users.passwordOptional') }}</span>
+            <input
+              class="form-control"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              [attr.aria-invalid]="passwordError ? 'true' : null"
+              [attr.aria-describedby]="'new-user-password-hint'"
+              [(ngModel)]="password"
+            />
+            <span id="new-user-password-hint" class="field__hint">
+              {{ i18n.t('users.passwordHint') }}
+            </span>
+            @if (passwordError) {
+              <span class="field__hint field__hint--danger">{{ passwordError }}</span>
+            }
+          </label>
+
+          <label class="field field--row">
+            <span class="field__label">{{ i18n.t('users.humanSeat') }}</span>
+            <input type="checkbox" name="isHuman" [(ngModel)]="isHuman" />
+          </label>
+
+          <div class="users__modal-actions">
+            <button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">
+              {{ i18n.t('shell.cancel') }}
+            </button>
+            <button class="btn btn-primary" type="submit" [disabled]="busy">
+              {{ i18n.t(busy ? 'users.createBusy' : 'users.newUser') }}
+            </button>
+          </div>
+        </form>
+      }
+    </app-modal>
+  }
+
+  @if (detailAgent; as agent) {
+    <app-user-detail
+      [agent]="agent"
+      (closed)="closeDetail()"
+      (changed)="onDetailChanged()"
+    />
+  }
+</section>

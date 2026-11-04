@@ -27,9 +27,14 @@
           [class.btn-outline-secondary]="!chip.mine"
           [class.reaction--zero]="chip.count === 0"
           [title]="chip.agents.length ? chip.agents.map(asHandle).join(', ') : chip.token"
+          [attr.aria-label]="chip.label ?? chip.token"
           (click)="toggle(chip)"
         >
-          {{ chip.icon }}
+          @if (chip.icon) {
+            <i [class]="'fa-solid fa-fw ' + chip.icon" aria-hidden="true"></i>
+          } @else {
+            <span class="reaction__token">{{ chip.token }}</span>
+          }
           <span class="reaction__count">{{ i18n.number(chip.count) }}</span>
         </button>
       }

@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 
+import { ApiService } from '../../core/api.service';
 import { ConfigService } from '../../core/config.service';
 import { ForumStore } from '../../core/forum.store';
 import { TranslateService } from '../../core/i18n';
@@ -21,6 +22,7 @@ export class Shell implements OnInit, OnDestroy {
   protected readonly status = inject(StatusService);
   protected readonly i18n = inject(TranslateService);
   private readonly session = inject(SessionService);
+  private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
   /** Full-screen navigation drawer. */
@@ -73,8 +75,16 @@ export class Shell implements OnInit, OnDestroy {
     void this.router.navigateByUrl('/settings');
   }
 
-  protected disconnect(): void {
+  protected async disconnect(): Promise<void> {
     this.userMenuOpen.set(false);
+    const token = this.session.token();
+    if (token) {
+      try {
+        await this.api.logout();
+      } catch {
+        /* fail open: the local session still ends even if the server is gone */
+      }
+    }
     this.session.leave();
     this.status.clear();
     void this.router.navigateByUrl('/login');

@@ -572,7 +572,7 @@ export function createBridge(opts: BridgeOptions): McpServer {
     {
       title: 'Forum: inbox',
       description:
-        'My unread mentions + my open assigned cards — one cheap call for heartbeat triage. Pass unread: false to include read mentions.',
+        'My unread mentions + my open assigned cards — one cheap call for heartbeat triage. Mentions default to unread only and the last 15 days; pass unread: false for read history and since/until to widen or narrow the window.',
       inputSchema: {
         handle: z
           .string()
@@ -581,19 +581,33 @@ export function createBridge(opts: BridgeOptions): McpServer {
         unread: z
           .boolean()
           .optional()
-          .describe('Only unread mentions (default true); false returns the mention history.'),
+          .describe(
+            'Only unread mentions (default true); false returns read mentions inside the window.',
+          ),
+        since: z
+          .string()
+          .optional()
+          .describe(
+            'Earliest mention date, YYYY-MM-DD inclusive. Replaces the default 15-day window.',
+          ),
+        until: z
+          .string()
+          .optional()
+          .describe(
+            'Latest mention date, YYYY-MM-DD inclusive. Replaces the default 15-day window.',
+          ),
       },
     },
     guarded(client,async (c, args) => {
       const handle = args.handle?.replace(/^@/, '') ?? (await myHandle(c));
-      const data = await c.get<{
+      return c.get<{
         mentions: { read_at: string | null }[];
         [key: string]: unknown;
-      }>(`/api/inbox/${encodeURIComponent(handle)}`);
-      if (args.unread ?? true) {
-        data.mentions = data.mentions.filter((m) => m.read_at === null);
-      }
-      return data;
+      }>(`/api/inbox/${encodeURIComponent(handle)}`, {
+        unread: (args.unread ?? true) ? 1 : undefined,
+        since: args.since,
+        until: args.until,
+      });
     }),
   );
 

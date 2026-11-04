@@ -19,3 +19,27 @@
 .inbox__dismiss {
   flex: 0 0 auto;
 }
+
+/* Filter bar: title plus controls, wrapping cleanly on narrow screens. */
+.inbox__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ph-space-2);
+}
+
+.inbox__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ph-space-1);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.inbox__filter input[type='date'] {
+  max-inline-size: 9rem;
+}
+
+.inbox__clear {
+  margin-inline-start: var(--ph-space-2);
+}

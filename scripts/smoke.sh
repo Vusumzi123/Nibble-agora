@@ -366,6 +366,56 @@ check "GET /api/agents omits token hashes" \
 check "GET /api/agents marks the human seat" \
   "$(echo "$RESP" | get agents | count '' 'a.filter(x=>x.is_human===1).length')" "1"
 
+# --- users (admin directory + seat lifecycle) --------------------------------
+req_once POST /api/agents '{"handle":"smoke-user","display_name":"Smoke User","is_human":true,"password":"smoke-user-pw"}'
+check "create a human seat returns 201" "$LAST_STATUS" "201"
+NEW_ID="$(echo "$RESP" | get id)"
+NEW_TOKEN="$(echo "$RESP" | get token)"
+check "created seat carries a one-time token" "$(nonempty "$NEW_TOKEN")" "true"
+check "created seat hides its password hash" "$(echo "$RESP" | get password_hash)" ""
+
+req_once GET "/api/agents?q=smoke-user"
+check "seat appears in the directory search" "$(echo "$RESP" | get agents | count '' 'a.length')" "1"
+check "search total matches" "$(echo "$RESP" | get total)" "1"
+
+req_once GET /api/agents
+TOTAL_ALL="$(echo "$RESP" | get total)"
+req_once GET "/api/agents?limit=2&offset=0"
+check "limit=2 returns two rows" "$(echo "$RESP" | get agents | count '' 'a.length')" "2"
+check "paging total matches the directory" "$(echo "$RESP" | get total)" "$TOTAL_ALL"
+
+req_once PATCH "/api/agents/$NEW_ID" '{"handle":"smoke-user-renamed","display_name":"Smoke User Renamed"}'
+check "rename returns the new handle" "$(echo "$RESP" | get handle)" "smoke-user-renamed"
+req_once GET "/api/agents?q=smoke-user-renamed"
+check "renamed seat appears in search" "$(echo "$RESP" | get agents | count '' 'a.length')" "1"
+
+req_once POST "/api/agents/$NEW_ID/password" '{"password":"smoke-user-pw2"}'
+check "password reset returns 200" "$LAST_STATUS" "200"
+SAVED_TOKEN="$TOKEN"
+TOKEN="$NEW_TOKEN"
+req_once GET /api/me
+TOKEN="$SAVED_TOKEN"
+check "reset revokes the old bearer" "$LAST_STATUS" "401"
+
+req_once DELETE "/api/agents/$NEW_ID"
+check "disable stamps disabled_at" "$(nonempty "$(echo "$RESP" | get disabled_at)")" "true"
+req_once GET "/api/agents?q=smoke-user-renamed"
+check "disabled seat hidden from the default list" "$(echo "$RESP" | get agents | count '' 'a.length')" "0"
+req_once GET "/api/agents?q=smoke-user-renamed&include_disabled=1"
+check "disabled seat visible with include_disabled" "$(echo "$RESP" | get agents | count '' 'a.length')" "1"
+
+req_once POST "/api/agents/$NEW_ID/restore"
+check "restore clears disabled_at" "$(echo "$RESP" | get disabled_at)" ""
+
+req_once POST /api/logout
+check "logout revokes the caller bearer" "$LAST_STATUS" "200"
+req_once GET /api/me
+check "logged-out bearer is dead" "$LAST_STATUS" "401"
+TOKEN=""
+req_once POST /api/login '{"handle":"root","password":"smoke-root-pw"}'
+check "root can sign back in after logout" "$LAST_STATUS" "200"
+TOKEN="$(echo "$RESP" | get token)"
+
 # --- errors ------------------------------------------------------------------
 req_once GET /api/threads/999999
 check "missing thread is 404" "$LAST_STATUS" "404"

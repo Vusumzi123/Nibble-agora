@@ -12,6 +12,7 @@ import type {
   Forum,
   ForumOverview,
   Inbox,
+  InboxFilters,
   Project,
   ThreadDetail,
   ThreadSummary,
@@ -19,7 +20,7 @@ import type {
 import { SessionService } from './session.service';
 import { StatusService } from './status.service';
 
-export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox' | 'settings';
+export type View = 'threads' | 'board' | 'boards' | 'forum' | 'inbox' | 'settings' | 'users';
 export type ThreadSort = 'updated' | 'created' | 'votes' | 'views';
 
 /** Safety net when the live feed is down; the feed itself is event-driven. */
@@ -29,6 +30,9 @@ const LIVE_DEBOUNCE_MS = 120;
 
 /** Threads fetched per batch; the list grows by one batch per sentinel hit. */
 export const THREAD_PAGE_SIZE = 20;
+
+/** Seats fetched per batch on the Users page. */
+export const USERS_PAGE_SIZE = 20;
 
 /** Replies fetched per batch when scrolling up a thread. */
 export const REPLY_PAGE_SIZE = 10;
@@ -51,6 +55,15 @@ export class ForumStore {
   readonly projects = signal<Project[]>([]);
   readonly overview = signal<ForumOverview | null>(null);
   readonly agents = signal<Agent[]>([]);
+  /** Users page rows — a paged directory, kept apart from the `agents` picker list. */
+  readonly users = signal<Agent[]>([]);
+  readonly usersQuery = signal('');
+  /** How many seats the directory is allowed to hold — grows as the sentinel fires. */
+  readonly usersLimit = signal<number>(USERS_PAGE_SIZE);
+  readonly usersTotal = signal<number>(0);
+  readonly hasMoreUsers = computed(() => this.users().length < this.usersTotal());
+  /** True while a users batch is in flight (incl. the minimum visible beat). */
+  readonly usersLoadingMore = signal(false);
   readonly threads = signal<ThreadSummary[]>([]);
   /** How many threads the list is allowed to hold — grows as the sentinel fires. */
   readonly threadLimit = signal<number>(THREAD_PAGE_SIZE);
@@ -84,6 +97,13 @@ export class ForumStore {
   /** True while a board's cards load for the first time after a switch. */
   readonly cardsLoading = signal(false);
   readonly inbox = signal<Inbox | null>(null);
+  /** Server-side mention filters shared by reloads, SSE and mark-all-read. */
+  readonly inboxFilters = signal<InboxFilters>({
+    unread: true,
+    since: null,
+    until: null,
+    allTime: false,
+  });
   /** Empty = all categories; multiple selections narrow the list (OR). */
   readonly categories = signal<string[]>([]);
   readonly sort = signal<ThreadSort>('updated');
@@ -339,7 +359,60 @@ export class ForumStore {
   }
 
   async refreshAgents(): Promise<void> {
-    this.agents.set(await this.api.listAgents());
+    this.agents.set((await this.api.listAgents()).agents);
+  }
+
+  private fetchUsersWindow(): Promise<{ agents: Agent[]; total: number }> {
+    const q = this.usersQuery();
+    return this.api.listAgents({
+      ...(q === '' ? {} : { q }),
+      limit: this.usersLimit(),
+      offset: 0,
+      includeDisabled: true,
+    });
+  }
+
+  /** Identity of the current directory query — a change mid-flight voids a batch. */
+  private usersSig(): string {
+    return JSON.stringify([this.usersQuery(), this.usersLimit()]);
+  }
+
+  /** Search reset: the query changes, the window drops back to page one. */
+  setUsersQuery(query: string): void {
+    if (query === this.usersQuery()) return;
+    this.usersQuery.set(query);
+    void this.loadUsers({ reset: true });
+  }
+
+  /** Fetch one directory window. `reset` re-fetches page one; otherwise append. */
+  async loadUsers(options: { reset?: boolean } = {}): Promise<void> {
+    const reset = options.reset ?? false;
+    if (!reset && (!this.hasMoreUsers() || this.usersLoadingMore())) return;
+
+    const before = this.usersLimit();
+    const target = reset ? USERS_PAGE_SIZE : before + USERS_PAGE_SIZE;
+    this.usersLimit.set(target);
+    this.usersLoadingMore.set(true);
+    const started = Date.now();
+    const sig = this.usersSig();
+    try {
+      const page = await this.fetchUsersWindow();
+      if (!reset) {
+        // hold the batch until the beat is up, same feel as the thread list.
+        const left = MIN_LOADING_MS - (Date.now() - started);
+        if (left > 0) await new Promise((r) => setTimeout(r, left));
+      }
+      // drop it if the query or window changed while we were fetching.
+      if (this.usersSig() === sig) {
+        this.users.set(page.agents);
+        this.usersTotal.set(page.total);
+      }
+    } catch (err) {
+      if (this.usersLimit() === target) this.usersLimit.set(before);
+      this.fail(err);
+    } finally {
+      this.usersLoadingMore.set(false);
+    }
   }
 
   private async fetchThreadsWindow(): Promise<{ threads: ThreadSummary[]; total: number }> {
@@ -425,7 +498,24 @@ export class ForumStore {
   async refreshInbox(): Promise<void> {
     const me = this.session.me();
     if (!me) return;
-    this.inbox.set(await this.api.inbox(me.handle));
+    this.inbox.set(await this.api.inbox(me.handle, this.inboxFilters()));
+  }
+
+  /** Update one or more inbox filters and refetch the mentions list. */
+  async setInboxFilters(partial: Partial<InboxFilters>): Promise<void> {
+    this.inboxFilters.update((filters) => {
+      const next = { ...filters, ...partial };
+      // A custom range and "all time" are mutually exclusive.
+      if (partial.since !== undefined || partial.until !== undefined) {
+        next.allTime = false;
+      }
+      if (partial.allTime) {
+        next.since = null;
+        next.until = null;
+      }
+      return next;
+    });
+    await this.refreshInbox();
   }
 
   /** "Mark all read" on the inbox page — clears every unread mention. */
@@ -438,12 +528,28 @@ export class ForumStore {
     });
   }
 
-  /** Dismiss one mention from the seat's own inbox (self-only server-side). */
+  /** Dismiss one mention from the seat's own inbox (self-only server-side).
+      The server keeps the mention row; drop the notification in place now and
+      let the SSE refresh reconcile. */
   async dismissMention(mentionId: number): Promise<boolean> {
     const me = this.session.me();
     if (!me) return false;
     return this.mutate(async () => {
-      await this.api.deleteMention(me.handle, mentionId);
+      await this.api.dismissMention(me.handle, mentionId);
+      this.inbox.update((inbox) => {
+        if (!inbox) return inbox;
+        const row = inbox.mentions.find((m) => m.mention_id === mentionId);
+        if (!row) return inbox;
+        return {
+          ...inbox,
+          mentions: inbox.mentions.filter((m) => m.mention_id !== mentionId),
+          counts: {
+            ...inbox.counts,
+            mentions: Math.max(0, inbox.counts.mentions - (row.read_at ? 0 : 1)),
+            mentions_total: Math.max(0, inbox.counts.mentions_total - 1),
+          },
+        };
+      });
     });
   }
 
@@ -578,6 +684,7 @@ export class ForumStore {
         break;
       case 'inbox':
       case 'settings':
+      case 'users':
         // only the forums + the inbox badge render from here.
         break;
     }
